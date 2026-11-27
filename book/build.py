@@ -30,7 +30,8 @@ def link_caption(m):
         path = "nyxis-todo/" + path
     return f'<figcaption><a href="{REPO}/blob/main/{path}">{text}</a></figcaption>'
 
-chapters = (sorted((ROOT / "chapters").glob("ch-*.html"), key=lambda p: int(p.stem.split("-")[1]))
+chapters = ([p for p in [ROOT / "chapters" / "quick.html"] if p.exists()]
+            + sorted((ROOT / "chapters").glob("ch-*.html"), key=lambda p: int(p.stem.split("-")[1]))
             + sorted((ROOT / "chapters").glob("app-*.html")))
 tpl = (ROOT / "template.html").read_text(encoding="utf-8")
 
@@ -40,13 +41,15 @@ def strip_tags(s):
 toc, path, bodies, cards = [], [], [], []
 for i, p in enumerate(chapters):
     src = p.read_text(encoding="utf-8").strip()
-    m = re.search(r'<section class="chapter" id="((?:ch|app)-[\w]+)"', src)
+    m = re.search(r'<section class="chapter" id="((?:ch|app)-[\w]+|quick)"', src)
     assert m, f"{p.name}: section.chapter が無い"
     cid = m.group(1)
     h2 = strip_tags(re.search(r"<h2[^>]*>(.*?)</h2>", src, re.S).group(1))
     no, _, name = h2.partition(" ")
     appendix = cid.startswith("app-")
-    if appendix and no.startswith("付録"):
+    if cid == "quick":
+        no, name, num = "", h2, "★"
+    elif appendix and no.startswith("付録"):
         num = no.replace("付録", "")
     elif no.startswith("第"):
         num = re.sub(r"[^0-9]", "", no) or str(i)
@@ -77,7 +80,7 @@ for i, p in enumerate(chapters):
     toc.append(f'<li data-ch="{cid}"><a href="#{cid}"><span class="no">{num}</span><span>{html.escape(name)}</span></a>'
                + (f"<ol>{sub_html}</ol>" if sub_html else "") + "</li>")
     lead = re.search(r'<p class="lead">(.*?)</p>', src, re.S)
-    cards.append(f'<li><a href="#{cid}"><span class="no">{"APPENDIX" if appendix else "CHAPTER"} {num}</span><span class="t">{html.escape(name)}</span><span class="d">{html.escape(strip_tags(lead.group(1))) if lead else ""}</span></a></li>')
+    cards.append(f'<li><a href="#{cid}"><span class="no">{"APPENDIX " + num if appendix else ("SUMMARY · 5分で読む" if cid == "quick" else "CHAPTER " + num)}</span><span class="t">{html.escape(name)}</span><span class="d">{html.escape(strip_tags(lead.group(1))) if lead else ""}</span></a></li>')
 
 ids = [c for c, _ in bodies]
 out_chapters = []
@@ -94,9 +97,9 @@ for i, (cid, src) in enumerate(bodies):
     nav += "</nav>"
     pct = round((i + 1) / len(ids) * 100)
     n_main = sum(1 for x in ids if x.startswith("ch-"))
-    pos = ("付録 " + cid[-1].upper()) if cid.startswith("app-") else f"{i + 1} / {n_main}"
+    pos = ("付録 " + cid[-1].upper()) if cid.startswith("app-") else ("要約" if cid == "quick" else f"{ids.index(cid) - ids.index('ch-0') + 1} / {n_main}")
     bar = f'<div class="chapter-bar"><a href="#home">← 表紙</a><span class="meter"><i style="width:{pct}%"></i></span><span>{pos}</span>' + (f'<a class="code-link" href="{REPO}/tree/main/{CODE[cid]}">コードを見る ↗</a>' if cid in CODE else "") + '</div>'
-    src = re.sub(r'(<section class="chapter" id="(?:ch|app)-\w+"[^>]*>)', lambda mm: mm.group(1) + bar, src, count=1)
+    src = re.sub(r'(<section class="chapter" id="(?:(?:ch|app)-\w+|quick)"[^>]*>)', lambda mm: mm.group(1) + bar, src, count=1)
     src = re.sub(r"</section>\s*$", nav + "\n</section>", src)
     out_chapters.append(src)
 

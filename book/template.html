@@ -1,3 +1,4 @@
+<meta charset="utf-8">
 <title>形式検証入門ブック</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -179,6 +180,26 @@ figcaption a { color: inherit; text-decoration: none; }
 figcaption a:hover { color: var(--accent); text-decoration: underline; }
 pre.mm:not([data-processed]) { color: transparent; min-height: 160px; }
 pre.mm svg { max-width: 100%; height: auto; }
+/* 5分で読むページ */
+.quick-thesis { font-family: var(--font-display); font-weight: 900; font-size: clamp(22px, 3vw, 28px); line-height: 1.5; margin: 8px 0 24px; text-wrap: balance; }
+.quick-thesis em { font-style: normal; color: var(--accent); }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); gap: 12px; margin: 18px 0 26px; }
+.stat { border: 1px solid var(--rule); border-radius: 12px; background: var(--sheet); padding: 14px 16px; display: grid; gap: 4px; align-content: start; min-width: 0; }
+.stat .n { font-family: var(--font-display); font-weight: 900; font-size: 30px; line-height: 1.2; color: var(--accent); font-variant-numeric: tabular-nums; }
+.stat .l { font-size: 13.5px; line-height: 1.6; color: var(--ink-soft); }
+.flow3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 16px 0 24px; counter-reset: f; }
+@media (max-width: 640px) { .flow3 { grid-template-columns: minmax(0, 1fr); } }
+.flow3 > div { border: 1px solid var(--rule); border-radius: 12px; background: var(--sheet); padding: 14px 16px; min-width: 0; }
+.flow3 b { display: block; font-family: var(--font-display); font-size: 16px; margin-bottom: 4px; }
+.flow3 small { display: block; font-size: 12px; color: var(--accent); font-family: var(--font-mono); letter-spacing: .06em; margin-bottom: 4px; }
+.flow3 p { margin: 0; font-size: 14px; line-height: 1.7; color: var(--ink-soft); }
+.vs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 14px 0 22px; }
+@media (max-width: 640px) { .vs { grid-template-columns: minmax(0, 1fr); } }
+.vs > div { border-radius: 12px; padding: 14px 16px; background: var(--sheet); border: 1px solid var(--rule); min-width: 0; }
+.vs > div:last-child { background: var(--accent-soft); border-color: transparent; }
+.vs h4 { margin: 0 0 6px; font-size: 15px; }
+.vs ul { margin: 0; padding-left: 1.2em; font-size: 14px; }
+.toc nav > ol > li[data-ch="quick"] > a .no { color: var(--accent); }
 footer.colophon { color: var(--ink-soft); font-size: 12.5px; padding-top: 32px; max-width: 46em; }
 </style>
 
@@ -266,7 +287,7 @@ footer.colophon { color: var(--ink-soft); font-size: 12.5px; padding-top: 32px; 
   }
   function show(forced) {
     var h = typeof forced === 'string' ? forced : decodeURIComponent((location.hash || '').slice(1));
-    var m = h.match(/^(ch-\d+|app-[a-z])/);
+    var m = h.match(/^(ch-\d+|app-[a-z]|quick)/);
     var cur = m && document.getElementById(m[1]) ? m[1] : null;
     home.hidden = !!cur;
     chapters.forEach(function (c) { c.hidden = c.id !== cur; });
