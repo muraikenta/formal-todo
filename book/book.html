@@ -195,7 +195,7 @@ footer.colophon { color: var(--ink-soft); font-size: 12.5px; padding-top: 32px; 
     <p class="sub">4 つの todo アプリで学ぶ、仕様・検査・証明</p>
     <details id="toc-details">
       <summary>目次</summary>
-      <nav><ol><li data-ch="ch-0"><a href="#ch-0"><span class="no">0</span><span>はじめに：形式検証ってなに？</span></a><ol><li><a href="#ch-0-s2">テストで困ること</a></li><li><a href="#ch-0-s3">形式検証とは</a></li><li><a href="#ch-0-s4">3つの役割：仕様・実装・証明</a></li><li><a href="#ch-0-s5">小さな例で3段を体験する</a></li><li><a href="#ch-0-s6">テストとの違いをもう一度</a></li><li><a href="#ch-0-s7">この book で作る4つの todo</a></li></ol></li><li data-ch="ch-1"><a href="#ch-1"><span class="no">1</span><span>Quint で todo の仕様を書いて、全部の状態を調べる</span></a><ol><li><a href="#ch-1-s2">題材と道具</a></li></ol></li><li data-ch="ch-2"><a href="#ch-2"><span class="no">2</span><span>Lean と Rust で「実装が仕様どおり」を証明する</span></a></li><li data-ch="ch-3"><a href="#ch-3"><span class="no">3</span><span>認可を証明する：他人の todo には触れない</span></a><ol><li><a href="#ch-3-s2">認可とは</a></li><li><a href="#ch-3-s3">3つの道具を比べる</a></li></ol></li><li data-ch="ch-4"><a href="#ch-4"><span class="no">4</span><span>TLA+ で同期を検査する：複数タブで操作が消える</span></a><ol><li><a href="#ch-4-s2">題材：同期つきの小さな todo アプリ</a></li></ol></li><li data-ch="ch-5"><a href="#ch-5"><span class="no">5</span><span>まとめ：どの道具をいつ使うか</span></a><ol><li><a href="#ch-5-s2">道具の比較表</a></li><li><a href="#ch-5-s3">共通の教訓</a></li><li><a href="#ch-5-s4">初心者の次の一歩</a></li><li><a href="#ch-5-s5">用語集</a></li></ol></li></ol></nav>
+      <nav><ol><li data-ch="ch-0"><a href="#ch-0"><span class="no">0</span><span>はじめに：形式検証ってなに？</span></a><ol><li><a href="#ch-0-s2">テストで困ること</a></li><li><a href="#ch-0-s3">形式検証とは</a></li><li><a href="#ch-0-s4">3つの役割：仕様・実装・証明</a></li><li><a href="#ch-0-s5">ソートで3段を体験する</a></li><li><a href="#ch-0-s6">仕様に書いていないことは守られない</a></li><li><a href="#ch-0-s7">この book で作る4つの todo</a></li></ol></li><li data-ch="ch-1"><a href="#ch-1"><span class="no">1</span><span>Quint で todo の仕様を書いて、全部の状態を調べる</span></a><ol><li><a href="#ch-1-s2">題材と道具</a></li></ol></li><li data-ch="ch-2"><a href="#ch-2"><span class="no">2</span><span>Lean と Rust で「実装が仕様どおり」を証明する</span></a></li><li data-ch="ch-3"><a href="#ch-3"><span class="no">3</span><span>認可を証明する：他人の todo には触れない</span></a><ol><li><a href="#ch-3-s2">認可とは</a></li><li><a href="#ch-3-s3">3つの道具を比べる</a></li></ol></li><li data-ch="ch-4"><a href="#ch-4"><span class="no">4</span><span>TLA+ で同期を検査する：複数タブで操作が消える</span></a><ol><li><a href="#ch-4-s2">題材：同期つきの小さな todo アプリ</a></li></ol></li><li data-ch="ch-5"><a href="#ch-5"><span class="no">5</span><span>まとめ：どの道具をいつ使うか</span></a><ol><li><a href="#ch-5-s2">道具の比較表</a></li><li><a href="#ch-5-s3">共通の教訓</a></li><li><a href="#ch-5-s4">初心者の次の一歩</a></li><li><a href="#ch-5-s5">用語集</a></li></ol></li></ol></nav>
     </details>
   </aside>
   <main>
@@ -222,11 +222,11 @@ footer.colophon { color: var(--ink-soft); font-size: 12.5px; padding-top: 32px; 
         </svg>
       </figure>
       <h2 class="cards-title">章の一覧</h2>
-      <ol class="cards"><li><a href="#ch-0"><span class="no">CHAPTER 0</span><span class="t">はじめに：形式検証ってなに？</span><span class="d">形式検証が「何をしてくれて、何をしてくれないか」を、小さな関数 sum_to でつかみます。</span></a></li><li><a href="#ch-1"><span class="no">CHAPTER 1</span><span class="t">Quint で todo の仕様を書いて、全部の状態を調べる</span><span class="d">todo アプリの決まりを Quint で仕様に書き、起こりうる状態を機械に全部調べさせます。最後に、仕様から作った操作の列を JavaScript アプリに流して突き合わせます。</span></a></li><li><a href="#ch-2"><span class="no">CHAPTER 2</span><span class="t">Lean と Rust で「実装が仕様どおり」を証明する</span><span class="d">この章では、Rust のコードが仕様どおりに動くことを証明します。</span></a></li><li><a href="#ch-3"><span class="no">CHAPTER 3</span><span class="t">認可を証明する：他人の todo には触れない</span><span class="d">「アリスの todo はボブには変えられない・見えない」を、全ユーザー・全 id・全状態について証明します。道具は Aeneas・h5i・Nyxis の3つです。</span></a></li><li><a href="#ch-4"><span class="no">CHAPTER 4</span><span class="t">TLA+ で同期を検査する：複数タブで操作が消える</span><span class="d">オフラインでも動く todo アプリを2つのタブとサーバのモデルにして、送信・失敗・遅れた応答がどの順に起きても約束が守られるかを全部調べます。テストが全部緑のアプリから、操作が黙って消える不具合を3つ見つけます。</span></a></li><li><a href="#ch-5"><span class="no">CHAPTER 5</span><span class="t">まとめ：どの道具をいつ使うか</span><span class="d">第1〜4章の道具を比べ、場面ごとの選び方を決めます。最後に、「全部緑」でも残る見逃しの数え方をまとめます。</span></a></li></ol>
+      <ol class="cards"><li><a href="#ch-0"><span class="no">CHAPTER 0</span><span class="t">はじめに：形式検証ってなに？</span><span class="d">形式検証が「何をしてくれて、何をしてくれないか」を、ソートの関数でつかみます。</span></a></li><li><a href="#ch-1"><span class="no">CHAPTER 1</span><span class="t">Quint で todo の仕様を書いて、全部の状態を調べる</span><span class="d">todo アプリの決まりを Quint で仕様に書き、起こりうる状態を機械に全部調べさせます。最後に、仕様から作った操作の列を JavaScript アプリに流して突き合わせます。</span></a></li><li><a href="#ch-2"><span class="no">CHAPTER 2</span><span class="t">Lean と Rust で「実装が仕様どおり」を証明する</span><span class="d">この章では、Rust のコードが仕様どおりに動くことを証明します。</span></a></li><li><a href="#ch-3"><span class="no">CHAPTER 3</span><span class="t">認可を証明する：他人の todo には触れない</span><span class="d">「アリスの todo はボブには変えられない・見えない」を、全ユーザー・全 id・全状態について証明します。道具は Aeneas・h5i・Nyxis の3つです。</span></a></li><li><a href="#ch-4"><span class="no">CHAPTER 4</span><span class="t">TLA+ で同期を検査する：複数タブで操作が消える</span><span class="d">オフラインでも動く todo アプリを2つのタブとサーバのモデルにして、送信・失敗・遅れた応答がどの順に起きても約束が守られるかを全部調べます。テストが全部緑のアプリから、操作が黙って消える不具合を3つ見つけます。</span></a></li><li><a href="#ch-5"><span class="no">CHAPTER 5</span><span class="t">まとめ：どの道具をいつ使うか</span><span class="d">第1〜4章の道具を比べ、場面ごとの選び方を決めます。最後に、「全部緑」でも残る見逃しの数え方をまとめます。</span></a></li></ol>
     </header>
-<section class="chapter" id="ch-0"><div class="chapter-bar"><a href="#home">← 表紙</a><span class="meter"><i style="width:17%"></i></span><span>1 / 6</span><a class="code-link" href="https://github.com/muraikenta/formal-todo/tree/main/lean-aeneas">コードを見る ↗</a></div>
+<section class="chapter" id="ch-0"><div class="chapter-bar"><a href="#home">← 表紙</a><span class="meter"><i style="width:17%"></i></span><span>1 / 6</span><a class="code-link" href="https://github.com/muraikenta/formal-todo/tree/main/sort-aeneas">コードを見る ↗</a></div>
 <h2>第0章 はじめに：形式検証ってなに？</h2>
-<p class="lead">形式検証が「何をしてくれて、何をしてくれないか」を、小さな関数 <code>sum_to</code> でつかみます。</p>
+<p class="lead">形式検証が「何をしてくれて、何をしてくれないか」を、ソートの関数でつかみます。</p>
 
 <div class="goals">
 <h3 id="ch-0-s1">この章のゴール</h3>
@@ -238,8 +238,8 @@ footer.colophon { color: var(--ink-soft); font-size: 12.5px; padding-top: 32px; 
 </div>
 
 <h3 id="ch-0-s2">テストで困ること</h3>
-<p><code>sum_to(10)</code> が 55 になるテストが緑でも、言えるのは「10 で 55 が返った」ことだけです。テストは人が選んだ入力しか確かめません。</p>
-<p>筆者の実験では、todo の「消す」操作を「id が 40億のときだけ消さない」ように壊しても、単体テストは全部通りました。</p>
+<p>ソートのテストで <code>[3, 1, 2]</code> が <code>[1, 2, 3]</code> になっても、言えるのは「その入力でそうなった」ことだけです。テストは人が選んだ入力しか確かめません。</p>
+<p>筆者の実験では、ソートを「7個目から先は並べない」ように壊しても、テストは全部通りました。テストの例はどれも5個以下の長さだったからです。</p>
 
 <h3 id="ch-0-s3">形式検証とは</h3>
 <p><dfn>形式検証</dfn>とは、プログラムが約束を守ることを、数学の方法ですべての場合について確かめることです。この約束（何を返すべきか）を実装とは別に書いたものを<dfn>仕様</dfn>と呼びます。</p>
@@ -262,70 +262,90 @@ flowchart LR
 
 <p>人が読むのは仕様と定理の主張（何を前提に何を言うか）です。手順は機械に任せます。</p>
 
-<h3 id="ch-0-s5">小さな例で3段を体験する</h3>
-<p>第2章の流れを眺めます。題材は「0 + 1 + … + n を返す」<code>sum_to</code>、道具は <dfn>Lean</dfn>（証明を書いて機械に検査させる言語）です。</p>
+<h3 id="ch-0-s5">ソートで3段を体験する</h3>
+<p>第2章の流れを、ソートで眺めます。道具は <dfn>Lean</dfn>（証明を書いて機械に検査させる言語）です。ソートを選んだのは、仕様と実装がまったく違う形になるからです。</p>
 
 <ol class="steps">
 <li>
-<h4>仕様を書く</h4>
-<p>「何を返すか」だけを書き、ループのことは書きません。<code>Nat</code> は上限もあふれもない数学の自然数です。</p>
-<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/lean-aeneas/Spec.lean">lean-aeneas/Spec.lean</a></figcaption><pre><code class="lang-lean">/-- u32 に収まる（0 〜 2^32 − 1）。 -/
-def FitsU32 (x : Nat) : Prop := x ≤ 2 ^ 32 - 1
--- …
-/-- 仕様3: sum_to は 0 + 1 + 2 + … + n を返す（和の記号で書く。ループのことは書かない）。 -/
-def sum (n : Nat) : Nat := ∑ i ∈ range (n + 1), i</code></pre></figure>
-<p><code>∑ i ∈ range (n + 1), i</code> は「0 から n までを全部足す」の意味です。</p>
+<h4>仕様を書く：「どう並べるか」ではなく「結果が満たすこと」</h4>
+<p>並べ方（アルゴリズム）は書きません。並べ終わった結果が満たすことを2つだけ書きます。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/sort-aeneas/lean/Spec.lean">sort-aeneas/lean/Spec.lean</a></figcaption><pre><code class="lang-lean">/-- 小さい順に並んでいる: どの2つを取っても、前のほうが後ろ以下。 -/
+def Sorted (l : List Nat) : Prop := l.Pairwise (· ≤ ·)
+
+/-- `output` は `input` をソートしたものである。 -/
+def IsSortOf (input output : List Nat) : Prop :=
+  Sorted output ∧ output.Perm input</code></pre></figure>
+<p><code>Sorted</code> は「小さい順に並んでいる」、<code>Perm</code> は「入力の並べ替えである（要素を足しても消してもいない）」です。<code>∧</code> は「かつ」。挿入ソートでもマージソートでも、正しいソートならこの2つを満たします。</p>
 </li>
 
 <li>
 <h4>仕様そのものを確かめる</h4>
-<p>仕様が間違っていれば、間違った実装も証明を通ります。</p>
-<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/lean-aeneas/Spec.lean">lean-aeneas/Spec.lean</a></figcaption><pre><code class="lang-lean">example : sum 10 = 55 := by decide
-
-/-- 仕様の性質: 和はガウスの公式 n(n+1)/2 と一致する（仕様どうしの関係。実装とは無関係）。 -/
-theorem two_mul_sum (n : Nat) : 2 * sum n = n * (n + 1) := by
-  -- …</code></pre></figure>
-<p>和を <code>range n</code> と書き間違えたら、1行目で止まりました。</p>
+<p>仕様が間違っていれば、間違った実装も証明を通ります。だから小さい例で仕様を試します。<code>by decide</code> は「Lean がその場で計算して確かめる」という指示です。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/sort-aeneas/lean/Spec.lean">sort-aeneas/lean/Spec.lean</a></figcaption><pre><code class="lang-lean">example : IsSortOf [3, 1, 2] [1, 2, 3] := by decide
+-- …
+example : ¬ IsSortOf [3, 1, 2] [1, 2] := by decide             -- 1つ消えている
+-- …
+/-- 「並んでいる」だけの仕様は弱い: 全部 0 にする実装でも満たしてしまう。だから並べ替えであることも書く。 -/
+example : Sorted [0, 0, 0] ∧ ¬ IsSortOf [3, 1, 2] [0, 0, 0] := by decide</code></pre></figure>
+<p><code>¬</code> は「〜ではない」。最後の例が大事です。「並んでいる」だけを仕様にすると、何を入れても <code>[0, 0, 0]</code> を返す実装が通ってしまいます。</p>
 </li>
 
 <li>
 <h4>実装を書く</h4>
-<p>実装はふつうの Rust です。<code>u32</code> は 0 から 2<sup>32</sup> − 1（約43億）までなので、大きすぎる答えは<dfn>あふれ</dfn>ます。</p>
-<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/rust/src/lib.rs">rust/src/lib.rs</a></figcaption><pre><code class="lang-rust">pub fn sum_to(n: u32) -&gt; u32 {
-    let mut total = 0;
-    let mut i = 0;
-    while i &lt; n {
-        i += 1;
-        total += i;
+<p>実装はふつうの Rust の挿入ソートで、「どう並べるか」の手順を書きます。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/sort-aeneas/kernel/src/lib.rs">sort-aeneas/kernel/src/lib.rs</a></figcaption><pre><code class="lang-rust">fn insert(v: &amp;mut [u32], i: usize) {
+    let mut j = i;
+    while j &gt; 0 &amp;&amp; v[j - 1] &gt; v[j] {
+        v.swap(j - 1, j);
+        j -= 1;
     }
-    total
+}
+
+/// 挿入ソート: 左から1つずつ、並んでいる部分に差し込む。
+pub fn insertion_sort(v: &amp;mut [u32]) {
+    let n = v.len();
+    let mut i = 1;
+    while i &lt; n {
+        insert(v, i);
+        i += 1;
+    }
 }</code></pre></figure>
 </li>
 
 <li>
-<h4>「実装 ＝ 仕様」を証明する</h4>
-<p>Rust は Aeneas（第2章）が Lean の関数に自動で翻訳します。その翻訳結果が仕様と一致することを定理に書きます。</p>
-<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/lean-aeneas/Proofs.lean">lean-aeneas/Proofs.lean</a></figcaption><pre><code class="lang-lean">theorem sum_to_correct (n : U32) (h : Spec.FitsU32 (Spec.sum n.val)) :
-    sum_to n ⦃ r =&gt; r.val = Spec.sum n.val ⦄ := by
+<h4>「実装は仕様を満たす」を証明する</h4>
+<p>Rust は Aeneas（第2章）が Lean の関数に自動で翻訳します。その翻訳結果が仕様を満たすことを定理に書きます。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/sort-aeneas/lean/Proofs.lean">sort-aeneas/lean/Proofs.lean</a></figcaption><pre><code class="lang-lean">theorem insertion_sort_correct (v : Slice U32) :
+    insertion_sort v ⦃ v' =&gt; Spec.IsSortOf (nat v) (nat v') ⦄ := by
   -- …（証明の手順。Lean が検査する）</code></pre></figure>
-<p>読み方は「答えが u32 に収まるなら（<code>h</code>）、<code>sum_to n</code> は失敗せずに <code>r</code> を返し、それは <code>Spec.sum</code> と等しい」です。<code>.val</code> は u32 を自然数として取り出します。<code>h</code> のような条件を定理の<dfn>前提</dfn>と呼びます。</p>
+<p>読み方は「どんな入力 <code>v</code> でも、<code>insertion_sort v</code> は止まり、panic（Rust の実行時エラーでの異常終了。配列の範囲外アクセスなど）せずに <code>v'</code> を返し、<code>v'</code> は <code>v</code> をソートしたものである」です。<code>nat</code> は Rust の <code>u32</code> の列を、仕様の自然数の列に読み替える関数です。</p>
 </li>
 
 <li>
-<h4>わざと壊して、証明が止まるのを見る</h4>
-<p>ループの「i を進める」と「足す」の2行を入れ替えると、<code>sum_to 10</code> は 45 になり、仕様を変えなくても証明が通らなくなりました。</p>
+<h4>わざと壊して、テストと証明を比べる</h4>
+<p>実装を8通りに壊して、Rust のテスト（例6つ）と証明のどちらが気づくかを数えました。</p>
+<div class="table-wrap"><table>
+<thead><tr><th>壊し方</th><th>テスト</th><th>証明</th></tr></thead>
+<tbody>
+<tr><td>大きい順に並べる</td><td>落ちる</td><td>止まる</td></tr>
+<tr><td>最後の1つを差し込まない</td><td>落ちる</td><td>止まる</td></tr>
+<tr><td>7個目から先は並べない</td><td><b>通る（見逃す）</b></td><td>止まる</td></tr>
+<tr><td>12345 だけは動かさない</td><td><b>通る（見逃す）</b></td><td>止まる</td></tr>
+</tbody>
+</table></div>
+<p>表は8通りのうち4つです。長い入力や特定の値でだけ起きるバグは、テストの例に入っていなければ見つかりません。証明は全部の入力について言うので止まります。</p>
 </li>
 </ol>
 
-<aside class="warn"><b>落とし穴</b>この定理が言うのは「収まるなら仕様どおり」までです。収まらないときの失敗は証明していません。また、翻訳はあふれを「失敗」と扱いますが、Rust の既定の release ビルドは黙って折り返すので、あふれたときの動きは一致しません。</aside>
+<aside class="warn"><b>落とし穴</b>証明が止まっても、バグがあるとは限りません。「等しいときも入れ替える」（<code>&gt;</code> を <code>&gt;=</code> に）は正しいソートのままですが、最初の証明は止まりました。証明が元の書き方に寄りすぎていたためで、証明を直すと通りました。</aside>
 
-<aside class="try"><b>やってみよう</b>Lean と、ビルド済みの Aeneas の Lean ライブラリ（<code>lakefile.toml</code> が相対パスで参照）があれば、証明が通るかを確かめられます。エラーも <code>sorry</code>（証明の省略）も出なければ成功です。
-<pre><code class="lang-bash">cd lean-aeneas
+<aside class="try"><b>やってみよう</b>Lean と、ビルド済みの Aeneas の Lean ライブラリがあれば、証明が通るかを確かめられます。先に <code>sort-aeneas/lean/lakefile.toml</code> の <code>path</code> を、自分の Aeneas の <code>backends/lean</code> の場所に書き換えてください（筆者の環境の相対パスのままです）。エラーも <code>sorry</code>（証明の省略）も出なければ成功です。
+<pre><code class="lang-bash">cd sort-aeneas/lean
 lake build</code></pre>
-初回は Mathlib（数学の定理集）のキャッシュ展開込みで、筆者の環境では2分ほどかかりました。翻訳の道具（Charon と Aeneas）は第2章で説明します。</aside>
+初回は Mathlib（数学の定理集）の準備込みで、筆者の環境では3分ほどかかりました。翻訳の道具（Charon と Aeneas）は第2章で説明します。</aside>
 
-<h3 id="ch-0-s6">テストとの違いをもう一度</h3>
-<p><code>add</code> 関数に「<code>a = 123456789, b = 1</code> のときだけ 0 を返す」バグを入れました。ランダムな入力で実装と見本の答えを比べる<dfn>差分テスト</dfn>は、100万件を種を変えて3回流しても見逃し、証明は通りませんでした。</p>
+<h3 id="ch-0-s6">仕様に書いていないことは守られない</h3>
+<p>手順2の <code>[0, 0, 0]</code> がその例です。ソートでは、2つの性質で答えがただ1つに決まることまで証明して（<code>sortOf_unique</code>）、書き忘れの穴をふさいであります。</p>
 <p>一方、todo には「コマンド名は done なのに、中身は完了と未完了の切り替え」という作りがありました。仕様どおりなので、定理は何も言いません。形式検証は契約書どおりかを全ページ調べる監査で、書き忘れた項目は対象外です。</p>
 
 <h3 id="ch-0-s7">この book で作る4つの todo</h3>
@@ -339,7 +359,7 @@ lake build</code></pre>
 <tr>
 <td>第1章</td>
 <td>Quint で書いた仕様＋JavaScript のアプリ</td>
-<td>id 0〜3 の範囲で、たどり着ける 225,531 通りの<dfn>状態</dfn>（ある時点のデータ全体）をすべて調べ、仕様の決まりが破れないこと。仕様から作った実行列 200本 × 30歩 ＝ 6,000 歩で、アプリが仕様どおり動くこと</td>
+<td>id 0〜3 の範囲で、たどり着ける 225,531 通りの<dfn>状態</dfn>（ある時点のデータ全体）をすべて調べ、仕様の決まりが破れないこと。仕様から作った操作の列 200本 × 30歩 ＝ 6,000 歩で、アプリが仕様どおり動くこと</td>
 <td>調べた範囲の外。実行列に出てこない動き。画面の層（クリックや日本語入力の変換確定など）</td>
 </tr>
 <tr>
@@ -819,7 +839,7 @@ pub fn toggle(t: &amp;mut Todos, user: u32, id: u32) -&gt; bool {
         ({ id := t.next_id, owner := user, title, done := false } : Todo)
     let i ← t.next_id + 1#u32
     ok (some t.next_id, { items := v, next_id := i })</code></pre></figure>
-<p><code>&amp;mut Todos</code> は「新しい <code>Todos</code> を返す」に変わり、戻り値は <code>Result</code>（<code>ok</code> か <dfn>panic</dfn>＝実行時エラーか）で包まれます。<code>1#u32</code> の前の <code>←</code> は「あふれたらここで失敗」で、panic が見える形になります。</p>
+<p><code>&amp;mut Todos</code> は「新しい <code>Todos</code> を返す」に変わり、戻り値は <code>Result</code>（<code>ok</code> か <dfn>panic</dfn>＝実行時エラーか）で包まれます。<code>1#u32</code> の前の <code>←</code> は「<code>u32</code> の上限（約43億）を超えたら（<dfn>あふれ</dfn>たら）ここで失敗」で、panic が見える形になります。</p>
 <aside class="warn"><b>落とし穴</b>Aeneas は標準ライブラリを全部は知りません。<code>std::mem::take</code> は中身の無い宣言（<dfn>axiom</dfn>。定義なしに「ある」とみなす宣言）になり、何も証明できませんでした。<code>std::mem::replace(&amp;mut v, Vec::new())</code> に替え、翻訳後は <code>grep axiom lean/TodoKernel.lean</code> で 0 件を確かめます。</aside>
 </li>
 

@@ -162,7 +162,7 @@ pub fn toggle(t: &amp;mut Todos, user: u32, id: u32) -&gt; bool {
         ({ id := t.next_id, owner := user, title, done := false } : Todo)
     let i ← t.next_id + 1#u32
     ok (some t.next_id, { items := v, next_id := i })</code></pre></figure>
-<p><code>&amp;mut Todos</code> は「新しい <code>Todos</code> を返す」に変わり、戻り値は <code>Result</code>（<code>ok</code> か <dfn>panic</dfn>＝実行時エラーか）で包まれます。<code>1#u32</code> の前の <code>←</code> は「あふれたらここで失敗」で、panic が見える形になります。</p>
+<p><code>&amp;mut Todos</code> は「新しい <code>Todos</code> を返す」に変わり、戻り値は <code>Result</code>（<code>ok</code> か <dfn>panic</dfn>＝実行時エラーか）で包まれます。<code>1#u32</code> の前の <code>←</code> は「<code>u32</code> の上限（約43億）を超えたら（<dfn>あふれ</dfn>たら）ここで失敗」で、panic が見える形になります。</p>
 <aside class="warn"><b>落とし穴</b>Aeneas は標準ライブラリを全部は知りません。<code>std::mem::take</code> は中身の無い宣言（<dfn>axiom</dfn>。定義なしに「ある」とみなす宣言）になり、何も証明できませんでした。<code>std::mem::replace(&amp;mut v, Vec::new())</code> に替え、翻訳後は <code>grep axiom lean/TodoKernel.lean</code> で 0 件を確かめます。</aside>
 </li>
 

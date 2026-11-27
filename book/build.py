@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 REPO = "https://github.com/muraikenta/formal-todo"
-CODE = {"ch-0": "lean-aeneas", "ch-1": "quint-todo", "ch-2": "todo-aeneas", "ch-3": "h5i-todo", "ch-4": "todo/verification"}
+CODE = {"ch-0": "sort-aeneas", "ch-1": "quint-todo", "ch-2": "todo-aeneas", "ch-3": "h5i-todo", "ch-4": "todo/verification"}
 
 def link_caption(m):
     text = m.group(1)
