@@ -19,21 +19,10 @@
   --try-soft: #e8eefb;
   --code-bg: #eef2f0;
   --code-ink: #1b2a26;
+  color-scheme: light;
   --font-display: "Zen Kaku Gothic New", "Hiragino Sans", "Noto Sans JP", sans-serif;
   --font-body: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --paper: #0f1513; --sheet: #141c19; --ink: #e3ebe8; --ink-soft: #a3b2ad; --rule: #2a3632;
-    --accent: #5fcfac; --accent-soft: #173229; --warn: #f0a46c; --warn-soft: #33231a;
-    --try: #8fb0f5; --try-soft: #1b2440; --code-bg: #0b100e; --code-ink: #d5e3de; color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --paper: #0f1513; --sheet: #141c19; --ink: #e3ebe8; --ink-soft: #a3b2ad; --rule: #2a3632;
-  --accent: #5fcfac; --accent-soft: #173229; --warn: #f0a46c; --warn-soft: #33231a;
-  --try: #8fb0f5; --try-soft: #1b2440; --code-bg: #0b100e; --code-ink: #d5e3de; color-scheme: dark;
 }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; scroll-padding-top: 16px; }
