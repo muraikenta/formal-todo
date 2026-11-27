@@ -8,6 +8,15 @@ ROOT = Path(__file__).resolve().parent
 REPO = "https://github.com/muraikenta/formal-todo"
 CODE = {"ch-0": "sort-aeneas", "ch-1": "todo-aeneas", "ch-2": "todo-aeneas", "app-f": "quint-todo", "app-e": "h5i-todo", "app-d": "todo/verification", "app-b": "nyxis-todo"}
 
+MERMAID_INIT = ('%%{init: {"theme": "base", "themeVariables": {'
+                '"background": "#ffffff", "primaryColor": "#e3f1ec", "primaryTextColor": "#16201d", '
+                '"primaryBorderColor": "#0f6b55", "secondaryColor": "#f6f8f7", "tertiaryColor": "#ffffff", '
+                '"lineColor": "#4b5a55", "textColor": "#16201d", "edgeLabelBackground": "#ffffff", '
+                '"clusterBkg": "#f6f8f7", "clusterBorder": "#d9e1de", "noteBkgColor": "#fbeee4", "noteTextColor": "#16201d", '
+                '"actorBkg": "#e3f1ec", "actorBorder": "#0f6b55", "actorTextColor": "#16201d", "signalColor": "#16201d", '
+                '"signalTextColor": "#16201d", "labelBoxBkgColor": "#e3f1ec", "labelTextColor": "#16201d", '
+                '"fontFamily": "Noto Sans JP, sans-serif"}}}%%\n')
+
 def link_caption(m):
     text = m.group(1)
     path = text.split("（")[0].strip()
@@ -57,6 +66,9 @@ for i, p in enumerate(chapters):
         return f'<h3{attrs} id="{hid}">{text}</h3>'
     src = re.sub(r"<h3([^>]*)>(.*?)</h3>", add_id, src, flags=re.S)
     src = re.sub(r"<figcaption>([^<]*)</figcaption>", link_caption, src)
+    # mermaid の図は配色をライトに固定する（ビューアの配色に引きずられて文字が読めなくなるため）
+    # ビューア任せにすると暗い配色で描かれるので、自前で描く（class を mermaid 以外にする）
+    src = src.replace('<pre class="mermaid">', '<pre class="mm">')
     bodies.append((cid, src))
     sub_html = "".join(f'<li><a href="#{h}">{html.escape(t)}</a></li>' for h, t in subs)
     if appendix and not any("toc-group" in x for x in toc):

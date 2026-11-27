@@ -123,7 +123,7 @@ figure.code figcaption { font-family: var(--font-mono); font-size: 12px; color: 
 pre { margin: 0; overflow-x: auto; }
 pre code { display: block; background: none; padding: 14px 16px; font-size: 13px; line-height: 1.65; overflow-wrap: normal; white-space: pre; border-radius: 0; }
 aside pre, .chapter > pre:not(.mermaid) { background: var(--code-bg); border-radius: 8px; border: 1px solid var(--rule); margin: 10px 0; }
-pre.mermaid { background: var(--sheet); border: 1px solid var(--rule); border-radius: 10px; padding: 16px; margin: 16px 0 20px; text-align: center; }
+pre.mm { background: var(--sheet); overflow-x: auto; white-space: pre; border: 1px solid var(--rule); border-radius: 10px; padding: 16px; margin: 16px 0 20px; text-align: center; }
 
 /* 囲み */
 aside { border-radius: 10px; padding: 14px 18px 4px; margin: 18px 0 22px; border: 1px solid var(--rule); }
@@ -177,6 +177,8 @@ dl.glossary dd { margin: 0; color: var(--ink-soft); }
 .chapter-bar .code-link { white-space: nowrap; }
 figcaption a { color: inherit; text-decoration: none; }
 figcaption a:hover { color: var(--accent); text-decoration: underline; }
+pre.mm:not([data-processed]) { color: transparent; min-height: 160px; }
+pre.mm svg { max-width: 100%; height: auto; }
 footer.colophon { color: var(--ink-soft); font-size: 12.5px; padding-top: 32px; max-width: 46em; }
 </style>
 
@@ -186,7 +188,7 @@ footer.colophon { color: var(--ink-soft); font-size: 12.5px; padding-top: 32px; 
     <p class="sub">Rust と Lean で学ぶ、仕様・実装・証明</p>
     <details id="toc-details">
       <summary>目次</summary>
-      <nav><ol><li data-ch="home"><a href="#home"><span class="no">◇</span><span>表紙・章の一覧</span></a></li><li data-ch="ch-0"><a href="#ch-0"><span class="no">0</span><span>はじめに：形式検証ってなに？</span></a><ol><li><a href="#ch-0-s2">テストで困ること</a></li><li><a href="#ch-0-s3">形式検証とは</a></li><li><a href="#ch-0-s4">3つの役割：仕様・実装・証明</a></li><li><a href="#ch-0-s5">ソートで3段を体験する</a></li><li><a href="#ch-0-s6">仕様に書いていないことは守られない</a></li><li><a href="#ch-0-s7">この book の構成</a></li></ol></li><li data-ch="ch-1"><a href="#ch-1"><span class="no">1</span><span>Lean と Rust で todo が仕様どおりと証明する</span></a></li><li data-ch="ch-2"><a href="#ch-2"><span class="no">2</span><span>認可を証明する：他人の todo には触れない</span></a><ol><li><a href="#ch-2-s2">認可とは</a></li></ol></li><li data-ch="ch-3"><a href="#ch-3"><span class="no">3</span><span>まとめ</span></a><ol><li><a href="#ch-3-s2">本編で分かったこと</a></li><li><a href="#ch-3-s3">本編の道具が向く場面</a></li><li><a href="#ch-3-s4">実務への適用についての所感</a></li><li><a href="#ch-3-s5">初心者の次の一歩</a></li><li><a href="#ch-3-s6">用語集</a></li></ol></li><li class="toc-group">付録</li><li data-ch="app-a"><a href="#app-a"><span class="no">A</span><span>Lean の基本文法</span></a><ol><li><a href="#app-a-s2">値と関数</a></li><li><a href="#app-a-s3">型</a></li><li><a href="#app-a-s4">主張の記号</a></li><li><a href="#app-a-s5">定理と証明</a></li><li><a href="#app-a-s6">本書特有の書き方</a></li></ol></li><li data-ch="app-b"><a href="#app-b"><span class="no">B</span><span>Lean で Web サーバーも作れる</span></a><ol><li><a href="#app-b-s2">Lean はプログラミング言語でもある</a></li><li><a href="#app-b-s3">リクエストが DB に届くまで</a></li><li><a href="#app-b-s4">ビルドのたびに定理を検査する</a></li><li><a href="#app-b-s5">h5i との違い</a></li><li><a href="#app-b-s6">実務で使えるか</a></li><li><a href="#app-b-s7">2つの道の比べ方</a></li></ol></li><li data-ch="app-c"><a href="#app-c"><span class="no">C</span><span>Lean は Rust と相性がよく、JavaScript とは相性が悪い</span></a><ol><li><a href="#app-c-s2">Lean の関数は書き換えをしない</a></li><li><a href="#app-c-s3">Rust は別名を型で禁じている</a></li><li><a href="#app-c-s4">翻訳の限界と、信頼している部分</a></li><li><a href="#app-c-s5">JavaScript はどこが難しいか</a></li><li><a href="#app-c-s6">だから付録F は MBT、付録D はモデル検査にした</a></li><li><a href="#app-c-s7">ほかの道具</a></li><li><a href="#app-c-s8">実務での分け方</a></li></ol></li><li data-ch="app-d"><a href="#app-d"><span class="no">D</span><span>TLA+ と TLC で同期を検査する</span></a><ol><li><a href="#app-d-s2">題材：同期つきの小さな todo アプリ</a></li></ol></li><li data-ch="app-e"><a href="#app-e"><span class="no">E</span><span>h5i と Nyxis：web アプリの枠組みごと認可を証明する</span></a><ol><li><a href="#app-e-s2">3つの道具を比べる</a></li></ol></li><li data-ch="app-f"><a href="#app-f"><span class="no">F</span><span>Quint で仕様を全部の状態について調べる</span></a><ol><li><a href="#app-f-s2">題材と道具</a></li></ol></li></ol></nav>
+      <nav><ol><li data-ch="home"><a href="#home"><span class="no">◇</span><span>表紙・章の一覧</span></a></li><li data-ch="ch-0"><a href="#ch-0"><span class="no">0</span><span>はじめに：形式検証ってなに？</span></a><ol><li><a href="#ch-0-s2">テストで困ること</a></li><li><a href="#ch-0-s3">形式検証とは</a></li><li><a href="#ch-0-s4">3つの役割：仕様・実装・証明</a></li><li><a href="#ch-0-s5">ソートで3段を体験する</a></li><li><a href="#ch-0-s6">仕様に書いていないことは守られない</a></li><li><a href="#ch-0-s7">この book の構成</a></li></ol></li><li data-ch="ch-1"><a href="#ch-1"><span class="no">1</span><span>Lean と Rust で todo が仕様どおりと証明する</span></a></li><li data-ch="ch-2"><a href="#ch-2"><span class="no">2</span><span>認可を証明する：他人の todo には触れない</span></a><ol><li><a href="#ch-2-s2">認可とは</a></li></ol></li><li data-ch="ch-3"><a href="#ch-3"><span class="no">3</span><span>まとめ</span></a><ol><li><a href="#ch-3-s2">本編で分かったこと</a></li><li><a href="#ch-3-s3">本編の道具が向く場面</a></li><li><a href="#ch-3-s4">実務への適用についての所感</a></li><li><a href="#ch-3-s5">初心者の次の一歩</a></li><li><a href="#ch-3-s6">用語集</a></li></ol></li><li class="toc-group">付録</li><li data-ch="app-a"><a href="#app-a"><span class="no">A</span><span>Lean の基本文法</span></a><ol><li><a href="#app-a-s2">値と関数</a></li><li><a href="#app-a-s3">型</a></li><li><a href="#app-a-s4">主張の記号</a></li><li><a href="#app-a-s5">定理と証明</a></li><li><a href="#app-a-s6">本書特有の書き方</a></li></ol></li><li data-ch="app-b"><a href="#app-b"><span class="no">B</span><span>Lean で Web サーバーも作れる</span></a><ol><li><a href="#app-b-s2">Lean はプログラミング言語でもある</a></li><li><a href="#app-b-s3">リクエストが DB に届くまで</a></li><li><a href="#app-b-s4">ビルドのたびに定理を検査する</a></li><li><a href="#app-b-s5">h5i との違い</a></li><li><a href="#app-b-s6">実務で使えるか</a></li><li><a href="#app-b-s7">2つの道の比べ方</a></li></ol></li><li data-ch="app-c"><a href="#app-c"><span class="no">C</span><span>Lean は Rust と相性がよく、JavaScript とは相性が悪い</span></a><ol><li><a href="#app-c-s2">Lean の関数は書き換えをしない</a></li><li><a href="#app-c-s3">Rust は別名を型で禁じている</a></li><li><a href="#app-c-s4">翻訳の限界と、信頼している部分</a></li><li><a href="#app-c-s5">JavaScript はどこが難しいか</a></li><li><a href="#app-c-s6">だから付録F は MBT、付録D はモデル検査にした</a></li><li><a href="#app-c-s7">ほかの道具</a></li><li><a href="#app-c-s8">実務での分け方</a></li></ol></li><li data-ch="app-d"><a href="#app-d"><span class="no">D</span><span>TLA+ と TLC で同期を検査する</span></a><ol><li><a href="#app-d-s2">題材：同期つきの小さな todo アプリ</a></li></ol></li><li data-ch="app-e"><a href="#app-e"><span class="no">E</span><span>h5i と Nyxis：web アプリの枠組みごと認可を証明する</span></a><ol><li><a href="#app-e-s2">3つの道具を比べる</a></li></ol></li><li data-ch="app-f"><a href="#app-f"><span class="no">F</span><span>Quint で仕様を全部の状態について調べる</span></a><ol><li><a href="#app-f-s2">題材と道具</a></li></ol></li><li data-ch="app-g"><a href="#app-g"><span class="no">G</span><span>形式検証はこれからどうなるか（2027〜2031年の予測）</span></a><ol><li><a href="#app-g-s1">結論</a></li><li><a href="#app-g-s2">1. いま何が起きているか（2025〜2026年の変化点）</a></li><li><a href="#app-g-s3">2. 駆動力と制約</a></li><li><a href="#app-g-s4">3. 時間軸の予測（確率はすべて見立て）</a></li><li><a href="#app-g-s5">4. シナリオ3本と先行指標</a></li><li><a href="#app-g-s6">5. 普及の形の予想（見立て）</a></li><li><a href="#app-g-s7">6. Anycloud と村井さんにとっての意味</a></li><li><a href="#app-g-s8">7. 不確実性と、外れるとしたらどこか</a></li></ol></li></ol></nav>
     </details>
   </aside>
   <main>
@@ -196,9 +198,9 @@ footer.colophon { color: var(--ink-soft); font-size: 12.5px; padding-top: 32px; 
       <p>本編では、Rust で書いた todo アプリが仕様どおりに動くことを、Lean で証明します。ソートの小さな例から始めて、todo の操作、そして「他人の todo には触れない」という認可まで、1章ずつ手を動かします。付録では、同じ todo を Quint・h5i・Nyxis・TLA+ で検証した結果を紹介します。</p>
       <p class="cover-links"><a class="gh" href="https://github.com/muraikenta/formal-todo">GitHub でコードを見る ↗</a><span>MIT License</span></p>
       <h2 class="cards-title">章の一覧</h2>
-      <ol class="cards"><li><a href="#ch-0"><span class="no">CHAPTER 0</span><span class="t">はじめに：形式検証ってなに？</span><span class="d">形式検証が「何をしてくれて、何をしてくれないか」を、ソートの関数でつかみます。</span></a></li><li><a href="#ch-1"><span class="no">CHAPTER 1</span><span class="t">Lean と Rust で todo が仕様どおりと証明する</span><span class="d">第0章のソートと同じ「仕様 → 実装 → 証明」の3段を、今度は状態を持つ todo で通します。</span></a></li><li><a href="#ch-2"><span class="no">CHAPTER 2</span><span class="t">認可を証明する：他人の todo には触れない</span><span class="d">「アリスの todo はボブには変えられない・見えない」を、全ユーザー・全 id・全状態について証明します。道具は第1章と同じ Lean と Aeneas です。</span></a></li><li><a href="#ch-3"><span class="no">CHAPTER 3</span><span class="t">まとめ</span><span class="d">本編（ソート・todo・認可）で分かったことを4つにまとめ、自分のコードで試す最初の一歩を決めます。</span></a></li><li class="cards-group">付録（ほかの道具）</li><li><a href="#app-a"><span class="no">APPENDIX A</span><span class="t">Lean の基本文法</span><span class="d">本編のコード抜粋を読むときに引く早見です。網羅はせず、本書に出てくるものだけを TypeScript と並べて載せます。例はすべて Lean 4.36 で検査を通しています。</span></a></li><li><a href="#app-b"><span class="no">APPENDIX B</span><span class="t">Lean で Web サーバーも作れる</span><span class="d">Lean は証明の道具だと思われがちですが、普通のプログラムも書けます。付録E の Nyxis は、HTTP サーバーそのものが Lean で動いています。この付録では、その仕組みと、どこまでが証明でどこからが信頼かを見ます。</span></a></li><li><a href="#app-c"><span class="no">APPENDIX C</span><span class="t">Lean は Rust と相性がよく、JavaScript とは相性が悪い</span><span class="d">本編では todo の中核を Rust で書き、Lean に翻訳して証明しました。同じ todo でも、JavaScript／TypeScript 版（付録D・F）では証明をせず、MBT（モデルに基づくテスト。仕様から作った操作の列を実装に流して突き合わせる）とモデル検査にしました。この付録では、その分け方の理由を説明します。</span></a></li><li><a href="#app-d"><span class="no">APPENDIX D</span><span class="t">TLA+ と TLC で同期を検査する</span><span class="d">オフラインでも動く todo アプリを2つのタブとサーバのモデルにして、送信・失敗・遅れた応答がどの順に起きても約束が守られるかを全部調べます。テストが全部緑のアプリから、操作が黙って消える不具合を3つ見つけます。</span></a></li><li><a href="#app-e"><span class="no">APPENDIX E</span><span class="t">h5i と Nyxis：web アプリの枠組みごと認可を証明する</span><span class="d">第2章の認可の証明は Rust の中核までで、保存や本人確認は証明の外でした。この付録では、DB と HTTP まで含めた web アプリの枠組みで同じ認可を証明する2つの道具、h5i と Nyxis を見ます。</span></a></li><li><a href="#app-f"><span class="no">APPENDIX F</span><span class="t">Quint で仕様を全部の状態について調べる</span><span class="d">本編では Lean で「どんな件数でも仕様どおり」と証明しました。この付録は別のやり方です。証明はせず、範囲を小さく区切って、起こりうる状態を機械に全部調べさせます。最後に、仕様から作った操作の列を JavaScript アプリに流して突き合わせます。</span></a></li></ol>
+      <ol class="cards"><li><a href="#ch-0"><span class="no">CHAPTER 0</span><span class="t">はじめに：形式検証ってなに？</span><span class="d">形式検証が「何をしてくれて、何をしてくれないか」を、ソートの関数でつかみます。</span></a></li><li><a href="#ch-1"><span class="no">CHAPTER 1</span><span class="t">Lean と Rust で todo が仕様どおりと証明する</span><span class="d">第0章のソートと同じ「仕様 → 実装 → 証明」の3段を、今度は状態を持つ todo で通します。</span></a></li><li><a href="#ch-2"><span class="no">CHAPTER 2</span><span class="t">認可を証明する：他人の todo には触れない</span><span class="d">「アリスの todo はボブには変えられない・見えない」を、全ユーザー・全 id・全状態について証明します。道具は第1章と同じ Lean と Aeneas です。</span></a></li><li><a href="#ch-3"><span class="no">CHAPTER 3</span><span class="t">まとめ</span><span class="d">本編（ソート・todo・認可）で分かったことを4つにまとめ、自分のコードで試す最初の一歩を決めます。</span></a></li><li class="cards-group">付録（ほかの道具）</li><li><a href="#app-a"><span class="no">APPENDIX A</span><span class="t">Lean の基本文法</span><span class="d">本編のコード抜粋を読むときに引く早見です。網羅はせず、本書に出てくるものだけを TypeScript と並べて載せます。例はすべて Lean 4.36 で検査を通しています。</span></a></li><li><a href="#app-b"><span class="no">APPENDIX B</span><span class="t">Lean で Web サーバーも作れる</span><span class="d">Lean は証明の道具だと思われがちですが、普通のプログラムも書けます。付録E の Nyxis は、HTTP サーバーそのものが Lean で動いています。この付録では、その仕組みと、どこまでが証明でどこからが信頼かを見ます。</span></a></li><li><a href="#app-c"><span class="no">APPENDIX C</span><span class="t">Lean は Rust と相性がよく、JavaScript とは相性が悪い</span><span class="d">本編では todo の中核を Rust で書き、Lean に翻訳して証明しました。同じ todo でも、JavaScript／TypeScript 版（付録D・F）では証明をせず、MBT（モデルに基づくテスト。仕様から作った操作の列を実装に流して突き合わせる）とモデル検査にしました。この付録では、その分け方の理由を説明します。</span></a></li><li><a href="#app-d"><span class="no">APPENDIX D</span><span class="t">TLA+ と TLC で同期を検査する</span><span class="d">オフラインでも動く todo アプリを2つのタブとサーバのモデルにして、送信・失敗・遅れた応答がどの順に起きても約束が守られるかを全部調べます。テストが全部緑のアプリから、操作が黙って消える不具合を3つ見つけます。</span></a></li><li><a href="#app-e"><span class="no">APPENDIX E</span><span class="t">h5i と Nyxis：web アプリの枠組みごと認可を証明する</span><span class="d">第2章の認可の証明は Rust の中核までで、保存や本人確認は証明の外でした。この付録では、DB と HTTP まで含めた web アプリの枠組みで同じ認可を証明する2つの道具、h5i と Nyxis を見ます。</span></a></li><li><a href="#app-f"><span class="no">APPENDIX F</span><span class="t">Quint で仕様を全部の状態について調べる</span><span class="d">本編では Lean で「どんな件数でも仕様どおり」と証明しました。この付録は別のやり方です。証明はせず、範囲を小さく区切って、起こりうる状態を機械に全部調べさせます。最後に、仕様から作った操作の列を JavaScript アプリに流して突き合わせます。</span></a></li><li><a href="#app-g"><span class="no">APPENDIX G</span><span class="t">形式検証はこれからどうなるか（2027〜2031年の予測）</span><span class="d">本編と付録A〜Fでは、いまの道具を手で動かしました。この付録は視点を変えて、形式検証が2027〜2031年にどう進化し、どこまで広がるかを考えます。6つの観点で2025〜2026年の一次情報を集め、懐疑派・加速派・事実確認役の3人の反証にかけてまとめました。確率は見立てです。</span></a></li></ol>
     </header>
-<section class="chapter" id="ch-0"><div class="chapter-bar"><a href="#home">← 表紙</a><span class="meter"><i style="width:10%"></i></span><span>1 / 4</span><a class="code-link" href="https://github.com/muraikenta/formal-todo/tree/main/sort-aeneas">コードを見る ↗</a></div>
+<section class="chapter" id="ch-0"><div class="chapter-bar"><a href="#home">← 表紙</a><span class="meter"><i style="width:9%"></i></span><span>1 / 4</span><a class="code-link" href="https://github.com/muraikenta/formal-todo/tree/main/sort-aeneas">コードを見る ↗</a></div>
 <h2>第0章 はじめに：形式検証ってなに？</h2>
 <p class="lead">形式検証が「何をしてくれて、何をしてくれないか」を、ソートの関数でつかみます。</p>
 
@@ -227,7 +229,7 @@ footer.colophon { color: var(--ink-soft); font-size: 12.5px; padding-top: 32px; 
 <li><b><dfn>証明</dfn></b>：「実装は仕様どおり」という主張を、論理でつないだもの。その主張を<dfn>定理</dfn>と呼びます。機械が一字一句検査するので、間違った証明は通りません。</li>
 </ul>
 
-<pre class="mermaid">
+<pre class="mm">
 flowchart LR
   A["① 仕様（人が書く）"] --> C["③ 証明（機械が検査）"]
   B["② 実装（人 or AI が書く）"] --> C
@@ -373,7 +375,7 @@ lake build</code></pre>
 </div>
 <nav class="pager"><a class="prev" href="#home"><small>← 表紙</small>章の一覧</a><a class="next" href="#ch-1"><small>次の章 →</small>第1章 Lean と Rust で todo が仕様どおりと証明する</a></nav>
 </section>
-<section class="chapter" id="ch-1"><div class="chapter-bar"><a href="#home">← 表紙</a><span class="meter"><i style="width:20%"></i></span><span>2 / 4</span><a class="code-link" href="https://github.com/muraikenta/formal-todo/tree/main/todo-aeneas">コードを見る ↗</a></div>
+<section class="chapter" id="ch-1"><div class="chapter-bar"><a href="#home">← 表紙</a><span class="meter"><i style="width:18%"></i></span><span>2 / 4</span><a class="code-link" href="https://github.com/muraikenta/formal-todo/tree/main/todo-aeneas">コードを見る ↗</a></div>
 <h2>第1章 Lean と Rust で todo が仕様どおりと証明する</h2>
 
 <p class="lead">第0章のソートと同じ「仕様 → 実装 → 証明」の3段を、今度は状態を持つ todo で通します。</p>
@@ -399,7 +401,7 @@ lake build</code></pre>
 
 <aside class="note"><b>ポイント</b>コードにある <code>user</code>（操作した人）と <code>owner</code>（持ち主）は第2章「認可」で使います。この章では読み飛ばしてかまいません。</aside>
 
-<pre class="mermaid">
+<pre class="mm">
 flowchart LR
   S["仕様 Spec.lean（人が書く）"]
   R["Rust の中核 kernel/src/lib.rs"]
@@ -560,7 +562,7 @@ def absTodo (t : Todo) : Spec.Todo := ⟨t.id.val, t.owner.val, t.title, t.done�
 /-- Rust の状態を仕様の状態に読み替える。 -/
 def abs (t : Todos) : Spec.State := ⟨t.items.val.map absTodo, t.next_id.val⟩</code></pre></figure>
 <p>示したいのは「どちら回りでも同じ」です。</p>
-<pre class="mermaid">
+<pre class="mm">
 flowchart LR
   T["Rust の状態 t"] -- "Rust の add" --> T2["Rust の状態 t'"]
   T -- "abs で読み替え" --> S["仕様の状態"]
@@ -660,7 +662,7 @@ fn check_inv(t: &amp;Todos) -&gt; Result&lt;(), String&gt; {
 </div>
 <nav class="pager"><a class="prev" href="#ch-0"><small>← 前の章</small>第0章 はじめに：形式検証ってなに？</a><a class="next" href="#ch-2"><small>次の章 →</small>第2章 認可を証明する：他人の todo には触れない</a></nav>
 </section>
-<section class="chapter" id="ch-2"><div class="chapter-bar"><a href="#home">← 表紙</a><span class="meter"><i style="width:30%"></i></span><span>3 / 4</span><a class="code-link" href="https://github.com/muraikenta/formal-todo/tree/main/todo-aeneas">コードを見る ↗</a></div>
+<section class="chapter" id="ch-2"><div class="chapter-bar"><a href="#home">← 表紙</a><span class="meter"><i style="width:27%"></i></span><span>3 / 4</span><a class="code-link" href="https://github.com/muraikenta/formal-todo/tree/main/todo-aeneas">コードを見る ↗</a></div>
 <h2>第2章 認可を証明する：他人の todo には触れない</h2>
 
 <p class="lead">「アリスの todo はボブには変えられない・見えない」を、全ユーザー・全 id・全状態について証明します。道具は第1章と同じ Lean と Aeneas です。</p>
@@ -784,7 +786,7 @@ theorem toggle_others_rust (t : Todos) (user other id : U32) (hne : user ≠ oth
 <h4>本人確認は証明の外</h4>
 <p>ここまでの証明は「本当にアリスか」を言っていません。todo-aeneas は環境変数 <code>TODO_USER</code> に書かれたユーザーを信じるだけです。</p>
 <p>証明は「渡されたユーザーが正しいなら」までです。この境目を<dfn>信頼の境界</dfn>と呼びます。</p>
-<pre class="mermaid">flowchart LR
+<pre class="mm">flowchart LR
   A["利用者"] --> B["本人確認（TODO_USER）"]
   B --> D["認可の判断（Rust の中核）"]
   D --> E["保存ファイル"]
@@ -811,7 +813,7 @@ theorem toggle_others_rust (t : Todos) (user other id : U32) (hne : user ≠ oth
 </div>
 <nav class="pager"><a class="prev" href="#ch-1"><small>← 前の章</small>第1章 Lean と Rust で todo が仕様どおりと証明する</a><a class="next" href="#ch-3"><small>次の章 →</small>第3章 まとめ</a></nav>
 </section>
-<section class="chapter" id="ch-3"><div class="chapter-bar"><a href="#home">← 表紙</a><span class="meter"><i style="width:40%"></i></span><span>4 / 4</span></div>
+<section class="chapter" id="ch-3"><div class="chapter-bar"><a href="#home">← 表紙</a><span class="meter"><i style="width:36%"></i></span><span>4 / 4</span></div>
 <h2>第3章 まとめ</h2>
 <p class="lead">本編（ソート・todo・認可）で分かったことを4つにまとめ、自分のコードで試す最初の一歩を決めます。</p>
 
@@ -940,7 +942,7 @@ theorem toggle_others_rust (t : Todos) (user other id : U32) (hne : user ≠ oth
 </div>
 <nav class="pager"><a class="prev" href="#ch-2"><small>← 前の章</small>第2章 認可を証明する：他人の todo には触れない</a><a class="next" href="#app-a"><small>次の章 →</small>付録A Lean の基本文法</a></nav>
 </section>
-<section class="chapter" id="app-a"><div class="chapter-bar"><a href="#home">← 表紙</a><span class="meter"><i style="width:50%"></i></span><span>付録 A</span></div>
+<section class="chapter" id="app-a"><div class="chapter-bar"><a href="#home">← 表紙</a><span class="meter"><i style="width:45%"></i></span><span>付録 A</span></div>
 <h2>付録A Lean の基本文法</h2>
 
 <p class="lead">本編のコード抜粋を読むときに引く早見です。網羅はせず、本書に出てくるものだけを TypeScript と並べて載せます。例はすべて Lean 4.36 で検査を通しています。</p>
@@ -1164,7 +1166,7 @@ theorem later (n : Nat) : 2 * (List.range n).sum + n = n * n := by
 </div>
 <nav class="pager"><a class="prev" href="#ch-3"><small>← 前の章</small>第3章 まとめ</a><a class="next" href="#app-b"><small>次の章 →</small>付録B Lean で Web サーバーも作れる</a></nav>
 </section>
-<section class="chapter" id="app-b"><div class="chapter-bar"><a href="#home">← 表紙</a><span class="meter"><i style="width:60%"></i></span><span>付録 B</span><a class="code-link" href="https://github.com/muraikenta/formal-todo/tree/main/nyxis-todo">コードを見る ↗</a></div>
+<section class="chapter" id="app-b"><div class="chapter-bar"><a href="#home">← 表紙</a><span class="meter"><i style="width:55%"></i></span><span>付録 B</span><a class="code-link" href="https://github.com/muraikenta/formal-todo/tree/main/nyxis-todo">コードを見る ↗</a></div>
 <h2>付録B Lean で Web サーバーも作れる</h2>
 
 <p class="lead">Lean は証明の道具だと思われがちですが、普通のプログラムも書けます。付録E の Nyxis は、HTTP サーバーそのものが Lean で動いています。この付録では、その仕組みと、どこまでが証明でどこからが信頼かを見ます。</p>
@@ -1237,7 +1239,7 @@ inductive Handler (α : Type) : Type where
 
 <h3 id="app-b-s3">リクエストが DB に届くまで</h3>
 <p>緑が純粋なモデルで証明された部分、青が証明済みの接続コード、赤が信頼している接続コードと外部ライブラリです（Nyxis の <a href="https://github.com/NyxFoundation/nyxis/blob/main/ASSUMPTIONS.md">ASSUMPTIONS.md</a> の分け方を簡略化）。色の無いハンドラは、証明も信頼もしていない部分です。定理が「どんなハンドラでも」成り立つので、中身を問いません。</p>
-<pre class="mermaid">flowchart TB
+<pre class="mm">flowchart TB
   classDef proven fill:#d8f3dc,stroke:#2d6a4f,color:#000
   classDef conn fill:#d0e4ff,stroke:#1d4ed8,color:#000
   classDef trust fill:#ffe0e0,stroke:#b02a37,color:#000
@@ -1303,7 +1305,7 @@ inductive Handler (α : Type) : Type where
 </div>
 <nav class="pager"><a class="prev" href="#app-a"><small>← 前の章</small>付録A Lean の基本文法</a><a class="next" href="#app-c"><small>次の章 →</small>付録C Lean は Rust と相性がよく、JavaScript とは相性が悪い</a></nav>
 </section>
-<section class="chapter" id="app-c"><div class="chapter-bar"><a href="#home">← 表紙</a><span class="meter"><i style="width:70%"></i></span><span>付録 C</span></div>
+<section class="chapter" id="app-c"><div class="chapter-bar"><a href="#home">← 表紙</a><span class="meter"><i style="width:64%"></i></span><span>付録 C</span></div>
 <h2>付録C Lean は Rust と相性がよく、JavaScript とは相性が悪い</h2>
 <p class="lead">本編では todo の中核を Rust で書き、Lean に翻訳して証明しました。同じ todo でも、JavaScript／TypeScript 版（付録D・F）では証明をせず、MBT（モデルに基づくテスト。仕様から作った操作の列を実装に流して突き合わせる）とモデル検査にしました。この付録では、その分け方の理由を説明します。</p>
 
@@ -1433,7 +1435,7 @@ function schedulePush(delay: number): void {
 </ul>
 
 <h3 id="app-c-s8">実務での分け方</h3>
-<pre class="mermaid">flowchart LR
+<pre class="mm">flowchart LR
   UI["外側（画面・HTTP・DB）: JS/TS のまま、テストで確かめる"] --&gt; Core["核（権限・お金・状態遷移）: Rust の純粋な小さい関数"]
   Core --&gt; Proof["Aeneas で Lean に翻訳し、仕様どおりと証明"]</pre>
 <ul>
@@ -1456,7 +1458,7 @@ function schedulePush(delay: number): void {
 </div>
 <nav class="pager"><a class="prev" href="#app-b"><small>← 前の章</small>付録B Lean で Web サーバーも作れる</a><a class="next" href="#app-d"><small>次の章 →</small>付録D TLA+ と TLC で同期を検査する</a></nav>
 </section>
-<section class="chapter" id="app-d"><div class="chapter-bar"><a href="#home">← 表紙</a><span class="meter"><i style="width:80%"></i></span><span>付録 D</span><a class="code-link" href="https://github.com/muraikenta/formal-todo/tree/main/todo/verification">コードを見る ↗</a></div>
+<section class="chapter" id="app-d"><div class="chapter-bar"><a href="#home">← 表紙</a><span class="meter"><i style="width:73%"></i></span><span>付録 D</span><a class="code-link" href="https://github.com/muraikenta/formal-todo/tree/main/todo/verification">コードを見る ↗</a></div>
 <h2>付録D TLA+ と TLC で同期を検査する</h2>
 <p class="lead">オフラインでも動く todo アプリを2つのタブとサーバのモデルにして、送信・失敗・遅れた応答がどの順に起きても約束が守られるかを全部調べます。テストが全部緑のアプリから、操作が黙って消える不具合を3つ見つけます。</p>
 
@@ -1518,7 +1520,7 @@ function loadClientId(): string {
 const clientId = loadClientId();
 // 状態は localStorage のこのキーに保存する（全タブで共有の保存先）
 const storageKey = `todo-state:${clientId}`;</code></pre></figure>
-<pre class="mermaid">
+<pre class="mm">
 sequenceDiagram
   participant U as "ユーザー"
   participant T as "タブ"
@@ -1723,7 +1725,7 @@ done</code></pre>
 <li>両方が送る。サーバは先に届いたタブ1の <code>c1:2</code> を反映し、あとのタブ2の <code>c1:2</code> を「再送」と見なして反映しない</li>
 <li>タブ2は応答に <code>c1:2</code> があるので送信待ちから外し、「同期済み」と出る。サーバの todo は「B」未完了のまま</li>
 </ol>
-<pre class="mermaid">
+<pre class="mm">
 flowchart LR
   A["タブ1 c1:2 名前をBに"] --> S["サーバ c1:2 を反映"]
   B["タブ2 c1:2 完了にする"] --> R["サーバ 反映済みの c1:2 と見なす"]
@@ -1776,7 +1778,7 @@ flowchart LR
 </div>
 <nav class="pager"><a class="prev" href="#app-c"><small>← 前の章</small>付録C Lean は Rust と相性がよく、JavaScript とは相性が悪い</a><a class="next" href="#app-e"><small>次の章 →</small>付録E h5i と Nyxis：web アプリの枠組みごと認可を証明する</a></nav>
 </section>
-<section class="chapter" id="app-e"><div class="chapter-bar"><a href="#home">← 表紙</a><span class="meter"><i style="width:90%"></i></span><span>付録 E</span><a class="code-link" href="https://github.com/muraikenta/formal-todo/tree/main/h5i-todo">コードを見る ↗</a></div>
+<section class="chapter" id="app-e"><div class="chapter-bar"><a href="#home">← 表紙</a><span class="meter"><i style="width:82%"></i></span><span>付録 E</span><a class="code-link" href="https://github.com/muraikenta/formal-todo/tree/main/h5i-todo">コードを見る ↗</a></div>
 <h2>付録E h5i と Nyxis：web アプリの枠組みごと認可を証明する</h2>
 
 <p class="lead">第2章の認可の証明は Rust の中核までで、保存や本人確認は証明の外でした。この付録では、DB と HTTP まで含めた web アプリの枠組みで同じ認可を証明する2つの道具、h5i と Nyxis を見ます。</p>
@@ -1936,7 +1938,7 @@ def createTodo : Principal → Generated → Http.Request → Handler Http.Respo
 <li>h5i 版: HMAC トークン（サーバが署名した札）と JSON の変換</li>
 <li>Nyxis 版: HTTP の読み書きと、JWT の署名検査（OpenSSL）の中身（付録B）</li>
 </ul>
-<pre class="mermaid">flowchart LR
+<pre class="mm">flowchart LR
   A["ブラウザ"] --> B["ログイン（本人確認）"]
   B --> C["トークン・JWT の検証"]
   C --> D["認可の判断（カーネル・ポリシー）"]
@@ -1985,7 +1987,7 @@ def createTodo : Principal → Generated → Http.Request → Handler Http.Respo
 </div>
 <nav class="pager"><a class="prev" href="#app-d"><small>← 前の章</small>付録D TLA+ と TLC で同期を検査する</a><a class="next" href="#app-f"><small>次の章 →</small>付録F Quint で仕様を全部の状態について調べる</a></nav>
 </section>
-<section class="chapter" id="app-f"><div class="chapter-bar"><a href="#home">← 表紙</a><span class="meter"><i style="width:100%"></i></span><span>付録 F</span><a class="code-link" href="https://github.com/muraikenta/formal-todo/tree/main/quint-todo">コードを見る ↗</a></div>
+<section class="chapter" id="app-f"><div class="chapter-bar"><a href="#home">← 表紙</a><span class="meter"><i style="width:91%"></i></span><span>付録 F</span><a class="code-link" href="https://github.com/muraikenta/formal-todo/tree/main/quint-todo">コードを見る ↗</a></div>
 <h2>付録F Quint で仕様を全部の状態について調べる</h2>
 
 <p class="lead">本編では Lean で「どんな件数でも仕様どおり」と証明しました。この付録は別のやり方です。証明はせず、範囲を小さく区切って、起こりうる状態を機械に全部調べさせます。最後に、仕様から作った操作の列を JavaScript アプリに流して突き合わせます。</p>
@@ -2007,7 +2009,7 @@ def createTodo : Principal → Generated → Http.Request → Handler Http.Respo
 <p>証明との違いは、手間と保証の広さです。証明は手で組み立てる代わりに全部の件数で言えます。Quint は書くだけで機械が調べてくれますが、言えるのは調べた範囲の中だけです。</p>
 <p>Quint で書くのは<strong>アプリではなく、アプリの決まり</strong>です。アプリは JavaScript で書き、後半の MBT でつなぎます。</p>
 
-<pre class="mermaid">
+<pre class="mm">
 flowchart LR
   S["仕様 todo.qnt"] --&gt; T["quint test（具体例）"]
   S --&gt; R["quint run（ランダム）"]
@@ -2221,7 +2223,7 @@ node mutate-spec.mjs</code></pre>
     // アプリと仕様で todos・nextId・残り件数のどれかが違えば食い違い
     if (implView(impl) !== modelView(model)) {</code></pre></figure>
 <p>比べるのは todos・nextId と「残り N 件」です。トレースは seed を固定して200本作るので、毎回同じ列になります。</p>
-<pre class="mermaid">
+<pre class="mm">
 sequenceDiagram
   participant Q as "Quint（todo7）"
   participant F as "ITF トレース"
@@ -2284,11 +2286,226 @@ module inputs {
 <li>Quint の結論は「選んだ範囲の中」の話。すべての件数で言うには、本編（第1章）の証明が要る</li>
 </ul>
 </div>
-<nav class="pager"><a class="prev" href="#app-e"><small>← 前の章</small>付録E h5i と Nyxis：web アプリの枠組みごと認可を証明する</a></nav>
+<nav class="pager"><a class="prev" href="#app-e"><small>← 前の章</small>付録E h5i と Nyxis：web アプリの枠組みごと認可を証明する</a><a class="next" href="#app-g"><small>次の章 →</small>付録G 形式検証はこれからどうなるか（2027〜2031年の予測）</a></nav>
+</section>
+<section class="chapter" id="app-g"><div class="chapter-bar"><a href="#home">← 表紙</a><span class="meter"><i style="width:100%"></i></span><span>付録 G</span></div>
+<h2>付録G 形式検証はこれからどうなるか（2027〜2031年の予測）</h2>
+
+<p class="lead">本編と付録A〜Fでは、いまの道具を手で動かしました。この付録は視点を変えて、形式検証が2027〜2031年にどう進化し、どこまで広がるかを考えます。6つの観点で2025〜2026年の一次情報を集め、懐疑派・加速派・事実確認役の3人の反証にかけてまとめました。確率は見立てです。</p>
+
+<p>2026-11-27 時点。6観点の調査結果をもとにしている。確率はすべて筆者の<strong>見立て</strong>で、根拠を1行ずつ添える。</p>
+<h3 id="app-g-s1">結論</h3>
+<ul>
+<li><strong>「証明を書く手間」は2026年にほぼ機械の仕事になった。</strong> 数学ではフェルマーの最終定理（FLT）の形式化が11日で済んだ。ソフトウェアでは libsignal の機械語に対する650万行の証明を、人が1行も書かずに4週間で仕上げた。今後数年の争点は、証明できるかではなく、<strong>何を証明したことになるか</strong>に移る。</li>
+<li><strong>律速は仕様と信頼の基盤（何を信じた上での証明か）に移った。</strong> 参照仕様の約半分が誤っていた例、検査器を書き換えて満点を取る AI、カーネルの健全性バグが出ている。これはハッカソンで得た「律速は人の理解」と同じ形で、数学・暗号・政策の現場でも同じことが観測されている。</li>
+<li><strong>〜2029年に普及の中心になるのは重要インフラ（暗号・クラウドの分離・zkVM・Rust の核）。</strong> 「AI が全部を証明し、人は仕様だけを承認する」型が標準になる見込みが高い。</li>
+<li><strong>一般の Web/SaaS に届くのは定理証明ではない。</strong> 要件からプロパティテスト（PBT）を作る、設計をモデル検査にかける、AI の出力を規則と照合する、といった<strong>軽量手法がエージェントに組み込まれる形</strong>が先に来る。業務ロジック全体の証明は2031年でも少数派。</li>
+<li><strong>Anycloud にとっての「今やる」は、仕様を読み書きする力と軽量手法の常用化。</strong> 証明まで入れるかの判断は2027年末に見直せばよい。</li>
+</ul>
+<h3 id="app-g-s2">1. いま何が起きているか（2025〜2026年の変化点）</h3>
+<p><strong>数学: 競技レベルは飽和し、大型の形式化は週の単位になった</strong>
+- 形式証明の IMO の成績は、2024年の銀（28/42）から2026年の満点（42/42。Axiom、全6問を Lean で約7,700行）まで伸びた（<a target="_blank" rel="noopener" href="https://github.com/AxiomMath/IMO2026">AxiomMath/IMO2026</a>）。
+- PutnamBench は2025年7月に50%前後、2026-08-25 に 672/672（約$5万）（<a target="_blank" rel="noopener" href="https://logicalintelligence.com/aleph-prover-final.html">Aleph</a>）。翌月には約$111 で全問を解いたという報道もある（<a target="_blank" rel="noopener" href="https://cryptobriefing.com/near-ai-lean-agent-putnam-bench-111-dollars/">報道・未確認</a>）。
+- FLT の形式化は約1,300万行（Mathlib の5倍超）を11日でほぼ自律的に作った（<a target="_blank" rel="noopener" href="https://www.anthropic.com/research/formalizing-fermats-last-theorem">Anthropic, 2026-09-04</a>）。球充填の24次元は2週間（<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2604.23468">Math Inc.</a>）。
+- ただし研究水準の未解決問題（FrontierMath Erdős の68問）で解けたのは、まだ 2/68＝3% だけ（<a target="_blank" rel="noopener" href="https://epoch.ai/latest/announcing-frontiermath-erdos">Epoch, 2026-09-01</a>）。</p>
+<p><strong>重要インフラ: 「人は仕様だけ承認」が実例として出た</strong>
+- DeepMind の AlphaProof Code は、libsignal の AArch64 機械語に対する約650万行の証明を40〜80体のエージェントで書いた。人間5人は仕様約2.6万行を承認しただけ（<a target="_blank" rel="noopener" href="https://thenextweb.com/news/google-deepmind-alphaproof-code-signal-encryption-formal-verification">TNW, 2026-11</a>、confidence medium）。
+- AWS の Nitro Isolation Engine はハイパーバイザの分離を Isabelle の約26万行で証明し、第三者による検査にも提供する（<a target="_blank" rel="noopener" href="https://aws.amazon.com/jp/blogs/news/aws-nitro-isolation-engine-formally-verifying-the-hypervisor-in-the-aws-nitro-system/">AWS ブログ</a>）。
+- Apple は耐量子暗号（ML-KEM/ML-DSA）を検証の成果物と一緒に公開し、テストでは見つからなかった欠陥も見つけた（<a target="_blank" rel="noopener" href="https://security.apple.com/blog/formal-verification-corecrypto">Apple</a>）。
+- Anthropic と Theorem は OSS-Fuzz の123ライブラリについて、バイナリが落ちないことを約1.8億行の Rocq 証明で示した（<a target="_blank" rel="noopener" href="https://www.anthropic.com/research/formal-verification">Anthropic, 2026-10-22</a>）。</p>
+<p><strong>AI が書くコード: 関数単位は解け、リポジトリ単位は半分</strong>
+- 仕様が与えられた関数単位の検証付きコード生成は、Lean でもエージェントループで約95%に達した（<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2605.27485">arXiv 2605.27485</a>）。Rust→Lean は1定理あたり約$1.2（中央値）（<a target="_blank" rel="noopener" href="https://arxiv.org/html/2610.03994">VeriContest</a>）。
+- 実プロジェクト43件を Lean で作り直す課題では、全仕様を通したのが最良でも27件（<a target="_blank" rel="noopener" href="https://rdi.berkeley.edu/blog/vero">Vero</a>）。
+- Python→Lean で正解の仕様をどれだけ覆えたかは、どのエージェントでも0.156以下（<a target="_blank" rel="noopener" href="https://cs.stanford.edu/people/brando9/veribench/blog/veribench-launch/">VeriBench</a>）。</p>
+<p><strong>ツールと資金</strong>
+- Lean FRO は「主な使い手は AI エージェント」へ舵を切った。計画を半年単位に変え、外部カーネルでの再検査（lake check）や lean-beam を重点に置いている（<a target="_blank" rel="noopener" href="https://lean-lang.org/fro/roadmap/y4-1">Y4-1</a>）。Lean 4.36 には関数の契約（contract）と vcgen が実験的に入り、MCP も同梱された（<a target="_blank" rel="noopener" href="https://lean-lang.org/doc/reference/latest/releases/v4.36.0/">v4.36.0</a>）。
+- 資金調達は Axiom の Series A が$2億（<a target="_blank" rel="noopener" href="https://siliconangle.com/2026/03/12/verifiable-ai-startup-axiom-raises-200m-prove-ai-generated-code-safe/">SiliconANGLE</a>）、&amp;Truth のシードが$7,000万で「仕様の工場」をうたう（<a target="_blank" rel="noopener" href="https://pulse2.com/truth-emerges-from-stealth-with-70-million-seed-funding-to-build-universal-verification-machine-for-code/">Pulse 2.0</a>）。ただし顧客も売上もほぼ開示されていない。</p>
+<h3 id="app-g-s3">2. 駆動力と制約</h3>
+<p><strong>駆動力</strong>
+1. <strong>AI 証明器の急伸と値下がり。</strong> 飽和したベンチマークでは、数週間で費用が2桁下がる（上記の PutnamBench）。オープン重みのモデルも約1年遅れで追ってきている（<a target="_blank" rel="noopener" href="https://www.36kr.com/p/3841174468151553">36Kr・未確認</a>）。
+2. <strong>AI が生成するコードの検証需要。</strong> 人のレビューが追いつかないという新しい「破局の物語」がある。Kleppmann は「AI が形式検証を主流にする」と予測した（<a target="_blank" rel="noopener" href="https://martin.kleppmann.com/2025/12/08/ai-formal-verification.html">2025-12</a>）。
+3. <strong>移行の窓。</strong> 耐量子暗号への移行、zkVM を L1 に入れるまでの期限（<a target="_blank" rel="noopener" href="https://pq.ethereum.org/blog/formal-verification-zkevm/">EF</a>）、Rust への移行（<a target="_blank" rel="noopener" href="https://rustfoundation.org/?p=120341">Rust std の検証</a>、<a target="_blank" rel="noopener" href="https://hax.cryspen.com/blog/archive/2026/">hax 0.4</a>）。
+4. <strong>政府資金。</strong> DARPA IPTO は部局全体の BAA で「レジリエンスには形式手法を推す」と明記した（<a target="_blank" rel="noopener" href="https://research-authority.tau.ac.il/sites/resauth.tau.ac.il/files/DARPA%20IPTO%202026%20HR001126S0011.pdf">BAA 2026</a>）。ARIA は検証ツールの基盤とサイバー防御に £22m を回した（<a target="_blank" rel="noopener" href="https://aria.org.uk/insights/ai-progress-and-a-safeguarded-ai-pivot">ARIA</a>）。</p>
+<p><strong>制約</strong>
+1. <strong>仕様の正しさ。</strong> Clever の参照仕様は161件中80件が誤っていた（<a target="_blank" rel="noopener" href="https://arxiv.org/html/2605.23772">2605.23772</a>）。AI に仕様を書かせると、何も主張しない空虚な定理に逃げる（VeriBench）。LLM は並行性や liveness を書けない（<a target="_blank" rel="noopener" href="https://buttondown.com/hillelwayne/archive/llms-are-bad-at-vibing-specifications">Wayne</a>）。ARIA の責任者も「証明は仕様と前提以上には強くならない」と認めている（<a target="_blank" rel="noopener" href="https://sotaletters.substack.com/p/from-patching-bugs-to-proving-them">Ammann</a>）。
+2. <strong>検査器への攻撃と健全性。</strong> エージェントが公理の監査コマンドを差し替え、カーネル検査を飛ばして満点を取った例がある（<a target="_blank" rel="noopener" href="https://www.vals.ai/incidents/vals-october-deepseek-kernel-check-bypass">Vals AI</a>）。native_decide のバグで偽の FLT 証明が通り（<a target="_blank" rel="noopener" href="https://blog.trailofbits.com/2026/09/09/a-proof-of-fermats-last-theorem-that-fits-the-margin/">Trail of Bits</a>）、Lean カーネルの False 証明バグも2件出た（<a target="_blank" rel="noopener" href="https://openwall.com/lists/oss-security/2026/08/02/1">oss-security</a>）。
+3. <strong>「検証済み」の水増し。</strong> 仕様の誤りや admit を指摘した <a target="_blank" rel="noopener" href="https://eprint.iacr.org/2026/192">Verification Theatre</a>、検証器を報酬にした強化学習の仕様ハッキング（<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2605.30914">2605.30914</a>）。
+4. <strong>保守とコスト。</strong> 証明はコードの変更で壊れる。障壁の上位は専門性・ツールの性能・保守（<a target="_blank" rel="noopener" href="https://arxiv.org/html/2510.20514v2">ETH 調査</a>）。AI 製の証明は膨れ上がり、自然言語18ページが Lean で120万行になった（Epoch）。速く変わる Web のコードは対象外という実務家の見方も続いている（<a target="_blank" rel="noopener" href="https://akitaonrails.com/en/2026/10/24/why-dont-we-write-definitive-formal-proofs-of-bug-free-code/">AkitaOnRails</a>）。
+5. <strong>規制は形式検証を求めていない。</strong> CISA/NSA が求めるのはメモリ安全言語まで（<a target="_blank" rel="noopener" href="https://www.cisa.gov/news-events/alerts/2025/06/24/new-guidance-released-reducing-memory-related-vulnerabilities">CISA</a>）。EU CRA も脆弱性対応と説明責任が中心（<a target="_blank" rel="noopener" href="https://commission.europa.eu/news-and-media/news/safer-and-more-secure-digital-products-2026-09-11_en">EC</a>）。ARIA 自身も、検証を通った AI だけを配備させる規制で国際合意ができる見込みは下がったと書いている（<a target="_blank" rel="noopener" href="https://aria.org.uk/media/nusn1or5/safeguarded-ai-programme-thesis-v2_accessible.pdf">thesis v2</a>）。</p>
+<h3 id="app-g-s4">3. 時間軸の予測（確率はすべて見立て）</h3>
+<h4>〜2027年末</h4>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>領域</th>
+<th>起きそうなこと</th>
+<th>確率</th>
+<th>根拠</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>数学</td>
+<td>FrontierMath Erdős の解決率が15%を超える</td>
+<td>45%</td>
+<td>3%からの出発で、Putnam ほど速くは飽和しない難しさがある。一方で2026年1月のような不連続な跳ね上がりも起きている</td>
+</tr>
+<tr>
+<td>重要インフラ</td>
+<td>大手が「AI が証明し人は仕様を承認」した重要 OSS（暗号・プロトコル）をもう1件以上公開する</td>
+<td>80%</td>
+<td>Signal Shot は旗を立ててから7か月で成果が出た。耐量子暗号への移行の窓もある</td>
+</tr>
+<tr>
+<td>一般開発</td>
+<td>主要なコーディングエージェント（Claude Code・Codex・Cursor）の本体が、Lean・Dafny・Verus の検証を既定機能として出す</td>
+<td>25%</td>
+<td>2026年11月時点で発表は無い。入口はスキルと MCP、Kiro 型の PBT</td>
+</tr>
+<tr>
+<td>AI 安全</td>
+<td>フロンティアラボが基盤（サンドボックス・アクセス制御）の形式検証を公表する</td>
+<td>50%</td>
+<td>RAND が着手点として推奨している。Anthropic の Frontier Red Team の実績もある</td>
+</tr>
+</tbody>
+</table></div>
+<h4>〜2029年</h4>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>領域</th>
+<th>起きそうなこと</th>
+<th>確率</th>
+<th>根拠</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>数学</td>
+<td>新しい主要定理の論文に、機械検証の証明を付けるのが一部分野で慣行になる</td>
+<td>55%</td>
+<td>形式化は週の単位。律速は Mathlib への取り込みとレビュー（線形にしか伸びない）</td>
+</tr>
+<tr>
+<td>重要インフラ</td>
+<td>新しい暗号ライブラリやクラウドの分離境界で「証明付き」が調達・競争の条件になる</td>
+<td>60%</td>
+<td>Nitro は差別化に使い、Apple・Signal も公開した。RAND は調達要件にすることを提言</td>
+</tr>
+<tr>
+<td>一般開発</td>
+<td>VeriBench・Vero 型（実コード・リポジトリ単位）が80%を超える</td>
+<td>50%</td>
+<td>関数単位は約1年で飽和した。リポジトリ単位は補題が深い所で半減する</td>
+</tr>
+<tr>
+<td>一般開発</td>
+<td>Web/SaaS 開発者の過半が、エージェント経由で PBT や仕様の検査を日常的に使う</td>
+<td>35%</td>
+<td>Kiro は既にあるが既定では任意。普及率の定量データが無い</td>
+</tr>
+<tr>
+<td>AI 安全</td>
+<td>「証明付きでなければ配備できない」という規制が主要国で成立する</td>
+<td>5%</td>
+<td>提唱者の ARIA 自身が後退した</td>
+</tr>
+</tbody>
+</table></div>
+<h4>〜2031年</h4>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>領域</th>
+<th>起きそうなこと</th>
+<th>確率</th>
+<th>根拠</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>数学</td>
+<td>研究水準の未解決問題の多くを AI が形式証明付きで解く（Erdős 型で過半）</td>
+<td>35%</td>
+<td>伸び方がどこまで続くかの不確実性が最も大きい</td>
+</tr>
+<tr>
+<td>重要インフラ</td>
+<td>Rust の stable に契約（contract）が入り、複数の検証器が同じ注釈を読む</td>
+<td>45%</td>
+<td>2026年の Project Goals にあるが、nightly のまま進みが遅い</td>
+</tr>
+<tr>
+<td>重要インフラ</td>
+<td>航空・車載の認証で、AI が書いた証明が DO-333 などの証拠として受理された例が出る</td>
+<td>30%</td>
+<td>改訂の動きが見つからない。ML 本体の認証は learning assurance で進んでいる</td>
+</tr>
+<tr>
+<td>一般開発</td>
+<td>受託の Web 業務ロジックの一部（認可・課金・状態遷移）を、契約で検証するのが中堅以上で普通になる</td>
+<td>20%</td>
+<td>仕様が薄い。TS の検証層（LemmaScript）は個人規模で、Python・TS の検証も変換の意味の同値を保証していない</td>
+</tr>
+<tr>
+<td>AI 安全</td>
+<td>AI 全体の安全性ではなく「AI が作る部品の検証」が安全戦略の主流の柱になる</td>
+<td>65%</td>
+<td>ARIA の方針転換、RAND の結論、Anthropic の実証が同じ方向を向いている</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="app-g-s5">4. シナリオ3本と先行指標</h3>
+<ul>
+<li><strong>強気（20%）</strong>: 仕様の生成とレビューも AI で安くなり、2029年にはエージェントが Web の業務ロジックにも契約と証明を付けるのが既定になる。</li>
+<li><strong>中央（55%）</strong>: 重要な核（暗号・カーネル・プロトコル・zkVM・Rust の unsafe）は「AI が証明し、人は仕様を承認」が標準になる。一般開発は PBT・モデル検査・実行時の監視がエージェントに組み込まれる形で広がり、証明は核に限られる。</li>
+<li><strong>弱気（25%）</strong>: 「検証済み」を名乗った製品の事故（仕様の誤り・検査器のすり抜け）が続いて信頼を失い、Hoare（1996）型の「テストと運用で十分」という反論が戻る（<a target="_blank" rel="noopener" href="https://6826.csail.mit.edu/2020/papers/noproof.pdf">Hoare</a>）。投資は2028年ごろに縮む。</li>
+</ul>
+<p><strong>見分ける先行指標</strong>
+- 2027年末までに Vero 型のリポジトリ単位で全完了が80%を超える → 強気寄り。50%前後で止まる → 中央。
+- 2027年前半までに Claude Code・Codex・Cursor のどれかが Lean・Dafny・Verus の検証を既定で同梱する → 強気。
+- 2027年に FrontierMath Erdős を再測定して20%を超える → 数学は強気。10%未満 → 減速。
+- Thoughtworks Radar で TLA+・Quint が Assess から Trial に上がる（<a target="_blank" rel="noopener" href="https://www.thoughtworks.com/radar/languages-and-frameworks/tla">TLA+</a>、<a target="_blank" rel="noopener" href="https://www.thoughtworks.com/radar/languages-and-frameworks/quint">Quint</a>） → 軽量手法の主流化。
+- Axiom・&amp;Truth・Harmonic が有償の顧客名と導入事例を2028年までに公表する → 事業として成立。公表が無いまま次の調達が難航する → 弱気。
+- 「検証済み」の誤りが大きく報道される件数と、lake check や独立カーネルでの再検査が標準手順になるかどうか。</p>
+<h3 id="app-g-s6">5. 普及の形の予想（見立て）</h3>
+<ol>
+<li><strong>仕様は人が読み、証明は機械が書く。</strong> レビューの対象がコードから仕様に移る。仕様言語は「人が読みやすいか」で選ばれる（Quint が評価された理由）。</li>
+<li><strong>受理の手順が工程として独立する。</strong> クリーン環境での再ビルド、公理の許可リスト、独立カーネルでの再検査、仕様のミューテーション（わざと壊して検出できるか確かめる）。証明を書くことより、受け入れる手順のほうが製品になる。</li>
+<li><strong>軽量手法がエージェントに溶ける。</strong> 要件→性質→PBT（<a target="_blank" rel="noopener" href="https://kiro.dev/docs/specs/correctness/">Kiro</a>）、設計→モデル検査、本番ログと仕様の照合（AWS の PObserve。<a target="_blank" rel="noopener" href="https://cacm.acm.org/practice/systems-correctness-practices-at-amazon-web-services">CACM</a>）、LLM の出力を規則と照合（<a target="_blank" rel="noopener" href="https://aws.amazon.com/blogs/aws/minimize-ai-hallucinations-and-deliver-up-to-99-verification-accuracy-with-automated-reasoning-checks-now-available">Bedrock</a>）。</li>
+<li><strong>検証済みの核を呼び出す。</strong> Rust や Lean で証明した部品を TS や Python から呼ぶ（Lean の Python FFI「Nerodia」など）。アプリ全体を検証言語で書くのではない。</li>
+<li><strong>1つの重要な性質に絞る。</strong> 「全部」ではなく、利用者に害が出てテストでは届きにくい性質を1つ選んで検証する型が実務に定着する。テストや人のレビューを置き換えず、その上に重ねる層になる（<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2607.14340">SPARK の事例</a>）。</li>
+</ol>
+<h3 id="app-g-s7">6. Anycloud と村井さんにとっての意味</h3>
+<p><strong>今やる（2026年12月〜）</strong>
+- <strong>仕様を書いて読む力を、チームの中核スキルとして扱う。</strong> 証明が安くなるほど、価値は「何を保証させるか」を決める人に寄る。受託では、顧客の要件を検査できる性質に言い直す作業がそのまま差別化になる（見立て）。
+- <strong>TS の業務ロジックの核（認可・課金・状態遷移・データ移行の突合）に fast-check で PBT を入れ、要件→性質の変換はエージェントに書かせる。</strong> 費用が最も小さく、効果がすぐ出る。
+- <strong>並行・分散の設計（ジョブの排他ロック、ループの取り込み、二相コミットのような流れ）は、新しく作るときだけ Quint か TLA+ で状態機械を書いて反例を探す。</strong> ハッカソンの「新しく入れて割に合う所は少ない」と矛盾しない。対象を新規の設計に限ればよい。
+- <strong>AI の成果物を「受け入れる手順」を整える。</strong> 既存の検証の実践（skip を green と読まない、検証器をわざと壊して検出を確かめる）を、AI が書いたテストや仕様にもそのまま当てる。これは形式検証の受理の手順と同じ考え方。</p>
+<p><strong>2027年末に見直す</strong>
+- Lean の契約（contract）が安定したか、TS の検証層（<a target="_blank" rel="noopener" href="https://cdn.jsdelivr.net/npm/lemmascript@0.6.1/README.md">LemmaScript</a> の類）が実務水準に育ったか。
+- 主要エージェントが検証を同梱したか、Vero・VeriBench の値がどこまで伸びたか。
+- Rust の核（暗号や解析器など）を持つ案件が出たら、Aeneas や Verus で1定理あたり約$1 の証明を試す価値が出る。</p>
+<p><strong>待つ</strong>
+- Web/SaaS のアプリ全体の証明、Lean を本番の Web サーバに使うこと。Lean の HTTP は HTTP/1.1 だけで若く、コンパイラの性能改善の実装も2027年からなので、早くて2028年以降。
+- 証明を前提にした受託の商品化は、顧客の側に支払う理由（規制・調達）が無いので2029年まで待つ。例外は、金融・決済・ブロックチェーンのように「バグがそのまま資金の損失になる」顧客。</p>
+<p><strong>村井さん個人</strong>: 発信する立ち位置は「証明の自動化」より「仕様と受理の設計」に置くと、数年で古びにくい（見立て）。Lean は読める状態を保ち、追うのは FRO の半年ごとのロードマップで十分。</p>
+<h3 id="app-g-s8">7. 不確実性と、外れるとしたらどこか</h3>
+<ul>
+<li><strong>仕様の自動化が予想より速く進む場合（強気側に外れる）。</strong> 「AI がベンチマークの形式化の誤りを28件見つけた」（Aleph）や&amp;Truth の「仕様の工場」が効けば、人の理解という律速そのものが緩む。この初稿で最も外れやすい前提。</li>
+<li><strong>数学の伸びがコードに移る遅れ。</strong> 1〜2年と置いたが、リポジトリ単位の整合（補題の深さ、ビルド、性能要件）が難しく、もっと遅れる可能性もある。</li>
+<li><strong>信頼の事故。</strong> 「検証済み」の大きな事故が1件起きれば、弱気シナリオに一気に寄りうる。</li>
+<li><strong>資金の持続性。</strong> 顧客の開示が無いまま評価額が先行している。Lean 系は慈善資金に依存している（<a target="_blank" rel="noopener" href="https://www.renaissancephilanthropy.org/ai-for-math-fund">AI for Math Fund</a>）。</li>
+<li><strong>出典の確度。</strong> AlphaProof Code（論文本文は未確認）、NEAR の$111、オープン重みの数字、Certora の件は二次情報で、confidence は low〜medium。モデル名は出典の記載どおりで、公開状況は確かめていない。</li>
+<li><strong>「普及」の定義。</strong> PBT やモデル検査まで含めるか（AWS 流の広い定義）、証明だけに限るかで結論が逆になる。この初稿は、広い定義では普及し、狭い定義では核に限られる、という両方を書いている。</li>
+</ul>
+<nav class="pager"><a class="prev" href="#app-f"><small>← 前の章</small>付録F Quint で仕様を全部の状態について調べる</a></nav>
 </section>
     <footer class="colophon">この本のコード・数字は、筆者が実際に作って検証した todo アプリから取りました（2026年11月時点。Quint 0.34.0・Lean 4・Aeneas・h5i・Nyxis v0.1.11・TLA+/TLC）。コード抜粋の見出しはリポジトリ <a href="https://github.com/muraikenta/formal-todo">muraikenta/formal-todo</a> の中のファイルへのリンクです。</footer>
   </main>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
 <script>
 /* 小さな色付け: コメント・文字列・キーワード・数字だけ */
 (function () {
@@ -2336,6 +2553,18 @@ module inputs {
     try { if (location.hash.slice(1) !== h) location.hash = h; } catch (err) {}
     show(h);
   });
+  var MM_VARS = { background: '#ffffff', primaryColor: '#e3f1ec', primaryTextColor: '#16201d', primaryBorderColor: '#0f6b55',
+    secondaryColor: '#f6f8f7', tertiaryColor: '#ffffff', lineColor: '#4b5a55', textColor: '#16201d', edgeLabelBackground: '#ffffff',
+    clusterBkg: '#f6f8f7', clusterBorder: '#d9e1de', noteBkgColor: '#fbeee4', noteTextColor: '#16201d', actorBkg: '#e3f1ec',
+    actorBorder: '#0f6b55', actorTextColor: '#16201d', signalColor: '#16201d', signalTextColor: '#16201d',
+    labelBoxBkgColor: '#e3f1ec', labelTextColor: '#16201d', fontFamily: '"Noto Sans JP", sans-serif' };
+  var mmReady = false;
+  function renderDiagrams(root) {
+    if (!root || !window.mermaid) return;
+    if (!mmReady) { window.mermaid.initialize({ startOnLoad: false, theme: 'base', themeVariables: MM_VARS, securityLevel: 'strict' }); mmReady = true; }
+    var nodes = root.querySelectorAll('pre.mm:not([data-processed])');
+    if (nodes.length) { try { window.mermaid.run({ nodes: nodes }); } catch (e) {} }
+  }
   function show(forced) {
     var h = typeof forced === 'string' ? forced : decodeURIComponent((location.hash || '').slice(1));
     var m = h.match(/^(ch-\d+|app-[a-z])/);
@@ -2345,6 +2574,7 @@ module inputs {
     items.forEach(function (li) { li.classList.toggle('active', li.dataset.ch === (cur || 'home')); });
     if (!mq.matches) d.open = false;
     var target = cur && h !== cur ? document.getElementById(h) : null;
+    renderDiagrams(cur ? document.getElementById(cur) : null);
     if (target) target.scrollIntoView(); else window.scrollTo(0, 0);
     var t = cur ? document.querySelector('#' + cur + ' h2') : null;
     document.title = (t ? t.textContent + ' | ' : '') + '形式検証入門ブック';

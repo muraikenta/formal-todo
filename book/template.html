@@ -123,7 +123,7 @@ figure.code figcaption { font-family: var(--font-mono); font-size: 12px; color: 
 pre { margin: 0; overflow-x: auto; }
 pre code { display: block; background: none; padding: 14px 16px; font-size: 13px; line-height: 1.65; overflow-wrap: normal; white-space: pre; border-radius: 0; }
 aside pre, .chapter > pre:not(.mermaid) { background: var(--code-bg); border-radius: 8px; border: 1px solid var(--rule); margin: 10px 0; }
-pre.mermaid { background: var(--sheet); border: 1px solid var(--rule); border-radius: 10px; padding: 16px; margin: 16px 0 20px; text-align: center; }
+pre.mm { background: var(--sheet); overflow-x: auto; white-space: pre; border: 1px solid var(--rule); border-radius: 10px; padding: 16px; margin: 16px 0 20px; text-align: center; }
 
 /* 囲み */
 aside { border-radius: 10px; padding: 14px 18px 4px; margin: 18px 0 22px; border: 1px solid var(--rule); }
@@ -177,6 +177,8 @@ dl.glossary dd { margin: 0; color: var(--ink-soft); }
 .chapter-bar .code-link { white-space: nowrap; }
 figcaption a { color: inherit; text-decoration: none; }
 figcaption a:hover { color: var(--accent); text-decoration: underline; }
+pre.mm:not([data-processed]) { color: transparent; min-height: 160px; }
+pre.mm svg { max-width: 100%; height: auto; }
 footer.colophon { color: var(--ink-soft); font-size: 12.5px; padding-top: 32px; max-width: 46em; }
 </style>
 
@@ -202,6 +204,7 @@ footer.colophon { color: var(--ink-soft); font-size: 12.5px; padding-top: 32px; 
     <footer class="colophon">この本のコード・数字は、筆者が実際に作って検証した todo アプリから取りました（2026年11月時点。Quint 0.34.0・Lean 4・Aeneas・h5i・Nyxis v0.1.11・TLA+/TLC）。コード抜粋の見出しはリポジトリ <a href="https://github.com/muraikenta/formal-todo">muraikenta/formal-todo</a> の中のファイルへのリンクです。</footer>
   </main>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
 <script>
 /* 小さな色付け: コメント・文字列・キーワード・数字だけ */
 (function () {
@@ -249,6 +252,18 @@ footer.colophon { color: var(--ink-soft); font-size: 12.5px; padding-top: 32px; 
     try { if (location.hash.slice(1) !== h) location.hash = h; } catch (err) {}
     show(h);
   });
+  var MM_VARS = { background: '#ffffff', primaryColor: '#e3f1ec', primaryTextColor: '#16201d', primaryBorderColor: '#0f6b55',
+    secondaryColor: '#f6f8f7', tertiaryColor: '#ffffff', lineColor: '#4b5a55', textColor: '#16201d', edgeLabelBackground: '#ffffff',
+    clusterBkg: '#f6f8f7', clusterBorder: '#d9e1de', noteBkgColor: '#fbeee4', noteTextColor: '#16201d', actorBkg: '#e3f1ec',
+    actorBorder: '#0f6b55', actorTextColor: '#16201d', signalColor: '#16201d', signalTextColor: '#16201d',
+    labelBoxBkgColor: '#e3f1ec', labelTextColor: '#16201d', fontFamily: '"Noto Sans JP", sans-serif' };
+  var mmReady = false;
+  function renderDiagrams(root) {
+    if (!root || !window.mermaid) return;
+    if (!mmReady) { window.mermaid.initialize({ startOnLoad: false, theme: 'base', themeVariables: MM_VARS, securityLevel: 'strict' }); mmReady = true; }
+    var nodes = root.querySelectorAll('pre.mm:not([data-processed])');
+    if (nodes.length) { try { window.mermaid.run({ nodes: nodes }); } catch (e) {} }
+  }
   function show(forced) {
     var h = typeof forced === 'string' ? forced : decodeURIComponent((location.hash || '').slice(1));
     var m = h.match(/^(ch-\d+|app-[a-z])/);
@@ -258,6 +273,7 @@ footer.colophon { color: var(--ink-soft); font-size: 12.5px; padding-top: 32px; 
     items.forEach(function (li) { li.classList.toggle('active', li.dataset.ch === (cur || 'home')); });
     if (!mq.matches) d.open = false;
     var target = cur && h !== cur ? document.getElementById(h) : null;
+    renderDiagrams(cur ? document.getElementById(cur) : null);
     if (target) target.scrollIntoView(); else window.scrollTo(0, 0);
     var t = cur ? document.querySelector('#' + cur + ' h2') : null;
     document.title = (t ? t.textContent + ' | ' : '') + '形式検証入門ブック';
