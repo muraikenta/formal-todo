@@ -37,6 +37,7 @@ export function initialState(clientId: string): ClientState {
 }
 
 function newOpId(state: ClientState): [string, ClientState] {
+  // 例: タブ c1 の 2 番目の操作は "c1:2"。連番は 1 ずつ増える
   const opId = `${state.clientId}:${state.nextOpNo}`;
   return [opId, { ...state, nextOpNo: state.nextOpNo + 1 }];
 }

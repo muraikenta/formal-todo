@@ -64,7 +64,9 @@ theorem length_le_nextId (s : Spec.State) (h : Spec.Inv s) : s.items.length ≤ 
 theorem max_val : core.num.U32.MAX.val = Spec.MaxId := by
   simp [core.num.U32.MAX, U32.rMax, Spec.MaxId]
 
+-- 前提 hinv: 今の状態を読み替えたものが不変条件 Inv を満たすなら
 theorem add_correct (t : Todos) (user : U32) (title : String) (hinv : Spec.Inv (abs t)) :
+    -- Rust の add は panic せず、返り値 r も新しい状態 t' も仕様の add と同じ
     add t user title ⦃ r t' => r.map (·.val) = (Spec.add (abs t) user.val title).1 ∧
                          abs t' = (Spec.add (abs t) user.val title).2 ⦄ := by
   unfold add
@@ -243,7 +245,9 @@ theorem toggle_loop_spec0 (t : Todos) (id : U32) :
   rintro ⟨v, n, k⟩ h
   exact h
 
+-- 前提 hinv: id が重複しないこと（これで仕様の全部反転と Rust の最初の1件が一致する）
 theorem toggle_correct (t : Todos) (user id : U32) (hinv : Spec.Inv (abs t)) :
+    -- 効いたか b も新しい状態 t' も仕様の toggle と同じ
     toggle t user id ⦃ b t' => b = (Spec.toggle (abs t) user.val id.val).1 ∧
                          abs t' = (Spec.toggle (abs t) user.val id.val).2 ⦄ := by
   have hnd := hinv.1
@@ -426,6 +430,7 @@ theorem remove_preserves_inv (t : Todos) (user id : U32) (hinv : Spec.Inv (abs t
 /-! ## まとめ2: 認可は Rust の実装でも成り立つ
 user が何をしても、ほかの人 other の持ち物は変わらない（仕様の `*_others` を Rust に持ち上げる） -/
 
+/-- user ≠ other なら、Rust の add のあとも other の持ち物は変わらない。 -/
 theorem add_others_rust (t : Todos) (user other : U32) (title : String) (hne : user ≠ other)
     (hinv : Spec.Inv (abs t)) :
     add t user title ⦃ _ t' => Spec.ownedBy (abs t') other.val = Spec.ownedBy (abs t) other.val ⦄ := by
@@ -434,14 +439,17 @@ theorem add_others_rust (t : Todos) (user other : U32) (title : String) (hne : u
   show Spec.ownedBy (abs t') other.val = _
   rw [h]; exact Spec.add_others _ _ _ _ ((u32_ne_iff _ _).mp hne)
 
+/-- user ≠ other なら、Rust の toggle のあとも other の持ち物は変わらない。 -/
 theorem toggle_others_rust (t : Todos) (user other id : U32) (hne : user ≠ other)
     (hinv : Spec.Inv (abs t)) :
     toggle t user id ⦃ _ t' => Spec.ownedBy (abs t') other.val = Spec.ownedBy (abs t) other.val ⦄ := by
   apply WP.spec_mono (toggle_correct t user id hinv)
   rintro ⟨b, t'⟩ ⟨-, h⟩
   show Spec.ownedBy (abs t') other.val = _
+  -- 仕様で証明済みの Spec.toggle_others をそのまま使う
   rw [h]; exact Spec.toggle_others _ _ _ _ ((u32_ne_iff _ _).mp hne)
 
+/-- user ≠ other なら、Rust の remove のあとも other の持ち物は変わらない。 -/
 theorem remove_others_rust (t : Todos) (user other id : U32) (hne : user ≠ other) :
     remove t user id ⦃ _ t' => Spec.ownedBy (abs t') other.val = Spec.ownedBy (abs t) other.val ⦄ := by
   apply WP.spec_mono (remove_correct t user id)

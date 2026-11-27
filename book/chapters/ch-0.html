@@ -44,23 +44,23 @@ flowchart LR
 <h4>仕様を書く：「どう並べるか」ではなく「結果が満たすこと」</h4>
 <p>並べ方（アルゴリズム）は書きません。並べ終わった結果が満たすことを2つだけ書きます。</p>
 <figure class="code"><figcaption>sort-aeneas/lean/Spec.lean</figcaption><pre><code class="lang-lean">/-- 小さい順に並んでいる: どの2つを取っても、前のほうが後ろ以下。 -/
-def Sorted (l : List Nat) : Prop := l.Pairwise (· ≤ ·)
+def Sorted (l : List Nat) : Prop := l.Pairwise (· ≤ ·)  -- (· ≤ ·) は「前 ≤ 後ろ」で比べる
 
 /-- `output` は `input` をソートしたものである。 -/
 def IsSortOf (input output : List Nat) : Prop :=
-  Sorted output ∧ output.Perm input</code></pre></figure>
+  Sorted output ∧ output.Perm input  -- 並んでいる、かつ入力の並べ替え</code></pre></figure>
 <p><code>Sorted</code> は「小さい順に並んでいる」、<code>Perm</code> は「入力の並べ替えである（要素を足しても消してもいない）」です。<code>∧</code> は「かつ」。挿入ソートでもマージソートでも、正しいソートならこの2つを満たします。</p>
 </li>
 
 <li>
 <h4>仕様そのものを確かめる</h4>
 <p>仕様が間違っていれば、間違った実装も証明を通ります。だから小さい例で仕様を試します。<code>by decide</code> は「Lean がその場で計算して確かめる」という指示です。</p>
-<figure class="code"><figcaption>sort-aeneas/lean/Spec.lean</figcaption><pre><code class="lang-lean">example : IsSortOf [3, 1, 2] [1, 2, 3] := by decide
+<figure class="code"><figcaption>sort-aeneas/lean/Spec.lean</figcaption><pre><code class="lang-lean">example : IsSortOf [3, 1, 2] [1, 2, 3] := by decide            -- [3,1,2] のソート結果は [1,2,3]
 -- …
 example : ¬ IsSortOf [3, 1, 2] [1, 2] := by decide             -- 1つ消えている
 -- …
 /-- 「並んでいる」だけの仕様は弱い: 全部 0 にする実装でも満たしてしまう。だから並べ替えであることも書く。 -/
-example : Sorted [0, 0, 0] ∧ ¬ IsSortOf [3, 1, 2] [0, 0, 0] := by decide</code></pre></figure>
+example : Sorted [0, 0, 0] ∧ ¬ IsSortOf [3, 1, 2] [0, 0, 0] := by decide  -- 並んではいるが答えではない</code></pre></figure>
 <p><code>¬</code> は「〜ではない」。最後の例が大事です。「並んでいる」だけを仕様にすると、何を入れても <code>[0, 0, 0]</code> を返す実装が通ってしまいます。</p>
 </li>
 
@@ -68,8 +68,8 @@ example : Sorted [0, 0, 0] ∧ ¬ IsSortOf [3, 1, 2] [0, 0, 0] := by decide</cod
 <h4>実装を書く</h4>
 <p>実装はふつうの Rust の挿入ソートで、「どう並べるか」の手順を書きます。</p>
 <figure class="code"><figcaption>sort-aeneas/kernel/src/lib.rs</figcaption><pre><code class="lang-rust">fn insert(v: &amp;mut [u32], i: usize) {
-    let mut j = i;
-    while j &gt; 0 &amp;&amp; v[j - 1] &gt; v[j] {
+    let mut j = i; // j は沈めている値の今の位置
+    while j &gt; 0 &amp;&amp; v[j - 1] &gt; v[j] { // 左隣のほうが大きい間だけ続ける
         v.swap(j - 1, j);
         j -= 1;
     }
@@ -78,9 +78,9 @@ example : Sorted [0, 0, 0] ∧ ¬ IsSortOf [3, 1, 2] [0, 0, 0] := by decide</cod
 /// 挿入ソート: 左から1つずつ、並んでいる部分に差し込む。
 pub fn insertion_sort(v: &amp;mut [u32]) {
     let n = v.len();
-    let mut i = 1;
+    let mut i = 1; // 先頭の1つは、それだけで並んでいる
     while i &lt; n {
-        insert(v, i);
+        insert(v, i); // v[i] を左の並んだ部分に差し込む
         i += 1;
     }
 }</code></pre></figure>
@@ -89,8 +89,8 @@ pub fn insertion_sort(v: &amp;mut [u32]) {
 <li>
 <h4>「実装は仕様を満たす」を証明する</h4>
 <p>Rust は Aeneas（第2章）が Lean の関数に自動で翻訳します。その翻訳結果が仕様を満たすことを定理に書きます。</p>
-<figure class="code"><figcaption>sort-aeneas/lean/Proofs.lean</figcaption><pre><code class="lang-lean">theorem insertion_sort_correct (v : Slice U32) :
-    insertion_sort v ⦃ v' =&gt; Spec.IsSortOf (nat v) (nat v') ⦄ := by
+<figure class="code"><figcaption>sort-aeneas/lean/Proofs.lean</figcaption><pre><code class="lang-lean">theorem insertion_sort_correct (v : Slice U32) :  -- どんな入力 v でも
+    insertion_sort v ⦃ v' =&gt; Spec.IsSortOf (nat v) (nat v') ⦄ := by  -- 止まって v' を返し、v' は v をソートしたもの
   -- …（証明の手順。Lean が検査する）</code></pre></figure>
 <p>読み方は「どんな入力 <code>v</code> でも、<code>insertion_sort v</code> は止まり、panic（Rust の実行時エラーでの異常終了。配列の範囲外アクセスなど）せずに <code>v'</code> を返し、<code>v'</code> は <code>v</code> をソートしたものである」です。<code>nat</code> は Rust の <code>u32</code> の列を、仕様の自然数の列に読み替える関数です。</p>
 </li>

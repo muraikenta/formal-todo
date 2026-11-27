@@ -170,12 +170,12 @@ fn delete(user: u64, s: &Snapshot, id: u64) -> Outcome {
 /// アプリの判断のすべて: コマンドに対する「書き込みの一覧と返事」か、
 /// 何も書かない「拒否」を返す。
 pub fn transition(actor: &Principal, s: &Snapshot, cmd: &Command) -> Outcome {
-    match cmd {
+    match cmd { // どの枝も、操作した人 actor.user で判断する
         Command::Add { title } => add(actor.user, s, title),
         Command::Rename { id, title } => rename(actor.user, s, *id, title),
         Command::SetDone { id, completed } => set_done(actor.user, s, *id, *completed),
         Command::Delete { id } => delete(actor.user, s, *id),
-        Command::List => Ok((Vec::new(), Reply::Todos(todos_of(&s.todos, actor.user)))),
+        Command::List => Ok((Vec::new(), Reply::Todos(todos_of(&s.todos, actor.user)))), // 何も書かず本人の分だけ返す
     }
 }
 

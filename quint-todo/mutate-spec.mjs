@@ -8,6 +8,8 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 
 const src = readFileSync("todo.qnt", "utf8");
+// 各行: [名前, 置き換え元（todo.qnt に1か所だけある文字列）, 置き換え後]
+// 文字列中の \n は改行（複数行にまたがる箇所を置き換える）
 const M = [
   ["toggle が何もしない", "todos' = mapTodos(todos, t => if (t.id == id) { ...t, done: not(t.done) } else t),", "todos' = todos,"],
   ["toggle が2件変える", "if (t.id == id) { ...t, done: not(t.done) }", "if (t.id == id or t.id == id + 1) { ...t, done: not(t.done) }"],

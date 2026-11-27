@@ -31,6 +31,7 @@
 <li><dfn>seq</dfn>：サーバ全体の通し番号。各行に最後に変わったときの seq が付きます。クライアントは取り込んだ位置（<code>lastSeq</code>）を覚え、2秒ごとにそれより新しい変更を取り込みます（<dfn>pull</dfn>）。</li>
 </ul>
 <figure class="code"><figcaption>todo/src/sync.ts</figcaption><pre><code class="lang-js">function newOpId(state: ClientState): [string, ClientState] {
+  // 例: タブ c1 の 2 番目の操作は "c1:2"。連番は 1 ずつ増える
   const opId = `${state.clientId}:${state.nextOpNo}`;
   return [opId, { ...state, nextOpNo: state.nextOpNo + 1 }];
 }
@@ -51,11 +52,13 @@ function loadClientId(): string {
     sessionStorage.setItem("todo-client-id", id);
     return id;
   } catch {
+    // sessionStorage が使えないときは、保存せずに毎回新しい ID
     return crypto.randomUUID();
   }
 }
 
 const clientId = loadClientId();
+// 状態は localStorage のこのキーに保存する（全タブで共有の保存先）
 const storageKey = `todo-state:${clientId}`;</code></pre></figure>
 <pre class="mermaid">
 sequenceDiagram
@@ -122,8 +125,10 @@ sequenceDiagram
 <p>送信の始まりでは、送信中でなく送信待ちが空でなければ、先頭から最大 50 件を送ります。</p>
 <figure class="code"><figcaption>todo/verification/SyncTodo.tla</figcaption><pre><code class="lang-tla">\* push() の await の前まで: pushing でなく outbox が空でなければ先頭から送る
 PushStart(t) ==
+  \* 開いている・送信中でない・送信待ちがある・push の合計が上限未満
   /\ open[t] /\ pushing[t] = 0 /\ outbox[t] # &lt;&lt;&gt;&gt; /\ pushN[1] + pushN[2] &lt; MaxPush
   /\ LET n == pushN[t] + 1 IN
+       \* 送信待ちの先頭から最大 50 件を、n 回目の要求として送る
        /\ reqs' = reqs \cup {[tab |-&gt; t, n |-&gt; n, ops |-&gt; SubSeq(outbox[t], 1, Min(50, Len(outbox[t])))]}
        /\ pushing' = [pushing EXCEPT ![t] = n]
        /\ pushN' = [pushN EXCEPT ![t] = n]
@@ -135,6 +140,7 @@ PushStart(t) ==
 PushGivesUp(t) ==
   /\ pushing[t] # 0
   /\ pushing' = [pushing EXCEPT ![t] = 0]
+  \* 届く途中の応答から、諦めたこの push の分を消す
   /\ resps' = {x \in resps : ~(x.tab = t /\ x.n = pushing[t])}
   /\ ServerUnchanged
   /\ UNCHANGED &lt;&lt;open, closed, cid, nextNo, outbox, conf, lastSeq, pushN, pullSt, store, reqs,
@@ -146,21 +152,25 @@ DuplicateTab ==
   /\ SecondTab = "duplicate" /\ ~open[2] /\ ~closed[2] /\ open[1]
   /\ open' = [open EXCEPT ![2] = TRUE]
   /\ cid' = [cid EXCEPT ![2] = cid[1]]
+  \* 次の連番・送信待ち・確定した行・lastSeq は、保存された状態から読む
   /\ nextNo' = [nextNo EXCEPT ![2] = store[cid[1]].nextNo]
   /\ outbox' = [outbox EXCEPT ![2] = store[cid[1]].outbox]
   /\ conf' = [conf EXCEPT ![2] = store[cid[1]].conf]
   /\ lastSeq' = [lastSeq EXCEPT ![2] = store[cid[1]].lastSeq]
   /\ UNCHANGED &lt;&lt;rows, srvSeq, applied, closed, pushing, pushN, pullSt,
                  store, reqs, resps, usedIds, made, acked, lastExec, orderOk&gt;&gt;</code></pre></figure>
-<p>最後に、ありうる遷移を「または（<code>\/</code>）」でつなぎます。<code>\E t \in Tabs : …</code> は「どれかのタブ t で」（第1章の <code>nondet</code> にあたる）、<code>Spec</code> は「<code>Init</code> から始めて毎歩 <code>Next</code> のどれかが起きる」という決まり文句です。</p>
+<p>最後に、ありうる遷移を「または（<code>\/</code>）」でつなぎます。<code>\E t \in Tabs : …</code> は「どれかのタブ t で」（第1章の <code>nondet</code> にあたる）です。<code>Spec</code> の行は決まり文句です。</p>
 <figure class="code"><figcaption>todo/verification/SyncTodo.tla</figcaption><pre><code class="lang-tla">Next ==
+  \* どれかのタブでユーザーが追加・名前変更・完了切替・削除する
   \/ \E t \in Tabs : YouCreate(t) \/ YouRename(t) \/ YouToggle(t) \/ YouDelete(t)
   \/ OpenNewTab \/ DuplicateTab
   \/ \E t \in Tabs : Reload(t) \/ CloseTab(t)
   \/ \E t \in Tabs : PushStart(t) \/ PushGivesUp(t)
+  \* 要求が消える・サーバが要求を処理する・タブに応答が届く
   \/ RequestLost \/ ServerPush \/ PushOk
   \/ \E t \in Tabs : PullRead(t) \/ PullOk(t)
 
+\* Init から始まり、毎歩 Next のどれかが起きる（何も変わらない歩も許す）
 Spec == Init /\ [][Next]_vars</code></pre></figure>
 </li>
 
@@ -175,6 +185,7 @@ Spec == Init /\ [][Next]_vars</code></pre></figure>
 </ul>
 <figure class="code"><figcaption>todo/verification/SyncTodo.tla</figcaption><pre><code class="lang-tla">\* 1. 確認が来たとして送信待ちから外した操作は、その操作としてサーバに反映されている
 \*    （別の操作と取り違えて「もう反映済み」と捨てられていない）
+\*    式: acked のどの操作 o も applied に入っている
 AckedMeansApplied == \A o \in acked : o \in applied
 
 \* 2. 同じクライアントの操作は、サーバで操作した順に 1 回ずつ反映される
@@ -186,6 +197,7 @@ Settled ==
   /\ reqs = {} /\ resps = {}
   /\ \A t \in Tabs : open[t] =&gt;
        (outbox[t] = &lt;&lt;&gt;&gt; /\ pushing[t] = 0 /\ pullSt[t] = Idle /\ lastSeq[t] = srvSeq)
+\*    式: Settled ならば、開いている全タブの画面 = サーバの一覧
 Converged == Settled =&gt; \A t \in Tabs : open[t] =&gt; View(t) = ServerView
 
 \* 4. ユーザーが積んだ操作は、サーバに反映済みか、開いているタブの送信待ちにあるか、
@@ -200,19 +212,27 @@ NoOpLost ==
 
 <li>
 <h4>ステップ6：範囲を決めて TLC で全部たどる</h4>
-<p>全部たどるには世界を有限にします。設定ファイル（<code>.cfg</code>）で、todo 1件・名前2種類・各タブの操作2回・push 合計3回までに絞ります。2枚目のタブを「同じ URL を別タブで開く」か「複製する」かもここで選びます。</p>
+<p>全部たどるには世界を有限にします。設定ファイル（<code>.cfg</code>）で、todo の数や操作の回数に上限を付けます。2枚目のタブを「同じ URL を別タブで開く」か「複製する」かもここで選びます。</p>
 <figure class="code"><figcaption>todo/verification/SyncTodo.cfg</figcaption><pre><code class="lang-tla">\* 別のタブで同じ URL を開く場合（クライアント ID がタブごとに違う）・リロードあり。4 つの性質がすべて成り立つはず。todo 1 件
 CONSTANTS
+  \* todo の ID は 1 つだけ（todo 1 件）
   Ids = {1}
+  \* 名前は "A" と "B" の 2 種類
   Titles = {"A", "B"}
+  \* 各タブの操作は 2 回まで
   MaxOpNo = 2
+  \* push は全タブ合計で 3 回まで
   MaxPush = 3
+  \* 2 枚目は同じ URL を別タブで開く（"duplicate" なら複製）
   SecondTab = "new"
+  \* リロードあり・タブを閉じるなし・古い画面からの操作なし
   CanReload = TRUE
   CanClose = FALSE
   StaleUI = FALSE
 SPECIFICATION Spec
+\* 全部の状態で確かめる 4 つの性質
 INVARIANTS AckedMeansApplied ClientOrderKept Converged NoOpLost
+\* 上限まで操作して止まった状態を、行き詰まり（エラー）と見なさない
 CHECK_DEADLOCK FALSE
 </code></pre></figure>
 <p>この設定では4つとも成り立ちます（1,499,907 状態・1ワーカーで約 90 秒）。設定は6つあり、入れる操作が違います。</p>

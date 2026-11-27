@@ -208,8 +208,8 @@ theorem insertion_sort_loop_spec (v0 : List U32) (w : Slice U32) (n i : Usize)
 /-- Rust の u32 の列を、仕様の自然数の列に読み替える。 -/
 def nat (v : Slice U32) : List Nat := v.val.map (·.val)
 
-theorem insertion_sort_correct (v : Slice U32) :
-    insertion_sort v ⦃ v' => Spec.IsSortOf (nat v) (nat v') ⦄ := by
+theorem insertion_sort_correct (v : Slice U32) :  -- どんな入力 v でも
+    insertion_sort v ⦃ v' => Spec.IsSortOf (nat v) (nat v') ⦄ := by  -- 止まって v' を返し、v' は v をソートしたもの
   unfold insertion_sort
   have := insertion_sort_loop_spec v.val v (Slice.len v) 1#usize (by simp) rfl (List.Perm.refl _)
     (sorted_take_one _) (by simp) (by

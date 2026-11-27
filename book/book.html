@@ -270,23 +270,23 @@ flowchart LR
 <h4>仕様を書く：「どう並べるか」ではなく「結果が満たすこと」</h4>
 <p>並べ方（アルゴリズム）は書きません。並べ終わった結果が満たすことを2つだけ書きます。</p>
 <figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/sort-aeneas/lean/Spec.lean">sort-aeneas/lean/Spec.lean</a></figcaption><pre><code class="lang-lean">/-- 小さい順に並んでいる: どの2つを取っても、前のほうが後ろ以下。 -/
-def Sorted (l : List Nat) : Prop := l.Pairwise (· ≤ ·)
+def Sorted (l : List Nat) : Prop := l.Pairwise (· ≤ ·)  -- (· ≤ ·) は「前 ≤ 後ろ」で比べる
 
 /-- `output` は `input` をソートしたものである。 -/
 def IsSortOf (input output : List Nat) : Prop :=
-  Sorted output ∧ output.Perm input</code></pre></figure>
+  Sorted output ∧ output.Perm input  -- 並んでいる、かつ入力の並べ替え</code></pre></figure>
 <p><code>Sorted</code> は「小さい順に並んでいる」、<code>Perm</code> は「入力の並べ替えである（要素を足しても消してもいない）」です。<code>∧</code> は「かつ」。挿入ソートでもマージソートでも、正しいソートならこの2つを満たします。</p>
 </li>
 
 <li>
 <h4>仕様そのものを確かめる</h4>
 <p>仕様が間違っていれば、間違った実装も証明を通ります。だから小さい例で仕様を試します。<code>by decide</code> は「Lean がその場で計算して確かめる」という指示です。</p>
-<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/sort-aeneas/lean/Spec.lean">sort-aeneas/lean/Spec.lean</a></figcaption><pre><code class="lang-lean">example : IsSortOf [3, 1, 2] [1, 2, 3] := by decide
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/sort-aeneas/lean/Spec.lean">sort-aeneas/lean/Spec.lean</a></figcaption><pre><code class="lang-lean">example : IsSortOf [3, 1, 2] [1, 2, 3] := by decide            -- [3,1,2] のソート結果は [1,2,3]
 -- …
 example : ¬ IsSortOf [3, 1, 2] [1, 2] := by decide             -- 1つ消えている
 -- …
 /-- 「並んでいる」だけの仕様は弱い: 全部 0 にする実装でも満たしてしまう。だから並べ替えであることも書く。 -/
-example : Sorted [0, 0, 0] ∧ ¬ IsSortOf [3, 1, 2] [0, 0, 0] := by decide</code></pre></figure>
+example : Sorted [0, 0, 0] ∧ ¬ IsSortOf [3, 1, 2] [0, 0, 0] := by decide  -- 並んではいるが答えではない</code></pre></figure>
 <p><code>¬</code> は「〜ではない」。最後の例が大事です。「並んでいる」だけを仕様にすると、何を入れても <code>[0, 0, 0]</code> を返す実装が通ってしまいます。</p>
 </li>
 
@@ -294,8 +294,8 @@ example : Sorted [0, 0, 0] ∧ ¬ IsSortOf [3, 1, 2] [0, 0, 0] := by decide</cod
 <h4>実装を書く</h4>
 <p>実装はふつうの Rust の挿入ソートで、「どう並べるか」の手順を書きます。</p>
 <figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/sort-aeneas/kernel/src/lib.rs">sort-aeneas/kernel/src/lib.rs</a></figcaption><pre><code class="lang-rust">fn insert(v: &amp;mut [u32], i: usize) {
-    let mut j = i;
-    while j &gt; 0 &amp;&amp; v[j - 1] &gt; v[j] {
+    let mut j = i; // j は沈めている値の今の位置
+    while j &gt; 0 &amp;&amp; v[j - 1] &gt; v[j] { // 左隣のほうが大きい間だけ続ける
         v.swap(j - 1, j);
         j -= 1;
     }
@@ -304,9 +304,9 @@ example : Sorted [0, 0, 0] ∧ ¬ IsSortOf [3, 1, 2] [0, 0, 0] := by decide</cod
 /// 挿入ソート: 左から1つずつ、並んでいる部分に差し込む。
 pub fn insertion_sort(v: &amp;mut [u32]) {
     let n = v.len();
-    let mut i = 1;
+    let mut i = 1; // 先頭の1つは、それだけで並んでいる
     while i &lt; n {
-        insert(v, i);
+        insert(v, i); // v[i] を左の並んだ部分に差し込む
         i += 1;
     }
 }</code></pre></figure>
@@ -315,8 +315,8 @@ pub fn insertion_sort(v: &amp;mut [u32]) {
 <li>
 <h4>「実装は仕様を満たす」を証明する</h4>
 <p>Rust は Aeneas（第2章）が Lean の関数に自動で翻訳します。その翻訳結果が仕様を満たすことを定理に書きます。</p>
-<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/sort-aeneas/lean/Proofs.lean">sort-aeneas/lean/Proofs.lean</a></figcaption><pre><code class="lang-lean">theorem insertion_sort_correct (v : Slice U32) :
-    insertion_sort v ⦃ v' =&gt; Spec.IsSortOf (nat v) (nat v') ⦄ := by
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/sort-aeneas/lean/Proofs.lean">sort-aeneas/lean/Proofs.lean</a></figcaption><pre><code class="lang-lean">theorem insertion_sort_correct (v : Slice U32) :  -- どんな入力 v でも
+    insertion_sort v ⦃ v' =&gt; Spec.IsSortOf (nat v) (nat v') ⦄ := by  -- 止まって v' を返し、v' は v をソートしたもの
   -- …（証明の手順。Lean が検査する）</code></pre></figure>
 <p>読み方は「どんな入力 <code>v</code> でも、<code>insertion_sort v</code> は止まり、panic（Rust の実行時エラーでの異常終了。配列の範囲外アクセスなど）せずに <code>v'</code> を返し、<code>v'</code> は <code>v</code> をソートしたものである」です。<code>nat</code> は Rust の <code>u32</code> の列を、仕様の自然数の列に読み替える関数です。</p>
 </li>
@@ -436,16 +436,17 @@ flowchart LR
 <li>
 <h4>ステップ1: 状態を書く</h4>
 <p>アプリが覚えていることを <dfn>状態</dfn> と呼びます。todo の一覧と、次に振る id の2つです。Quint では <code>var</code> で宣言します。</p>
-<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/quint-todo/todo.qnt">quint-todo/todo.qnt</a></figcaption><pre><code class="lang-quint">  type Todo = { id: int, title: str, done: bool }
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/quint-todo/todo.qnt">quint-todo/todo.qnt</a></figcaption><pre><code class="lang-quint">  // 1件の todo: 番号・題名・完了したか
+  type Todo = { id: int, title: str, done: bool }
 
   var todos: List[Todo]    // 画面に並ぶ順
   var nextId: int          // 次に振る id
   // 以下は「前後の性質」を書くための記録（アプリには無い）
-  var lastAction: str
+  var lastAction: str      // 直前の操作の名前（"add" など）
   var lastId: int          // 直前の操作の対象 id
   var lastTitle: str       // 直前の操作の題名（空白を取った後）
-  var prevTodos: List[Todo]
-  var prevNextId: int</code></pre></figure>
+  var prevTodos: List[Todo]  // 直前の操作をする前の todos
+  var prevNextId: int        // 直前の操作をする前の nextId</code></pre></figure>
 <p><code>last…</code> と <code>prev…</code> は検査用の記録で、ステップ7で使います。アプリの状態は todos と nextId だけです。</p>
 </li>
 
@@ -454,14 +455,20 @@ flowchart LR
 <p>状態を変える操作を <dfn>action</dfn>（アクション）と呼びます。<code>todos'</code> のように <code>'</code>（プライム）を付けた名前が操作後の値です。</p>
 <figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/quint-todo/todo.qnt">quint-todo/todo.qnt</a></figcaption><pre><code class="lang-quint">  // 追加: 空白を取って空になるものは弾く（何も変わらない）
   action add(raw: str): bool = {
+    // 生の入力を、空白を取った題名に変える（表で引く）
     val title = INPUTS.get(raw)
     all {
+      // 試す範囲の上限: nextId が MAX_ID 未満の間だけ追加できる
       nextId &lt; MAX_ID,
+      // 検査用に「直前は add、題名は title」と記録する
       record("add", -1, title),
+      // 空欄なら todos も nextId もそのまま
       if (title == "")
         all { todos' = todos, nextId' = nextId }
       else {
+        // 普段は nextId を振る（BUG 版だけ「いまの件数」を振る）
         val newId = if (BUG == "idFromLength") todos.length() else nextId
+        // 末尾に未完了で1件足し、nextId を1進める
         all {
           todos' = todos.append({ id: newId, title: title, done: false }),
           nextId' = nextId + 1,
@@ -469,13 +476,14 @@ flowchart LR
       },
     }
   }</code></pre></figure>
-<p><code>all { … }</code> は「中の条件が全部成り立つ」です。<code>nextId &lt; MAX_ID</code> は、調べる範囲を有限にするための上限です。</p>
-<p><code>record</code> は直前の操作の記録、<code>BUG</code> はわざと間違えた版への切り替えです。<code>INPUTS.get(raw)</code> は生の入力を空白を取った題名に変える表で、Quint に <code>trim</code> が無いので表で渡します。</p>
+<p><code>all { … }</code> は「中の条件が全部成り立つ」です。</p>
+<p>空白を <code>INPUTS</code> の表で取るのは、Quint に <code>trim</code> が無いからです。</p>
 <p>最後に、1歩ごとに6つのどれかが起きると書きます。</p>
 <figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/quint-todo/todo.qnt">quint-todo/todo.qnt</a></figcaption><pre><code class="lang-quint">  // id は「いまある id」だけでなく範囲全体から選ぶ（無い id への操作が無害かも確かめる）
   action step = {
-    nondet raw = INPUTS.keys().oneOf()
-    nondet id = 0.to(MAX_ID - 1).oneOf()
+    nondet raw = INPUTS.keys().oneOf()      // 入力欄の文字列を候補から1つ選ぶ
+    nondet id = 0.to(MAX_ID - 1).oneOf()    // 対象の id を 0〜MAX_ID-1 から1つ選ぶ
+    // 次の6つのどれか1つが起きる
     any {
       add(raw),
       toggle(id),
@@ -493,14 +501,17 @@ flowchart LR
 <h4>ステップ3: 不変条件を書く</h4>
 <p><dfn>不変条件</dfn>は、どの操作の後でも成り立ってほしい性質です。</p>
 <figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/quint-todo/todo.qnt">quint-todo/todo.qnt</a></figcaption><pre><code class="lang-quint">  // ---- 形の性質（1つの状態で言えること） ----
+  // id がかぶらない（id の種類の数 ＝ 件数）
   val idsUnique = idsOf(todos).size() == todos.length()
   // id は並び順に増えていく（追加は末尾・他の操作は順番を変えない）
   val idsAscending = todos.indices().forall(i =&gt; i == 0 or todos[i - 1].id &lt; todos[i].id)
   // 振った id は nextId 未満（次に振る id がすでに使われていない）
   val idsFresh = todos.indices().forall(i =&gt; todos[i].id &lt; nextId)
+  // 題名が空の todo は無い
   val noEmptyTitles = todos.indices().forall(i =&gt; todos[i].title != "")
   // 保存される題名は必ず「空白を取った後」の形（生の入力のまま入っていない）
   val titlesNormalized = todos.indices().forall(i =&gt; INPUTS.keys().map(k =&gt; INPUTS.get(k)).contains(todos[i].title))
+  // 形の性質を全部まとめたもの
   val shapeOk = idsUnique and idsAscending and idsFresh and noEmptyTitles and titlesNormalized</code></pre></figure>
 <p>1つの状態を見れば言えるので、<dfn>形の性質</dfn>と呼びます。</p>
 </li>
@@ -508,22 +519,26 @@ flowchart LR
 <li>
 <h4>ステップ4: 具体例で動かす（quint test）</h4>
 <p>まず具体的な操作の列で動きを確かめます。単体テストと同じ感覚です。</p>
-<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/quint-todo/todo.qnt">quint-todo/todo.qnt</a></figcaption><pre><code class="lang-quint">  run addTwoThenToggleAllTest =
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/quint-todo/todo.qnt">quint-todo/todo.qnt</a></figcaption><pre><code class="lang-quint">  // "milk" と " milk " を足して全部切り替え → 2件とも完了、2件目の題名も "milk"
+  run addTwoThenToggleAllTest =
     initState.then(add("milk")).then(add(" milk ")).then(toggleAll)
       .expect(todos.length() == 2 and allDone(todos) and todos[1].title == "milk")
+  // 空欄・半角空白・全角空白は弾かれ、件数も nextId も 0 のまま
   run emptyTitleRejectedTest =
     initState.then(add("")).then(add(" ")).then(add("　")).expect(todos.length() == 0 and nextId == 0)</code></pre></figure>
-<p><code>.then(…)</code> は「続けてこの操作」、<code>.expect(…)</code> は「最後にこれが成り立つ」です。2つ目は空白だけの題名が弾かれることを見ます。具体例は4本です。</p>
+<p><code>.then(…)</code> は「続けてこの操作」、<code>.expect(…)</code> は「最後にこれが成り立つ」です。具体例は4本です。</p>
 <p>動かすときは、上限などの定数を埋めた版を選びます。</p>
 <figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/quint-todo/todo.qnt">quint-todo/todo.qnt</a></figcaption><pre><code class="lang-quint">// TLC で全網羅する版: id は 0〜3 まで（4件まで追加できる）
 module todo4 {
   import inputs.*
+  // 定数を埋めて todo を取り込む（上限 4・標準の入力・バグなし）
   import todo(MAX_ID = 4, INPUTS = INPUTS_STD, BUG = "none").*
 }
 
 // MBT のトレースを作る版: 範囲を広げる（4 で区切ると「5件目で壊れる」実装を見逃した）
 module todo7 {
   import inputs.*
+  // 上限だけ 7 にした同じ仕様
   import todo(MAX_ID = 7, INPUTS = INPUTS_STD, BUG = "none").*
 }</code></pre></figure>
 <aside class="try"><b>やってみよう</b>具体例4本を流します。
@@ -549,14 +564,16 @@ quint verify todo.qnt --main=todo4 --backend=tlc --invariant=safety</code></pre>
 <li>
 <h4>ステップ6: わざと壊した仕様で検査を試す（変異テスト）</h4>
 <p>緑でも、検査が甘いだけかもしれません。わざと書き間違えた仕様を検査が見つけるかを数えるのが <dfn>変異テスト</dfn> です。</p>
-<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/quint-todo/mutate-spec.mjs">quint-todo/mutate-spec.mjs</a></figcaption><pre><code class="lang-js">const M = [
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/quint-todo/mutate-spec.mjs">quint-todo/mutate-spec.mjs</a></figcaption><pre><code class="lang-js">// 各行: [名前, 置き換え元（todo.qnt に1か所だけある文字列）, 置き換え後]
+// 文字列中の \n は改行（複数行にまたがる箇所を置き換える）
+const M = [
   ["toggle が何もしない", "todos' = mapTodos(todos, t =&gt; if (t.id == id) { ...t, done: not(t.done) } else t),", "todos' = todos,"],
   ["toggle が2件変える", "if (t.id == id) { ...t, done: not(t.done) }", "if (t.id == id or t.id == id + 1) { ...t, done: not(t.done) }"],
   // …
   ["remove が全件消す", "todos' = todos.select(t =&gt; t.id != id),\n    nextId' = nextId,\n    record(\"remove\"", "todos' = List(),\n    nextId' = nextId,\n    record(\"remove\""],
   // …
 ];</code></pre></figure>
-<p>各行は「名前・元・書き換え後」です。いまの仕様は <strong>20本中20本</strong>を検出します。</p>
+<p>いまの仕様は <strong>20本中20本</strong>を検出します。</p>
 <aside class="try"><b>やってみよう</b>
 <pre><code class="lang-bash">cd quint-todo
 node mutate-spec.mjs</code></pre>
@@ -567,17 +584,21 @@ node mutate-spec.mjs</code></pre>
 <h4>ステップ7: 前後の性質を足す</h4>
 <p>形の性質だけの最初の版は、<strong>17本中16本を見逃しました</strong>。「全部消す」「何もしない」も形は保つからです。</p>
 <p>そこで操作の前後を比べる <dfn>前後の性質</dfn>を足しました。</p>
-<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/quint-todo/todo.qnt">quint-todo/todo.qnt</a></figcaption><pre><code class="lang-quint">  val toggleOk = lastAction == "toggle" implies all {
-    sameIds(todos, prevTodos),
-    todos.indices().forall(i =&gt; todos[i].title == prevTodos[i].title),
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/quint-todo/todo.qnt">quint-todo/todo.qnt</a></figcaption><pre><code class="lang-quint">  // 直前の操作が toggle なら、次の3つが全部成り立つ
+  val toggleOk = lastAction == "toggle" implies all {
+    sameIds(todos, prevTodos),                                          // id の並びは前と同じ（増えも減りもしない）
+    todos.indices().forall(i =&gt; todos[i].title == prevTodos[i].title),  // 題名はどれも変わらない
+    // 対象 id の1件だけ done が反転し、他の done は前のまま
     todos.indices().forall(i =&gt;
       todos[i].done == (if (prevTodos[i].id == lastId) not(prevTodos[i].done) else prevTodos[i].done)),
   }
   // …（addOk, removeOk, editOk, toggleAllOk, clearOk も同じ形）
+  // 操作ごとの前後の性質をまとめたもの
   val stepOk = nextIdOk and addOk and toggleOk and removeOk and editOk and toggleAllOk and clearOk
 
+  // 検査に渡す不変条件: 形の性質 ＋ 前後の性質
   val safety = shapeOk and stepOk</code></pre></figure>
-<p>「直前が toggle なら、対象の1件の done だけが反転する」と読みます。これで 20/20 になりました。</p>
+<p>これで 20/20 になりました。</p>
 <aside class="note"><b>ポイント</b>操作ごとに「決まったところだけ変え、他には触らない」まで書いて、初めて操作の意味を書いたことになります。</aside>
 </li>
 
@@ -585,10 +606,12 @@ node mutate-spec.mjs</code></pre>
 <h4>ステップ8: 仕様から作った列をアプリに流す（MBT）</h4>
 <p>アプリの中身は画面から切り離した状態遷移の関数で、action 1つが <code>case</code> 1つに対応します。</p>
 <figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/quint-todo/app/todo-core.mjs">quint-todo/app/todo-core.mjs</a></figcaption><pre><code class="lang-js">export function reduce(state, action) {
+  // 操作の種類ごとに次の状態を返す（元の state は書き換えない）
   switch (action.type) {
     case "add": {
       const title = (action.title ?? "").trim();
       if (title === "") return state; // 空欄は弾く
+      // 末尾に未完了で1件足し、次に振る id を1進める
       return {
         todos: [...state.todos, { id: state.nextId, title, done: false }],
         nextId: state.nextId + 1,
@@ -598,16 +621,18 @@ node mutate-spec.mjs</code></pre>
 <p><dfn>MBT</dfn>（モデルベーステスト）は、仕様が出した操作の列をアプリに1歩ずつ流し、毎歩状態を比べるテストです。列は <dfn>ITF トレース</dfn>という JSON に書き出します。</p>
 <figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/quint-todo/mbt.mjs">quint-todo/mbt.mjs</a></figcaption><pre><code class="lang-js">  for (let i = 1; i &lt; states.length; i++) {
     const s = states[i];
-    const type = s["mbt::actionTaken"];
-    const picks = fromItf(s["mbt::nondetPicks"]);
+    const type = s["mbt::actionTaken"];             // この歩で仕様が選んだ操作の名前（"add" など）
+    const picks = fromItf(s["mbt::nondetPicks"]);   // nondet で選んだ値（raw・id）
+    // 選ばれた引数はその値、この操作で使わなかった引数は undefined
     const arg = (n) =&gt; (picks[n]?.tag === "Some" ? picks[n].value : undefined);
     // Quint の action の引数と同じものを渡す（使わない引数はアプリ側が無視する）
     const action = { type, id: arg("id"), title: arg("raw") };
     // …
-    impl = reduce(impl, action);
+    impl = reduce(impl, action); // アプリに同じ操作を1歩させる
     // …
-    const model = { todos: pick(s, "todos"), nextId: pick(s, "nextId") };
+    const model = { todos: pick(s, "todos"), nextId: pick(s, "nextId") }; // 同じ歩の仕様側の状態
     // …
+    // アプリと仕様で todos・nextId・残り件数のどれかが違えば食い違い
     if (implView(impl) !== modelView(model)) {</code></pre></figure>
 <p>比べるのは todos・nextId と「残り N 件」です。トレースは seed を固定して200本作るので、毎回同じ列になります。</p>
 <pre class="mermaid">
@@ -643,13 +668,14 @@ node mutate.mjs</code></pre>
 </ul>
 <figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/quint-todo/todo.qnt">quint-todo/todo.qnt</a></figcaption><pre><code class="lang-quint">// 入力の候補: 空欄・空白だけ・全角空白だけ・前後に空白・大文字・日本語（全角空白で囲む）・長い題名
 module inputs {
+  // 左が入力欄に打たれる文字列、右が空白を取った後の題名
   pure val INPUTS_STD = Map(
     "" -&gt; "",
-    " " -&gt; "",
-    "　" -&gt; "",
+    " " -&gt; "",     // 半角空白だけ → 空
+    "　" -&gt; "",    // 全角空白だけ → 空
     "milk" -&gt; "milk",
     " milk " -&gt; "milk",
-    "Milk" -&gt; "Milk",
+    "Milk" -&gt; "Milk",   // 大文字は変えない
     "　牛乳を買う　" -&gt; "牛乳を買う",
     "a very long title that keeps going and going" -&gt; "a very long title that keeps going and going",
   )
@@ -749,15 +775,19 @@ def mine (u id : Nat) (t : Todo) : Bool := t.id == id &amp;&amp; t.owner == u
 /-- 足す: u が持ち主の未完了の todo を末尾に足し、振った id を返す。id を使い切っていたら何も変えずに none。 -/
 def add (s : State) (u : Nat) (title : String) : Option Nat × State :=
   if s.nextId = MaxId then (none, s)
+  -- 新しい todo は ⟨id, 持ち主, 題名, 完了⟩ の順。そのあと nextId を1進める
   else (some s.nextId, ⟨s.items ++ [⟨s.nextId, u, title, false⟩], s.nextId + 1⟩)
 
 /-- 完了の切り替え: u が持ち主の id 番の todo の done を反転する。効いたか（そういう todo があったか）を返す。 -/
 def toggle (s : State) (u id : Nat) : Bool × State :=
+  -- 1つ目: 当てはまる todo が1件でもあるか（効いたか）
   (s.items.any (mine u id),
+   -- 2つ目: 当てはまる todo だけ done を反転し、ほかはそのままの状態
    { s with items := s.items.map fun t =&gt; if mine u id t then { t with done := !t.done } else t })
 
 /-- 消す: u が持ち主の id 番の todo を除く。効いたかを返す。 -/
 def remove (s : State) (u id : Nat) : Bool × State :=
+  -- 1つ目: 効いたか、2つ目: 当てはまる todo を除いた状態
   (s.items.any (mine u id), { s with items := s.items.filter (fun t =&gt; !mine u id t) })
 
 /-- u の未完了の件数。 -/
@@ -770,11 +800,15 @@ def Inv (s : State) : Prop :=
   (s.items.map (·.id)).Nodup ∧ (∀ t ∈ s.items, t.id &lt; s.nextId) ∧ s.nextId ≤ MaxId</code></pre></figure>
 <p><code>∧</code> は「かつ」、<code>∀ t ∈ s.items</code> は「どの todo t についても」、<code>Nodup</code> は「重複が無い」です。</p>
 <p>仕様の誤りは小さい例で確かめます。<code>example</code> は名前の無い定理、<code>by decide</code> は「計算して確かめて」です。</p>
-<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/todo-aeneas/lean/Spec.lean">todo-aeneas/lean/Spec.lean</a></figcaption><pre><code class="lang-lean">private def s1 := (add empty 1 "牛乳").2
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/todo-aeneas/lean/Spec.lean">todo-aeneas/lean/Spec.lean</a></figcaption><pre><code class="lang-lean">-- s1: アリスが「牛乳」を足した状態。s2: さらに「卵」。s3: ボブが「ボブの用事」
+-- （add の結果の .1 は返り値、.2 は新しい状態）
+private def s1 := (add empty 1 "牛乳").2
 private def s2 := (add s1 1 "卵").2
 private def s3 := (add s2 2 "ボブの用事").2
+-- 空の状態にアリスが足すと、最初に振られる id は 0
 example : (add empty 1 "牛乳").1 = some 0 := by decide
 -- …
+-- s3 でアリスが id 0 を切り替えると、アリスの未完了は1件になる
 example : openCount (toggle s3 1 0).2 1 = 1 := by decide</code></pre></figure>
 <p>使う人から見た性質も定理にします。</p>
 <figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/todo-aeneas/lean/Spec.lean">todo-aeneas/lean/Spec.lean</a></figcaption><pre><code class="lang-lean">/-- 足すと、自分の未完了が1件増える。 -/
@@ -799,16 +833,19 @@ pub fn add(t: &amp;mut Todos, user: u32, title: String) -&gt; Option&lt;u32&gt; 
     }
     let id = t.next_id;
     t.items.push(Todo { id, owner: user, title, done: false });
+    // 上の if で最大値を除いたので、ここで u32 はあふれない
     t.next_id = id + 1;
     Some(id)
 }
 
 /// id の todo の完了／未完了を切り替える。user が持ち主のときだけ効き、効いたら true。
 pub fn toggle(t: &amp;mut Todos, user: u32, id: u32) -&gt; bool {
+    // 先頭から順に見て、id が一致する最初の位置 i で止まる（無ければ i は末尾）
     let mut i = 0;
     while i &lt; t.items.len() &amp;&amp; t.items[i].id != id {
         i += 1;
     }
+    // 見つかり、かつ持ち主が user のときだけ反転する
     if i &lt; t.items.len() &amp;&amp; t.items[i].owner == user {
         t.items[i].done = !t.items[i].done;
         true
@@ -839,8 +876,8 @@ pub fn toggle(t: &amp;mut Todos, user: u32, id: u32) -&gt; bool {
         ({ id := t.next_id, owner := user, title, done := false } : Todo)
     let i ← t.next_id + 1#u32
     ok (some t.next_id, { items := v, next_id := i })</code></pre></figure>
-<p><code>&amp;mut Todos</code> は「新しい <code>Todos</code> を返す」に変わり、戻り値は <code>Result</code>（<code>ok</code> か <dfn>panic</dfn>＝実行時エラーか）で包まれます。<code>1#u32</code> の前の <code>←</code> は「<code>u32</code> の上限（約43億）を超えたら（<dfn>あふれ</dfn>たら）ここで失敗」で、panic が見える形になります。</p>
-<aside class="warn"><b>落とし穴</b>Aeneas は標準ライブラリを全部は知りません。<code>std::mem::take</code> は中身の無い宣言（<dfn>axiom</dfn>。定義なしに「ある」とみなす宣言）になり、何も証明できませんでした。<code>std::mem::replace(&amp;mut v, Vec::new())</code> に替え、翻訳後は <code>grep axiom lean/TodoKernel.lean</code> で 0 件を確かめます。</aside>
+<p>このファイルは自動生成なのでコメントは足していません。上から「id を使い切っていたら何も変えずに返す」「末尾に足す」「next_id を1進める」で、Rust の <code>add</code> と1行ずつ対応します。<code>&amp;mut Todos</code> は「新しい <code>Todos</code> を返す」に変わり、戻り値は <code>Result</code>（<code>ok</code> か <dfn>panic</dfn>＝実行時エラーか）で包まれます。<code>1#u32</code> の前の <code>←</code> は「<code>u32</code> の上限（約43億）を超えたら（<dfn>あふれ</dfn>たら）ここで失敗」で、panic が見える形になります。</p>
+<aside class="warn"><b>落とし穴</b>Aeneas が中身を知っている標準ライブラリの関数は、Lean で動きを手書きしたモデルがあるものだけです。<code>std::mem::take</code> にはモデルがまだ無く、中身の無い宣言（<dfn>axiom</dfn>。定義なしに「ある」とみなす宣言）になって、何も証明できませんでした。<code>std::mem::replace(&amp;mut v, Vec::new())</code> に替え、翻訳後は <code>grep axiom lean/TodoKernel.lean</code> で 0 件を確かめます。</aside>
 </li>
 
 <li>
@@ -862,21 +899,19 @@ flowchart LR
 <p>Lean で書くと <code>add_correct</code> です。</p>
 <figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/todo-aeneas/lean/Proofs.lean">todo-aeneas/lean/Proofs.lean</a></figcaption><pre><code class="lang-lean">記法: `f x ⦃ y =&gt; P y ⦄` は「f x は失敗（panic）せずに値 y を返し、y は P を満たす」。
 -- …
+-- 前提 hinv: 今の状態を読み替えたものが不変条件 Inv を満たすなら
 theorem add_correct (t : Todos) (user : U32) (title : String) (hinv : Spec.Inv (abs t)) :
+    -- Rust の add は panic せず、返り値 r も新しい状態 t' も仕様の add と同じ
     add t user title ⦃ r t' =&gt; r.map (·.val) = (Spec.add (abs t) user.val title).1 ∧
                          abs t' = (Spec.add (abs t) user.val title).2 ⦄ := by
   unfold add
   split
   -- …</code></pre></figure>
-<ul>
-<li>前提 <code>hinv</code>: 今の状態が不変条件を満たすなら</li>
-<li>Rust の <code>add</code> は panic せず、返り値 <code>r</code> と新しい状態 <code>t'</code> を返す</li>
-<li>返り値は仕様の <code>add</code> と同じ</li>
-<li>新しい状態を読み替えると、仕様の <code>add</code> の結果と同じ</li>
-</ul>
 <p>「panic しない」は、<code>Inv</code> から「件数は next_id 以下」（<code>length_le_nextId</code>）を導いて示しました。</p>
 <p>同じ形の定理を4操作に作りました（<code>add_correct</code>・<code>toggle_correct</code>・<code>remove_correct</code>・<code>open_count_correct</code>）。<code>Inv</code> を前提に取るのは、panic しないことを言う <code>add</code> と、id の重複が無いことが要る <code>toggle</code> です。</p>
-<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/todo-aeneas/lean/Proofs.lean">todo-aeneas/lean/Proofs.lean</a></figcaption><pre><code class="lang-lean">theorem toggle_correct (t : Todos) (user id : U32) (hinv : Spec.Inv (abs t)) :
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/todo-aeneas/lean/Proofs.lean">todo-aeneas/lean/Proofs.lean</a></figcaption><pre><code class="lang-lean">-- 前提 hinv: id が重複しないこと（これで仕様の全部反転と Rust の最初の1件が一致する）
+theorem toggle_correct (t : Todos) (user id : U32) (hinv : Spec.Inv (abs t)) :
+    -- 効いたか b も新しい状態 t' も仕様の toggle と同じ
     toggle t user id ⦃ b t' =&gt; b = (Spec.toggle (abs t) user.val id.val).1 ∧
                          abs t' = (Spec.toggle (abs t) user.val id.val).2 ⦄ := by
   -- …</code></pre></figure>
@@ -927,7 +962,9 @@ theorem add_correct (t : Todos) (user : U32) (title : String) (hinv : Spec.Inv (
 fn check_inv(t: &amp;Todos) -&gt; Result&lt;(), String&gt; {
     let mut seen = HashSet::new();
     for x in &amp;t.items {
+        // ① insert は初めての id なら true を返す。false なら重複
         if !seen.insert(x.id) { return Err(format!("id {} が重複している", x.id)) }
+        // ② どの id も next_id より小さい
         if x.id &gt;= t.next_id { return Err(format!("id {} が next_id 以上", x.id)) }
     }
     Ok(())
@@ -997,11 +1034,14 @@ def mine (u id : Nat) (t : Todo) : Bool := t.id == id &amp;&amp; t.owner == u
 
 /-- 完了の切り替え: u が持ち主の id 番の todo の done を反転する。効いたか（そういう todo があったか）を返す。 -/
 def toggle (s : State) (u id : Nat) : Bool × State :=
+  -- 1つ目: 当てはまる todo が1件でもあるか（効いたか）
   (s.items.any (mine u id),
+   -- 2つ目: 当てはまる todo だけ done を反転し、ほかはそのままの状態
    { s with items := s.items.map fun t =&gt; if mine u id t then { t with done := !t.done } else t })
 
 /-- 消す: u が持ち主の id 番の todo を除く。効いたかを返す。 -/
 def remove (s : State) (u id : Nat) : Bool × State :=
+  -- 1つ目: 効いたか、2つ目: 当てはまる todo を除いた状態
   (s.items.any (mine u id), { s with items := s.items.filter (fun t =&gt; !mine u id t) })</code></pre></figure>
 <p>さらに <code>ownedBy</code>（u の todo だけのリスト）と、その id の一覧 <code>visible</code> を定義します。</p>
 </li>
@@ -1009,14 +1049,17 @@ def remove (s : State) (u id : Nat) : Bool × State :=
 <li>
 <h4>ステップ3: 3つの性質を定理として書く</h4>
 <p>ステップ1の3文を定理にします。</p>
-<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/todo-aeneas/lean/Spec.lean">todo-aeneas/lean/Spec.lean</a></figcaption><pre><code class="lang-lean">theorem add_others (s : State) (u v : Nat) (title : String) (huv : u ≠ v) :
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/todo-aeneas/lean/Spec.lean">todo-aeneas/lean/Spec.lean</a></figcaption><pre><code class="lang-lean">/-- u ≠ v なら、u が足しても v の持ち物は変わらない。 -/
+theorem add_others (s : State) (u v : Nat) (title : String) (huv : u ≠ v) :
     ownedBy (add s u title).2 v = ownedBy s v := by
   -- …（証明は省略）
 
+/-- x が u に見える ⇔ x は u が持ち主の todo の id（過不足なし）。 -/
 theorem visible_iff (s : State) (u x : Nat) :
     x ∈ visible s u ↔ ∃ t ∈ s.items, t.id = x ∧ t.owner = u := by
   -- …（証明は省略）
 
+/-- id 番の todo が他人のものなら、toggle は false を返し状態はそのまま。 -/
 theorem toggle_foreign (s : State) (u id : Nat) (h : Inv s) (t : Todo) (ht : t ∈ s.items)
     (hid : t.id = id) (ho : t.owner ≠ u) : toggle s u id = (false, s) := by
   -- …（証明は省略）</code></pre></figure>
@@ -1031,14 +1074,16 @@ theorem toggle_foreign (s : State) (u id : Nat) (h : Inv s) (t : Todo) (ht : t �
 <li>
 <h4>ステップ4: Rust の実装に持ち上げる</h4>
 <p>第2章で「実装＝仕様」（<code>toggle_correct</code> など）を証明済みなので、仕様の定理をそのまま Rust の定理に言い換えられます。</p>
-<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/todo-aeneas/lean/Proofs.lean">todo-aeneas/lean/Proofs.lean</a></figcaption><pre><code class="lang-lean">theorem toggle_others_rust (t : Todos) (user other id : U32) (hne : user ≠ other)
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/todo-aeneas/lean/Proofs.lean">todo-aeneas/lean/Proofs.lean</a></figcaption><pre><code class="lang-lean">/-- user ≠ other なら、Rust の toggle のあとも other の持ち物は変わらない。 -/
+theorem toggle_others_rust (t : Todos) (user other id : U32) (hne : user ≠ other)
     (hinv : Spec.Inv (abs t)) :
     toggle t user id ⦃ _ t' =&gt; Spec.ownedBy (abs t') other.val = Spec.ownedBy (abs t) other.val ⦄ := by
   apply WP.spec_mono (toggle_correct t user id hinv)
   rintro ⟨b, t'⟩ ⟨-, h⟩
   show Spec.ownedBy (abs t') other.val = _
+  -- 仕様で証明済みの Spec.toggle_others をそのまま使う
   rw [h]; exact Spec.toggle_others _ _ _ _ ((u32_ne_iff _ _).mp hne)</code></pre></figure>
-<p>最後の行で仕様の定理 <code>Spec.toggle_others</code> を使っています。Rust のループ相手に証明し直す必要はありません。</p>
+<p>仕様の定理を使うので、Rust のループ相手に証明し直す必要はありません。</p>
 <div class="table-wrap"><table>
 <caption>表1: 持ち主の確認をわざと外したとき（todo-aeneas/README.md より。<code>*_loop_spec</code> は各操作のループ部分の証明）</caption>
 <thead><tr><th>壊し方（Rust 側）</th><th>単体テスト</th><th>証明</th></tr></thead>
@@ -1069,16 +1114,18 @@ theorem toggle_foreign (s : State) (u id : Nat) (h : Inv s) (t : Todo) (ht : t �
 </ul>
 <figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/h5i-todo/proofs/Effects.lean">h5i-todo/proofs/Effects.lean</a></figcaption><pre><code class="lang-lean">/-- 持ち主は、存在する todo をいつでも完了（または未完了）にできる。 -/
 theorem set_done_ok (a : Principal) (s : Snapshot) (id : U64) (d : Bool) {q : Todo}
+    -- 前提 hq: その id の todo q がある。ho: q の持ち主は操作した人 a
     (hq : findTodo (Snapshot.toSt s) id.val = some q) (ho : q.owner = a.user) :
+    -- 結論: 何かの書き込み ws をして成功し、返事は Done
     ∃ ws, transition a s (.SetDone id d) = ok (.Ok (ws, .Done)) := by
   -- …（証明は省略）</code></pre></figure>
-<p>「持ち主で（<code>ho</code>）、todo があれば（<code>hq</code>）、SetDone は成功する」と読みます。</p>
 <p>確かめ方は第1章の<dfn>変異テスト</dfn>（わざと壊したカーネルを検査が落とせるかを見る）です。</p>
 <figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/h5i-todo/h5i-app.toml">h5i-todo/h5i-app.toml</a></figcaption><pre><code class="lang-toml">[[mutant]]
 name = "rename_keeps_old_title"
+# old を new に置き換える: 新しいタイトルを捨て、古いタイトルを残す
 old = "title: title.clone(), completed: t.completed"
 new = "title: t.title.clone(), completed: t.completed"</code></pre></figure>
-<p>改名が古いタイトルを残す壊し方で、「中身」の定理で初めて捕まります。</p>
+<p>安全性の定理は通ってしまい、「中身」の定理で初めて捕まります。</p>
 </li>
 
 <li>
@@ -1087,12 +1134,12 @@ new = "title: t.title.clone(), completed: t.completed"</code></pre></figure>
 <figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/h5i-todo/kernel/src/lib.rs">h5i-todo/kernel/src/lib.rs</a></figcaption><pre><code class="lang-rust">/// アプリの判断のすべて: コマンドに対する「書き込みの一覧と返事」か、
 /// 何も書かない「拒否」を返す。
 pub fn transition(actor: &amp;Principal, s: &amp;Snapshot, cmd: &amp;Command) -&gt; Outcome {
-    match cmd {
+    match cmd { // どの枝も、操作した人 actor.user で判断する
         Command::Add { title } =&gt; add(actor.user, s, title),
         Command::Rename { id, title } =&gt; rename(actor.user, s, *id, title),
         Command::SetDone { id, completed } =&gt; set_done(actor.user, s, *id, *completed),
         Command::Delete { id } =&gt; delete(actor.user, s, *id),
-        Command::List =&gt; Ok((Vec::new(), Reply::Todos(todos_of(&amp;s.todos, actor.user)))),
+        Command::List =&gt; Ok((Vec::new(), Reply::Todos(todos_of(&amp;s.todos, actor.user)))), // 何も書かず本人の分だけ返す
     }
 }</code></pre></figure>
 <p>返す書き込み1つ1つが許されるかは、仕様の <code>allowed</code> で定めます。</p>
@@ -1105,6 +1152,7 @@ def allowed (s : St) (u : Nat) : Write → Prop
   | .DelTodo id =&gt;
     -- 持ち主が、存在する todo を消す。
     ∃ q, findTodo s id.val = some q ∧ q.owner.val = u
+    -- 次に使う id の番号は、1つ進めることしかできない。
   | .SetCounter c =&gt; c.next_id.val = s.next + 1</code></pre></figure>
 <p>主な定理です（<code>h5i app check</code> で 108 定理、sorry なし。公理は Lean 標準の3つだけで、第5章で触れます）。</p>
 <ul>
@@ -1136,6 +1184,7 @@ permit (
   principal is User,
   action in [Action::"listTodos", Action::"readTodo", Action::"renameTodo", Action::"setDone", Action::"deleteTodo"],
   resource is Todo
+  // 条件: その todo の持ち主が、操作している本人
 ) when { resource.owner == principal };
 
 // Todo は自分を持ち主にしてしか作れない。
@@ -1144,6 +1193,7 @@ permit (
   principal is User,
   action == Action::"createTodo",
   resource is Todo
+  // 作ろうとしている行の owner が本人のときだけ
 ) when { resource.owner == principal };
 
 // …（User 行のポリシー「self-user」は省略）</code></pre></figure>
@@ -1155,8 +1205,10 @@ entity Todo = {
 };
 // …（ほかのエンティティとアクションは省略）
 // Todo を消す。
+// @effect: この操作が DB にすること（Todo の行を消す）
 @effect("delete Todo")
 action "deleteTodo" appliesTo {
+  // 操作できるのはログインした User だけ（匿名は不可）
   principal: [User],
   resource: [Todo]
 };</code></pre></figure>
@@ -1164,17 +1216,22 @@ action "deleteTodo" appliesTo {
 <figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/nyxis-todo/backend/Todo/Handlers.lean">backend/Todo/Handlers.lean（Nyxis 版）</a></figcaption><pre><code class="lang-lean">/-- `POST /todos` — 持ち主は主体。ID は Nyxis が決めた一意 ID。 -/
 def createTodo : Principal → Generated → Http.Request → Handler Http.Response := fun principal gen req =&gt; do
   let parsed : Except String Row := do
+    -- 本文の JSON から、空でないタイトルを取り出す
     let json ← parseObject req.body
     let title ← nonEmptyTitle json
     pure (rowOf
+      -- owner は本文の値ではなく、ログインした主体
       [ ("owner", some (.prim (.entityUID principal.uid)))
       , ("title", some title)
+      -- 作ったばかりの todo は未完了
       , ("done", some (.prim (.bool false))) ])
   -- …（結果の返し方は省略）</code></pre></figure>
-<p>持ち主は <code>principal</code> から入るので、本文で偽っても効きません。</p>
+<p>本文で持ち主を偽っても効きません。</p>
 <p><code>lake build</code> のたびに、「出された操作はすべて主体と一致し、ポリシーの範囲内」という定理が検査されます。</p>
 <figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/nyxis-todo/backend/Todo/Approved.lean">backend/Todo/Approved.lean（Nyxis 版）</a></figcaption><pre><code class="lang-lean">theorem authorization_safety (router : Http.Router) (store : Db.Store)
+    -- requests: ログイン済みのリクエストの、どんな並びでもよい
     (requests : List Runtime.AuthenticatedRequest) :
+    -- 1つ目: 出た操作はどれも、頼んだ人と同じ主体で、ポリシーが許す
     (∀ r i, (r, i) ∈ (Runtime.trace (app router) store requests).issued →
       i.principal = r.principal ∧ i.generated = r.generated ∧ Authz.Authorized schema policies i)
     -- …（残りの連言は省略）</code></pre></figure>
@@ -1277,6 +1334,7 @@ def createTodo : Principal → Generated → Http.Request → Handler Http.Respo
 <li><dfn>seq</dfn>：サーバ全体の通し番号。各行に最後に変わったときの seq が付きます。クライアントは取り込んだ位置（<code>lastSeq</code>）を覚え、2秒ごとにそれより新しい変更を取り込みます（<dfn>pull</dfn>）。</li>
 </ul>
 <figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/todo/src/sync.ts">todo/src/sync.ts</a></figcaption><pre><code class="lang-js">function newOpId(state: ClientState): [string, ClientState] {
+  // 例: タブ c1 の 2 番目の操作は "c1:2"。連番は 1 ずつ増える
   const opId = `${state.clientId}:${state.nextOpNo}`;
   return [opId, { ...state, nextOpNo: state.nextOpNo + 1 }];
 }
@@ -1297,11 +1355,13 @@ function loadClientId(): string {
     sessionStorage.setItem("todo-client-id", id);
     return id;
   } catch {
+    // sessionStorage が使えないときは、保存せずに毎回新しい ID
     return crypto.randomUUID();
   }
 }
 
 const clientId = loadClientId();
+// 状態は localStorage のこのキーに保存する（全タブで共有の保存先）
 const storageKey = `todo-state:${clientId}`;</code></pre></figure>
 <pre class="mermaid">
 sequenceDiagram
@@ -1368,8 +1428,10 @@ sequenceDiagram
 <p>送信の始まりでは、送信中でなく送信待ちが空でなければ、先頭から最大 50 件を送ります。</p>
 <figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/todo/verification/SyncTodo.tla">todo/verification/SyncTodo.tla</a></figcaption><pre><code class="lang-tla">\* push() の await の前まで: pushing でなく outbox が空でなければ先頭から送る
 PushStart(t) ==
+  \* 開いている・送信中でない・送信待ちがある・push の合計が上限未満
   /\ open[t] /\ pushing[t] = 0 /\ outbox[t] # &lt;&lt;&gt;&gt; /\ pushN[1] + pushN[2] &lt; MaxPush
   /\ LET n == pushN[t] + 1 IN
+       \* 送信待ちの先頭から最大 50 件を、n 回目の要求として送る
        /\ reqs' = reqs \cup {[tab |-&gt; t, n |-&gt; n, ops |-&gt; SubSeq(outbox[t], 1, Min(50, Len(outbox[t])))]}
        /\ pushing' = [pushing EXCEPT ![t] = n]
        /\ pushN' = [pushN EXCEPT ![t] = n]
@@ -1381,6 +1443,7 @@ PushStart(t) ==
 PushGivesUp(t) ==
   /\ pushing[t] # 0
   /\ pushing' = [pushing EXCEPT ![t] = 0]
+  \* 届く途中の応答から、諦めたこの push の分を消す
   /\ resps' = {x \in resps : ~(x.tab = t /\ x.n = pushing[t])}
   /\ ServerUnchanged
   /\ UNCHANGED &lt;&lt;open, closed, cid, nextNo, outbox, conf, lastSeq, pushN, pullSt, store, reqs,
@@ -1392,21 +1455,25 @@ DuplicateTab ==
   /\ SecondTab = "duplicate" /\ ~open[2] /\ ~closed[2] /\ open[1]
   /\ open' = [open EXCEPT ![2] = TRUE]
   /\ cid' = [cid EXCEPT ![2] = cid[1]]
+  \* 次の連番・送信待ち・確定した行・lastSeq は、保存された状態から読む
   /\ nextNo' = [nextNo EXCEPT ![2] = store[cid[1]].nextNo]
   /\ outbox' = [outbox EXCEPT ![2] = store[cid[1]].outbox]
   /\ conf' = [conf EXCEPT ![2] = store[cid[1]].conf]
   /\ lastSeq' = [lastSeq EXCEPT ![2] = store[cid[1]].lastSeq]
   /\ UNCHANGED &lt;&lt;rows, srvSeq, applied, closed, pushing, pushN, pullSt,
                  store, reqs, resps, usedIds, made, acked, lastExec, orderOk&gt;&gt;</code></pre></figure>
-<p>最後に、ありうる遷移を「または（<code>\/</code>）」でつなぎます。<code>\E t \in Tabs : …</code> は「どれかのタブ t で」（第1章の <code>nondet</code> にあたる）、<code>Spec</code> は「<code>Init</code> から始めて毎歩 <code>Next</code> のどれかが起きる」という決まり文句です。</p>
+<p>最後に、ありうる遷移を「または（<code>\/</code>）」でつなぎます。<code>\E t \in Tabs : …</code> は「どれかのタブ t で」（第1章の <code>nondet</code> にあたる）です。<code>Spec</code> の行は決まり文句です。</p>
 <figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/todo/verification/SyncTodo.tla">todo/verification/SyncTodo.tla</a></figcaption><pre><code class="lang-tla">Next ==
+  \* どれかのタブでユーザーが追加・名前変更・完了切替・削除する
   \/ \E t \in Tabs : YouCreate(t) \/ YouRename(t) \/ YouToggle(t) \/ YouDelete(t)
   \/ OpenNewTab \/ DuplicateTab
   \/ \E t \in Tabs : Reload(t) \/ CloseTab(t)
   \/ \E t \in Tabs : PushStart(t) \/ PushGivesUp(t)
+  \* 要求が消える・サーバが要求を処理する・タブに応答が届く
   \/ RequestLost \/ ServerPush \/ PushOk
   \/ \E t \in Tabs : PullRead(t) \/ PullOk(t)
 
+\* Init から始まり、毎歩 Next のどれかが起きる（何も変わらない歩も許す）
 Spec == Init /\ [][Next]_vars</code></pre></figure>
 </li>
 
@@ -1421,6 +1488,7 @@ Spec == Init /\ [][Next]_vars</code></pre></figure>
 </ul>
 <figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/todo/verification/SyncTodo.tla">todo/verification/SyncTodo.tla</a></figcaption><pre><code class="lang-tla">\* 1. 確認が来たとして送信待ちから外した操作は、その操作としてサーバに反映されている
 \*    （別の操作と取り違えて「もう反映済み」と捨てられていない）
+\*    式: acked のどの操作 o も applied に入っている
 AckedMeansApplied == \A o \in acked : o \in applied
 
 \* 2. 同じクライアントの操作は、サーバで操作した順に 1 回ずつ反映される
@@ -1432,6 +1500,7 @@ Settled ==
   /\ reqs = {} /\ resps = {}
   /\ \A t \in Tabs : open[t] =&gt;
        (outbox[t] = &lt;&lt;&gt;&gt; /\ pushing[t] = 0 /\ pullSt[t] = Idle /\ lastSeq[t] = srvSeq)
+\*    式: Settled ならば、開いている全タブの画面 = サーバの一覧
 Converged == Settled =&gt; \A t \in Tabs : open[t] =&gt; View(t) = ServerView
 
 \* 4. ユーザーが積んだ操作は、サーバに反映済みか、開いているタブの送信待ちにあるか、
@@ -1446,19 +1515,27 @@ NoOpLost ==
 
 <li>
 <h4>ステップ6：範囲を決めて TLC で全部たどる</h4>
-<p>全部たどるには世界を有限にします。設定ファイル（<code>.cfg</code>）で、todo 1件・名前2種類・各タブの操作2回・push 合計3回までに絞ります。2枚目のタブを「同じ URL を別タブで開く」か「複製する」かもここで選びます。</p>
+<p>全部たどるには世界を有限にします。設定ファイル（<code>.cfg</code>）で、todo の数や操作の回数に上限を付けます。2枚目のタブを「同じ URL を別タブで開く」か「複製する」かもここで選びます。</p>
 <figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/todo/verification/SyncTodo.cfg">todo/verification/SyncTodo.cfg</a></figcaption><pre><code class="lang-tla">\* 別のタブで同じ URL を開く場合（クライアント ID がタブごとに違う）・リロードあり。4 つの性質がすべて成り立つはず。todo 1 件
 CONSTANTS
+  \* todo の ID は 1 つだけ（todo 1 件）
   Ids = {1}
+  \* 名前は "A" と "B" の 2 種類
   Titles = {"A", "B"}
+  \* 各タブの操作は 2 回まで
   MaxOpNo = 2
+  \* push は全タブ合計で 3 回まで
   MaxPush = 3
+  \* 2 枚目は同じ URL を別タブで開く（"duplicate" なら複製）
   SecondTab = "new"
+  \* リロードあり・タブを閉じるなし・古い画面からの操作なし
   CanReload = TRUE
   CanClose = FALSE
   StaleUI = FALSE
 SPECIFICATION Spec
+\* 全部の状態で確かめる 4 つの性質
 INVARIANTS AckedMeansApplied ClientOrderKept Converged NoOpLost
+\* 上限まで操作して止まった状態を、行き詰まり（エラー）と見なさない
 CHECK_DEADLOCK FALSE
 </code></pre></figure>
 <p>この設定では4つとも成り立ちます（1,499,907 状態・1ワーカーで約 90 秒）。設定は6つあり、入れる操作が違います。</p>

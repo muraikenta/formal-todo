@@ -72,6 +72,7 @@ new = "Todo { id, owner: user + 1, title: title.clone(), completed: t.completed 
 # 独立レビューの後に追加: 「頼んだことをやる」と「成功する」が崩れるパターン。
 [[mutant]]
 name = "rename_keeps_old_title"
+# old を new に置き換える: 新しいタイトルを捨て、古いタイトルを残す
 old = "title: title.clone(), completed: t.completed"
 new = "title: t.title.clone(), completed: t.completed"
 

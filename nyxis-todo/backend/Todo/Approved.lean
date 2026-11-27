@@ -40,7 +40,9 @@ application declares no periodic jobs (`jobs = []`). Internal fetches before aut
 and the contents of URLs or responses are not part of this conclusion.
 -/
 theorem authorization_safety (router : Http.Router) (store : Db.Store)
+    -- requests: ログイン済みのリクエストの、どんな並びでもよい
     (requests : List Runtime.AuthenticatedRequest) :
+    -- 1つ目: 出た操作はどれも、頼んだ人と同じ主体で、ポリシーが許す
     (∀ r i, (r, i) ∈ (Runtime.trace (app router) store requests).issued →
       i.principal = r.principal ∧ i.generated = r.generated ∧ Authz.Authorized schema policies i)
     ∧ Authz.Coherent store ((Runtime.trace (app router) store requests).issued.map Prod.snd)

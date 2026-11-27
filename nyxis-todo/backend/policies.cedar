@@ -7,6 +7,7 @@ permit (
   principal is User,
   action in [Action::"listTodos", Action::"readTodo", Action::"renameTodo", Action::"setDone", Action::"deleteTodo"],
   resource is Todo
+  // 条件: その todo の持ち主が、操作している本人
 ) when { resource.owner == principal };
 
 // Todo は自分を持ち主にしてしか作れない。
@@ -15,6 +16,7 @@ permit (
   principal is User,
   action == Action::"createTodo",
   resource is Todo
+  // 作ろうとしている行の owner が本人のときだけ
 ) when { resource.owner == principal };
 
 // User 行は自分の分しか作れない・読めない。

@@ -3,8 +3,8 @@
 /// `v[..i]` が並んでいるとき、`v[i]` を左へ1つずつ入れ替えながら正しい位置まで沈める。
 /// 終わると `v[..=i]` が並ぶ。前提（`i < v.len()`・`v[..i]` が並んでいる）があるので外には出さない。
 fn insert(v: &mut [u32], i: usize) {
-    let mut j = i;
-    while j > 0 && v[j - 1] > v[j] {
+    let mut j = i; // j は沈めている値の今の位置
+    while j > 0 && v[j - 1] > v[j] { // 左隣のほうが大きい間だけ続ける
         v.swap(j - 1, j);
         j -= 1;
     }
@@ -13,9 +13,9 @@ fn insert(v: &mut [u32], i: usize) {
 /// 挿入ソート: 左から1つずつ、並んでいる部分に差し込む。
 pub fn insertion_sort(v: &mut [u32]) {
     let n = v.len();
-    let mut i = 1;
+    let mut i = 1; // 先頭の1つは、それだけで並んでいる
     while i < n {
-        insert(v, i);
+        insert(v, i); // v[i] を左の並んだ部分に差し込む
         i += 1;
     }
 }

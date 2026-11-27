@@ -28,16 +28,19 @@ pub fn add(t: &mut Todos, user: u32, title: String) -> Option<u32> {
     }
     let id = t.next_id;
     t.items.push(Todo { id, owner: user, title, done: false });
+    // 上の if で最大値を除いたので、ここで u32 はあふれない
     t.next_id = id + 1;
     Some(id)
 }
 
 /// id の todo の完了／未完了を切り替える。user が持ち主のときだけ効き、効いたら true。
 pub fn toggle(t: &mut Todos, user: u32, id: u32) -> bool {
+    // 先頭から順に見て、id が一致する最初の位置 i で止まる（無ければ i は末尾）
     let mut i = 0;
     while i < t.items.len() && t.items[i].id != id {
         i += 1;
     }
+    // 見つかり、かつ持ち主が user のときだけ反転する
     if i < t.items.len() && t.items[i].owner == user {
         t.items[i].done = !t.items[i].done;
         true

@@ -17,25 +17,25 @@ public import Mathlib.Data.List.Perm.Basic
 namespace Spec
 
 /-- 小さい順に並んでいる: どの2つを取っても、前のほうが後ろ以下。 -/
-def Sorted (l : List Nat) : Prop := l.Pairwise (· ≤ ·)
+def Sorted (l : List Nat) : Prop := l.Pairwise (· ≤ ·)  -- (· ≤ ·) は「前 ≤ 後ろ」で比べる
 
 /-- `output` は `input` をソートしたものである。 -/
 def IsSortOf (input output : List Nat) : Prop :=
-  Sorted output ∧ output.Perm input
+  Sorted output ∧ output.Perm input  -- 並んでいる、かつ入力の並べ替え
 
 instance (l : List Nat) : Decidable (Sorted l) := by unfold Sorted; infer_instance
 instance (i o : List Nat) : Decidable (IsSortOf i o) := by unfold IsSortOf; infer_instance
 
 /-! ## 仕様そのものの確かめ（小さい例） -/
 section examples
-example : IsSortOf [3, 1, 2] [1, 2, 3] := by decide
+example : IsSortOf [3, 1, 2] [1, 2, 3] := by decide            -- [3,1,2] のソート結果は [1,2,3]
 example : IsSortOf [2, 1, 2] [1, 2, 2] := by decide            -- 同じ値があってもよい
-example : IsSortOf [] [] := by decide
+example : IsSortOf [] [] := by decide                          -- 空を並べると空
 example : ¬ IsSortOf [3, 1, 2] [3, 1, 2] := by decide          -- 並んでいない
 example : ¬ IsSortOf [3, 1, 2] [1, 2] := by decide             -- 1つ消えている
 example : ¬ IsSortOf [2, 1] [1, 1] := by decide                -- 1つすり替わっている
 /-- 「並んでいる」だけの仕様は弱い: 全部 0 にする実装でも満たしてしまう。だから並べ替えであることも書く。 -/
-example : Sorted [0, 0, 0] ∧ ¬ IsSortOf [3, 1, 2] [0, 0, 0] := by decide
+example : Sorted [0, 0, 0] ∧ ¬ IsSortOf [3, 1, 2] [0, 0, 0] := by decide  -- 並んではいるが答えではない
 end examples
 
 /-! ## 仕様が十分に強いことの確かめ

@@ -15,10 +15,12 @@ export function initialState() {
  * @returns {State}
  */
 export function reduce(state, action) {
+  // 操作の種類ごとに次の状態を返す（元の state は書き換えない）
   switch (action.type) {
     case "add": {
       const title = (action.title ?? "").trim();
       if (title === "") return state; // 空欄は弾く
+      // 末尾に未完了で1件足し、次に振る id を1進める
       return {
         todos: [...state.todos, { id: state.nextId, title, done: false }],
         nextId: state.nextId + 1,

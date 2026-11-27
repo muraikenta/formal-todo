@@ -14,16 +14,17 @@ module todo {
   const INPUTS: str -> str         // 入力欄に打たれる生の文字列 → 前後の空白を取った題名（Quint に trim が無いので表で渡す）
   const BUG: str                   // "none" | "idFromLength"（id を「いまの件数」で振る、よくある書き間違い）
 
+  // 1件の todo: 番号・題名・完了したか
   type Todo = { id: int, title: str, done: bool }
 
   var todos: List[Todo]    // 画面に並ぶ順
   var nextId: int          // 次に振る id
   // 以下は「前後の性質」を書くための記録（アプリには無い）
-  var lastAction: str
+  var lastAction: str      // 直前の操作の名前（"add" など）
   var lastId: int          // 直前の操作の対象 id
   var lastTitle: str       // 直前の操作の題名（空白を取った後）
-  var prevTodos: List[Todo]
-  var prevNextId: int
+  var prevTodos: List[Todo]  // 直前の操作をする前の todos
+  var prevNextId: int        // 直前の操作をする前の nextId
 
   // ---- 補助 ----
   pure def idsOf(ts: List[Todo]): Set[int] = ts.indices().map(i => ts[i].id)
@@ -51,14 +52,20 @@ module todo {
   // ---- 操作（引数 raw は入力欄の生の文字列） ----
   // 追加: 空白を取って空になるものは弾く（何も変わらない）
   action add(raw: str): bool = {
+    // 生の入力を、空白を取った題名に変える（表で引く）
     val title = INPUTS.get(raw)
     all {
+      // 試す範囲の上限: nextId が MAX_ID 未満の間だけ追加できる
       nextId < MAX_ID,
+      // 検査用に「直前は add、題名は title」と記録する
       record("add", -1, title),
+      // 空欄なら todos も nextId もそのまま
       if (title == "")
         all { todos' = todos, nextId' = nextId }
       else {
+        // 普段は nextId を振る（BUG 版だけ「いまの件数」を振る）
         val newId = if (BUG == "idFromLength") todos.length() else nextId
+        // 末尾に未完了で1件足し、nextId を1進める
         all {
           todos' = todos.append({ id: newId, title: title, done: false }),
           nextId' = nextId + 1,
@@ -111,8 +118,9 @@ module todo {
 
   // id は「いまある id」だけでなく範囲全体から選ぶ（無い id への操作が無害かも確かめる）
   action step = {
-    nondet raw = INPUTS.keys().oneOf()
-    nondet id = 0.to(MAX_ID - 1).oneOf()
+    nondet raw = INPUTS.keys().oneOf()      // 入力欄の文字列を候補から1つ選ぶ
+    nondet id = 0.to(MAX_ID - 1).oneOf()    // 対象の id を 0〜MAX_ID-1 から1つ選ぶ
+    // 次の6つのどれか1つが起きる
     any {
       add(raw),
       toggle(id),
@@ -124,14 +132,17 @@ module todo {
   }
 
   // ---- 形の性質（1つの状態で言えること） ----
+  // id がかぶらない（id の種類の数 ＝ 件数）
   val idsUnique = idsOf(todos).size() == todos.length()
   // id は並び順に増えていく（追加は末尾・他の操作は順番を変えない）
   val idsAscending = todos.indices().forall(i => i == 0 or todos[i - 1].id < todos[i].id)
   // 振った id は nextId 未満（次に振る id がすでに使われていない）
   val idsFresh = todos.indices().forall(i => todos[i].id < nextId)
+  // 題名が空の todo は無い
   val noEmptyTitles = todos.indices().forall(i => todos[i].title != "")
   // 保存される題名は必ず「空白を取った後」の形（生の入力のまま入っていない）
   val titlesNormalized = todos.indices().forall(i => INPUTS.keys().map(k => INPUTS.get(k)).contains(todos[i].title))
+  // 形の性質を全部まとめたもの
   val shapeOk = idsUnique and idsAscending and idsFresh and noEmptyTitles and titlesNormalized
 
   // ---- 前後の性質（直前の状態と比べて言えること） ----
@@ -145,9 +156,11 @@ module todo {
       prevTodos.indices().forall(i => todos[i] == prevTodos[i]),         // 既存はそのまま
       todos[todos.length() - 1] == { id: prevNextId, title: lastTitle, done: false }, // 末尾に1件
     })
+  // 直前の操作が toggle なら、次の3つが全部成り立つ
   val toggleOk = lastAction == "toggle" implies all {
-    sameIds(todos, prevTodos),
-    todos.indices().forall(i => todos[i].title == prevTodos[i].title),
+    sameIds(todos, prevTodos),                                          // id の並びは前と同じ（増えも減りもしない）
+    todos.indices().forall(i => todos[i].title == prevTodos[i].title),  // 題名はどれも変わらない
+    // 対象 id の1件だけ done が反転し、他の done は前のまま
     todos.indices().forall(i =>
       todos[i].done == (if (prevTodos[i].id == lastId) not(prevTodos[i].done) else prevTodos[i].done)),
   }
@@ -174,17 +187,21 @@ module todo {
     idsOf(todos) == prevTodos.indices().filter(i => not(prevTodos[i].done)).map(i => prevTodos[i].id),
     eachUnchangedFrom(todos, prevTodos),
   }
+  // 操作ごとの前後の性質をまとめたもの
   val stepOk = nextIdOk and addOk and toggleOk and removeOk and editOk and toggleAllOk and clearOk
 
+  // 検査に渡す不変条件: 形の性質 ＋ 前後の性質
   val safety = shapeOk and stepOk
 
   // ---- 到達できるか見たい状態（not(...) を不変条件として渡すと実例が出る） ----
   val fullAndAllDone = todos.length() == MAX_ID and allDone(todos)
 
   // ---- 具体的なテスト ----
+  // "milk" と " milk " を足して全部切り替え → 2件とも完了、2件目の題名も "milk"
   run addTwoThenToggleAllTest =
     initState.then(add("milk")).then(add(" milk ")).then(toggleAll)
       .expect(todos.length() == 2 and allDone(todos) and todos[1].title == "milk")
+  // 空欄・半角空白・全角空白は弾かれ、件数も nextId も 0 のまま
   run emptyTitleRejectedTest =
     initState.then(add("")).then(add(" ")).then(add("　")).expect(todos.length() == 0 and nextId == 0)
   run editToEmptyDeletesTest =
@@ -196,13 +213,14 @@ module todo {
 
 // 入力の候補: 空欄・空白だけ・全角空白だけ・前後に空白・大文字・日本語（全角空白で囲む）・長い題名
 module inputs {
+  // 左が入力欄に打たれる文字列、右が空白を取った後の題名
   pure val INPUTS_STD = Map(
     "" -> "",
-    " " -> "",
-    "　" -> "",
+    " " -> "",     // 半角空白だけ → 空
+    "　" -> "",    // 全角空白だけ → 空
     "milk" -> "milk",
     " milk " -> "milk",
-    "Milk" -> "Milk",
+    "Milk" -> "Milk",   // 大文字は変えない
     "　牛乳を買う　" -> "牛乳を買う",
     "a very long title that keeps going and going" -> "a very long title that keeps going and going",
   )
@@ -211,12 +229,14 @@ module inputs {
 // TLC で全網羅する版: id は 0〜3 まで（4件まで追加できる）
 module todo4 {
   import inputs.*
+  // 定数を埋めて todo を取り込む（上限 4・標準の入力・バグなし）
   import todo(MAX_ID = 4, INPUTS = INPUTS_STD, BUG = "none").*
 }
 
 // MBT のトレースを作る版: 範囲を広げる（4 で区切ると「5件目で壊れる」実装を見逃した）
 module todo7 {
   import inputs.*
+  // 上限だけ 7 にした同じ仕様
   import todo(MAX_ID = 7, INPUTS = INPUTS_STD, BUG = "none").*
 }
 

@@ -55,7 +55,9 @@ fn parse(text: &str) -> Result<Todos, String> {
 fn check_inv(t: &Todos) -> Result<(), String> {
     let mut seen = HashSet::new();
     for x in &t.items {
+        // ① insert は初めての id なら true を返す。false なら重複
         if !seen.insert(x.id) { return Err(format!("id {} が重複している", x.id)) }
+        // ② どの id も next_id より小さい
         if x.id >= t.next_id { return Err(format!("id {} が next_id 以上", x.id)) }
     }
     Ok(())

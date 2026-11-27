@@ -43,11 +43,14 @@ def mine (u id : Nat) (t : Todo) : Bool := t.id == id &amp;&amp; t.owner == u
 
 /-- 完了の切り替え: u が持ち主の id 番の todo の done を反転する。効いたか（そういう todo があったか）を返す。 -/
 def toggle (s : State) (u id : Nat) : Bool × State :=
+  -- 1つ目: 当てはまる todo が1件でもあるか（効いたか）
   (s.items.any (mine u id),
+   -- 2つ目: 当てはまる todo だけ done を反転し、ほかはそのままの状態
    { s with items := s.items.map fun t =&gt; if mine u id t then { t with done := !t.done } else t })
 
 /-- 消す: u が持ち主の id 番の todo を除く。効いたかを返す。 -/
 def remove (s : State) (u id : Nat) : Bool × State :=
+  -- 1つ目: 効いたか、2つ目: 当てはまる todo を除いた状態
   (s.items.any (mine u id), { s with items := s.items.filter (fun t =&gt; !mine u id t) })</code></pre></figure>
 <p>さらに <code>ownedBy</code>（u の todo だけのリスト）と、その id の一覧 <code>visible</code> を定義します。</p>
 </li>
@@ -55,14 +58,17 @@ def remove (s : State) (u id : Nat) : Bool × State :=
 <li>
 <h4>ステップ3: 3つの性質を定理として書く</h4>
 <p>ステップ1の3文を定理にします。</p>
-<figure class="code"><figcaption>todo-aeneas/lean/Spec.lean</figcaption><pre><code class="lang-lean">theorem add_others (s : State) (u v : Nat) (title : String) (huv : u ≠ v) :
+<figure class="code"><figcaption>todo-aeneas/lean/Spec.lean</figcaption><pre><code class="lang-lean">/-- u ≠ v なら、u が足しても v の持ち物は変わらない。 -/
+theorem add_others (s : State) (u v : Nat) (title : String) (huv : u ≠ v) :
     ownedBy (add s u title).2 v = ownedBy s v := by
   -- …（証明は省略）
 
+/-- x が u に見える ⇔ x は u が持ち主の todo の id（過不足なし）。 -/
 theorem visible_iff (s : State) (u x : Nat) :
     x ∈ visible s u ↔ ∃ t ∈ s.items, t.id = x ∧ t.owner = u := by
   -- …（証明は省略）
 
+/-- id 番の todo が他人のものなら、toggle は false を返し状態はそのまま。 -/
 theorem toggle_foreign (s : State) (u id : Nat) (h : Inv s) (t : Todo) (ht : t ∈ s.items)
     (hid : t.id = id) (ho : t.owner ≠ u) : toggle s u id = (false, s) := by
   -- …（証明は省略）</code></pre></figure>
@@ -77,14 +83,16 @@ theorem toggle_foreign (s : State) (u id : Nat) (h : Inv s) (t : Todo) (ht : t �
 <li>
 <h4>ステップ4: Rust の実装に持ち上げる</h4>
 <p>第2章で「実装＝仕様」（<code>toggle_correct</code> など）を証明済みなので、仕様の定理をそのまま Rust の定理に言い換えられます。</p>
-<figure class="code"><figcaption>todo-aeneas/lean/Proofs.lean</figcaption><pre><code class="lang-lean">theorem toggle_others_rust (t : Todos) (user other id : U32) (hne : user ≠ other)
+<figure class="code"><figcaption>todo-aeneas/lean/Proofs.lean</figcaption><pre><code class="lang-lean">/-- user ≠ other なら、Rust の toggle のあとも other の持ち物は変わらない。 -/
+theorem toggle_others_rust (t : Todos) (user other id : U32) (hne : user ≠ other)
     (hinv : Spec.Inv (abs t)) :
     toggle t user id ⦃ _ t' =&gt; Spec.ownedBy (abs t') other.val = Spec.ownedBy (abs t) other.val ⦄ := by
   apply WP.spec_mono (toggle_correct t user id hinv)
   rintro ⟨b, t'⟩ ⟨-, h⟩
   show Spec.ownedBy (abs t') other.val = _
+  -- 仕様で証明済みの Spec.toggle_others をそのまま使う
   rw [h]; exact Spec.toggle_others _ _ _ _ ((u32_ne_iff _ _).mp hne)</code></pre></figure>
-<p>最後の行で仕様の定理 <code>Spec.toggle_others</code> を使っています。Rust のループ相手に証明し直す必要はありません。</p>
+<p>仕様の定理を使うので、Rust のループ相手に証明し直す必要はありません。</p>
 <table>
 <caption>表1: 持ち主の確認をわざと外したとき（todo-aeneas/README.md より。<code>*_loop_spec</code> は各操作のループ部分の証明）</caption>
 <thead><tr><th>壊し方（Rust 側）</th><th>単体テスト</th><th>証明</th></tr></thead>
@@ -115,16 +123,18 @@ theorem toggle_foreign (s : State) (u id : Nat) (h : Inv s) (t : Todo) (ht : t �
 </ul>
 <figure class="code"><figcaption>h5i-todo/proofs/Effects.lean</figcaption><pre><code class="lang-lean">/-- 持ち主は、存在する todo をいつでも完了（または未完了）にできる。 -/
 theorem set_done_ok (a : Principal) (s : Snapshot) (id : U64) (d : Bool) {q : Todo}
+    -- 前提 hq: その id の todo q がある。ho: q の持ち主は操作した人 a
     (hq : findTodo (Snapshot.toSt s) id.val = some q) (ho : q.owner = a.user) :
+    -- 結論: 何かの書き込み ws をして成功し、返事は Done
     ∃ ws, transition a s (.SetDone id d) = ok (.Ok (ws, .Done)) := by
   -- …（証明は省略）</code></pre></figure>
-<p>「持ち主で（<code>ho</code>）、todo があれば（<code>hq</code>）、SetDone は成功する」と読みます。</p>
 <p>確かめ方は第1章の<dfn>変異テスト</dfn>（わざと壊したカーネルを検査が落とせるかを見る）です。</p>
 <figure class="code"><figcaption>h5i-todo/h5i-app.toml</figcaption><pre><code class="lang-toml">[[mutant]]
 name = "rename_keeps_old_title"
+# old を new に置き換える: 新しいタイトルを捨て、古いタイトルを残す
 old = "title: title.clone(), completed: t.completed"
 new = "title: t.title.clone(), completed: t.completed"</code></pre></figure>
-<p>改名が古いタイトルを残す壊し方で、「中身」の定理で初めて捕まります。</p>
+<p>安全性の定理は通ってしまい、「中身」の定理で初めて捕まります。</p>
 </li>
 
 <li>
@@ -133,12 +143,12 @@ new = "title: t.title.clone(), completed: t.completed"</code></pre></figure>
 <figure class="code"><figcaption>h5i-todo/kernel/src/lib.rs</figcaption><pre><code class="lang-rust">/// アプリの判断のすべて: コマンドに対する「書き込みの一覧と返事」か、
 /// 何も書かない「拒否」を返す。
 pub fn transition(actor: &amp;Principal, s: &amp;Snapshot, cmd: &amp;Command) -&gt; Outcome {
-    match cmd {
+    match cmd { // どの枝も、操作した人 actor.user で判断する
         Command::Add { title } =&gt; add(actor.user, s, title),
         Command::Rename { id, title } =&gt; rename(actor.user, s, *id, title),
         Command::SetDone { id, completed } =&gt; set_done(actor.user, s, *id, *completed),
         Command::Delete { id } =&gt; delete(actor.user, s, *id),
-        Command::List =&gt; Ok((Vec::new(), Reply::Todos(todos_of(&amp;s.todos, actor.user)))),
+        Command::List =&gt; Ok((Vec::new(), Reply::Todos(todos_of(&amp;s.todos, actor.user)))), // 何も書かず本人の分だけ返す
     }
 }</code></pre></figure>
 <p>返す書き込み1つ1つが許されるかは、仕様の <code>allowed</code> で定めます。</p>
@@ -151,6 +161,7 @@ def allowed (s : St) (u : Nat) : Write → Prop
   | .DelTodo id =&gt;
     -- 持ち主が、存在する todo を消す。
     ∃ q, findTodo s id.val = some q ∧ q.owner.val = u
+    -- 次に使う id の番号は、1つ進めることしかできない。
   | .SetCounter c =&gt; c.next_id.val = s.next + 1</code></pre></figure>
 <p>主な定理です（<code>h5i app check</code> で 108 定理、sorry なし。公理は Lean 標準の3つだけで、第5章で触れます）。</p>
 <ul>
@@ -182,6 +193,7 @@ permit (
   principal is User,
   action in [Action::"listTodos", Action::"readTodo", Action::"renameTodo", Action::"setDone", Action::"deleteTodo"],
   resource is Todo
+  // 条件: その todo の持ち主が、操作している本人
 ) when { resource.owner == principal };
 
 // Todo は自分を持ち主にしてしか作れない。
@@ -190,6 +202,7 @@ permit (
   principal is User,
   action == Action::"createTodo",
   resource is Todo
+  // 作ろうとしている行の owner が本人のときだけ
 ) when { resource.owner == principal };
 
 // …（User 行のポリシー「self-user」は省略）</code></pre></figure>
@@ -201,8 +214,10 @@ entity Todo = {
 };
 // …（ほかのエンティティとアクションは省略）
 // Todo を消す。
+// @effect: この操作が DB にすること（Todo の行を消す）
 @effect("delete Todo")
 action "deleteTodo" appliesTo {
+  // 操作できるのはログインした User だけ（匿名は不可）
   principal: [User],
   resource: [Todo]
 };</code></pre></figure>
@@ -210,17 +225,22 @@ action "deleteTodo" appliesTo {
 <figure class="code"><figcaption>backend/Todo/Handlers.lean（Nyxis 版）</figcaption><pre><code class="lang-lean">/-- `POST /todos` — 持ち主は主体。ID は Nyxis が決めた一意 ID。 -/
 def createTodo : Principal → Generated → Http.Request → Handler Http.Response := fun principal gen req =&gt; do
   let parsed : Except String Row := do
+    -- 本文の JSON から、空でないタイトルを取り出す
     let json ← parseObject req.body
     let title ← nonEmptyTitle json
     pure (rowOf
+      -- owner は本文の値ではなく、ログインした主体
       [ ("owner", some (.prim (.entityUID principal.uid)))
       , ("title", some title)
+      -- 作ったばかりの todo は未完了
       , ("done", some (.prim (.bool false))) ])
   -- …（結果の返し方は省略）</code></pre></figure>
-<p>持ち主は <code>principal</code> から入るので、本文で偽っても効きません。</p>
+<p>本文で持ち主を偽っても効きません。</p>
 <p><code>lake build</code> のたびに、「出された操作はすべて主体と一致し、ポリシーの範囲内」という定理が検査されます。</p>
 <figure class="code"><figcaption>backend/Todo/Approved.lean（Nyxis 版）</figcaption><pre><code class="lang-lean">theorem authorization_safety (router : Http.Router) (store : Db.Store)
+    -- requests: ログイン済みのリクエストの、どんな並びでもよい
     (requests : List Runtime.AuthenticatedRequest) :
+    -- 1つ目: 出た操作はどれも、頼んだ人と同じ主体で、ポリシーが許す
     (∀ r i, (r, i) ∈ (Runtime.trace (app router) store requests).issued →
       i.principal = r.principal ∧ i.generated = r.generated ∧ Authz.Authorized schema policies i)
     -- …（残りの連言は省略）</code></pre></figure>

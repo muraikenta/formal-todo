@@ -79,7 +79,9 @@ theorem one_eq (w : Write) : ∃ v : alloc.vec.Vec Write, one w = ok v := ok_of 
 
 /-- 持ち主は、存在する todo をいつでも完了（または未完了）にできる。 -/
 theorem set_done_ok (a : Principal) (s : Snapshot) (id : U64) (d : Bool) {q : Todo}
+    -- 前提 hq: その id の todo q がある。ho: q の持ち主は操作した人 a
     (hq : findTodo (Snapshot.toSt s) id.val = some q) (ho : q.owner = a.user) :
+    -- 結論: 何かの書き込み ws をして成功し、返事は Done
     ∃ ws, transition a s (.SetDone id d) = ok (.Ok (ws, .Done)) := by
   obtain ⟨v, hv⟩ := one_eq (.PutTodo ⟨id, a.user, q.title, d⟩)
   exact ⟨v, by simp [transition, set_done, find_todo_eq s id hq, ho, hv]⟩

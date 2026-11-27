@@ -43,7 +43,7 @@ def new : Result Todos := do
   ok { items := (alloc.vec.Vec.new Todo), next_id := 0#u32 }
 
 /-- [todo_kernel::add]:
-    Source: 'src/lib.rs', lines 25:0-33:1
+    Source: 'src/lib.rs', lines 25:0-34:1
     Visibility: public -/
 def add
   (t : Todos) (user : Std.U32) (title : String) :
@@ -59,7 +59,7 @@ def add
     ok (some t.next_id, { items := v, next_id := i })
 
 /-- [todo_kernel::toggle]: loop body 0:
-    Source: 'src/lib.rs', lines 1:0-40:5
+    Source: 'src/lib.rs', lines 1:0-42:5
     Visibility: public -/
 @[rust_loop_body]
 def toggle_loop.body
@@ -79,7 +79,7 @@ def toggle_loop.body
   else ok (done (t.items, t.next_id, i))
 
 /-- [todo_kernel::toggle]: loop 0:
-    Source: 'src/lib.rs', lines 1:0-40:5
+    Source: 'src/lib.rs', lines 1:0-42:5
     Visibility: public -/
 @[rust_loop]
 def toggle_loop
@@ -91,7 +91,7 @@ def toggle_loop
     i
 
 /-- [todo_kernel::toggle]:
-    Source: 'src/lib.rs', lines 36:0-47:1
+    Source: 'src/lib.rs', lines 37:0-50:1
     Visibility: public -/
 def toggle
   (t : Todos) (user : Std.U32) (id : Std.U32) : Result (Bool × Todos) := do
@@ -112,7 +112,7 @@ def toggle
   else ok (false, { items := v, next_id := i })
 
 /-- [todo_kernel::remove]: loop body 0:
-    Source: 'src/lib.rs', lines 54:4-58:5
+    Source: 'src/lib.rs', lines 57:4-61:5
     Visibility: public -/
 @[rust_loop_body]
 def remove_loop.body
@@ -135,7 +135,7 @@ def remove_loop.body
          ok (cont (iter1, kept1))
 
 /-- [todo_kernel::remove]: loop 0:
-    Source: 'src/lib.rs', lines 54:4-58:5
+    Source: 'src/lib.rs', lines 57:4-61:5
     Visibility: public -/
 @[rust_loop]
 def remove_loop
@@ -148,7 +148,7 @@ def remove_loop
     (iter, kept)
 
 /-- [todo_kernel::remove]:
-    Source: 'src/lib.rs', lines 50:0-62:1
+    Source: 'src/lib.rs', lines 53:0-65:1
     Visibility: public -/
 def remove
   (t : Todos) (user : Std.U32) (id : Std.U32) : Result (Bool × Todos) := do
@@ -160,7 +160,7 @@ def remove
   ok (i < n, { t with items := kept })
 
 /-- [todo_kernel::open_count]: loop body 0:
-    Source: 'src/lib.rs', lines 1:0-73:5
+    Source: 'src/lib.rs', lines 1:0-76:5
     Visibility: public -/
 @[rust_loop_body]
 def open_count_loop.body
@@ -184,7 +184,7 @@ def open_count_loop.body
   else ok (done count)
 
 /-- [todo_kernel::open_count]: loop 0:
-    Source: 'src/lib.rs', lines 1:0-73:5
+    Source: 'src/lib.rs', lines 1:0-76:5
     Visibility: public -/
 @[rust_loop]
 def open_count_loop
@@ -196,14 +196,14 @@ def open_count_loop
     (count, i)
 
 /-- [todo_kernel::open_count]:
-    Source: 'src/lib.rs', lines 65:0-75:1
+    Source: 'src/lib.rs', lines 68:0-78:1
     Visibility: public -/
 @[reducible]
 def open_count (t : Todos) (user : Std.U32) : Result Std.Usize := do
   open_count_loop t user 0#usize 0#usize
 
 /-- [todo_kernel::visible_ids]: loop body 0:
-    Source: 'src/lib.rs', lines 81:4-86:5
+    Source: 'src/lib.rs', lines 84:4-89:5
     Visibility: public -/
 @[rust_loop_body]
 def visible_ids_loop.body
@@ -226,7 +226,7 @@ def visible_ids_loop.body
   else ok (done ids)
 
 /-- [todo_kernel::visible_ids]: loop 0:
-    Source: 'src/lib.rs', lines 81:4-86:5
+    Source: 'src/lib.rs', lines 84:4-89:5
     Visibility: public -/
 @[rust_loop]
 def visible_ids_loop
@@ -238,7 +238,7 @@ def visible_ids_loop
     (ids, i)
 
 /-- [todo_kernel::visible_ids]:
-    Source: 'src/lib.rs', lines 78:0-88:1
+    Source: 'src/lib.rs', lines 81:0-91:1
     Visibility: public -/
 @[reducible]
 def visible_ids

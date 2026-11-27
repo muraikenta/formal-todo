@@ -39,6 +39,7 @@ def allowed (s : St) (u : Nat) : Write → Prop
   | .DelTodo id =>
     -- 持ち主が、存在する todo を消す。
     ∃ q, findTodo s id.val = some q ∧ q.owner.val = u
+    -- 次に使う id の番号は、1つ進めることしかできない。
   | .SetCounter c => c.next_id.val = s.next + 1
 
 /-- 書き込み1つが状態をどう変えるか。`H5iAppLib.upsert` は同じキーの行を

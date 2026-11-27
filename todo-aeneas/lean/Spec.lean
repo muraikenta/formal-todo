@@ -37,15 +37,19 @@ def mine (u id : Nat) (t : Todo) : Bool := t.id == id && t.owner == u
 /-- 足す: u が持ち主の未完了の todo を末尾に足し、振った id を返す。id を使い切っていたら何も変えずに none。 -/
 def add (s : State) (u : Nat) (title : String) : Option Nat × State :=
   if s.nextId = MaxId then (none, s)
+  -- 新しい todo は ⟨id, 持ち主, 題名, 完了⟩ の順。そのあと nextId を1進める
   else (some s.nextId, ⟨s.items ++ [⟨s.nextId, u, title, false⟩], s.nextId + 1⟩)
 
 /-- 完了の切り替え: u が持ち主の id 番の todo の done を反転する。効いたか（そういう todo があったか）を返す。 -/
 def toggle (s : State) (u id : Nat) : Bool × State :=
+  -- 1つ目: 当てはまる todo が1件でもあるか（効いたか）
   (s.items.any (mine u id),
+   -- 2つ目: 当てはまる todo だけ done を反転し、ほかはそのままの状態
    { s with items := s.items.map fun t => if mine u id t then { t with done := !t.done } else t })
 
 /-- 消す: u が持ち主の id 番の todo を除く。効いたかを返す。 -/
 def remove (s : State) (u id : Nat) : Bool × State :=
+  -- 1つ目: 効いたか、2つ目: 当てはまる todo を除いた状態
   (s.items.any (mine u id), { s with items := s.items.filter (fun t => !mine u id t) })
 
 /-- u の未完了の件数。 -/
@@ -64,15 +68,24 @@ def Inv (s : State) : Prop :=
 
 /-! ## 仕様そのものの確かめ（小さい例。アリス = 1、ボブ = 2） -/
 section examples
+-- s1: アリスが「牛乳」を足した状態。s2: さらに「卵」。s3: ボブが「ボブの用事」
+-- （add の結果の .1 は返り値、.2 は新しい状態）
 private def s1 := (add empty 1 "牛乳").2
 private def s2 := (add s1 1 "卵").2
 private def s3 := (add s2 2 "ボブの用事").2
+-- 空の状態にアリスが足すと、最初に振られる id は 0
 example : (add empty 1 "牛乳").1 = some 0 := by decide
+-- 3件目（ボブの用事）には id 2 が振られる
 example : (add s2 2 "ボブの用事").1 = some 2 := by decide
+-- s3 の未完了は、アリスが2件・ボブが1件
 example : openCount s3 1 = 2 ∧ openCount s3 2 = 1 := by decide
+-- s3 でアリスが id 0 を切り替えると、アリスの未完了は1件になる
 example : openCount (toggle s3 1 0).2 1 = 1 := by decide
+-- 無い id 9 を切り替えても効かない（false が返る）
 example : (toggle s3 1 9).1 = false := by decide
+-- アリスが id 1（卵）を消すと、残る題名は牛乳とボブの用事
 example : (remove s3 1 1).2.items.map (·.title) = ["牛乳", "ボブの用事"] := by decide
+-- アリスに見えるのは id 0・1、ボブに見えるのは id 2 だけ
 example : visible s3 1 = [0, 1] ∧ visible s3 2 = [2] := by decide
 -- ボブはアリスの todo を切り替えも削除もできない
 example : toggle s3 2 0 = (false, s3) := by decide
@@ -177,12 +190,14 @@ theorem remove_keeps (s : State) (u id : Nat) (t : Todo) (ht : t ∈ s.items)
 2. 見えるのは自分の todo だけ: u に見せる id は、u が持ち主の todo の id とちょうど一致する
 3. 他人の id を指定しても何も起きない: 失敗を返し、状態はそのまま -/
 
+/-- u ≠ v なら、u が足しても v の持ち物は変わらない。 -/
 theorem add_others (s : State) (u v : Nat) (title : String) (huv : u ≠ v) :
     ownedBy (add s u title).2 v = ownedBy s v := by
   unfold add; split
   · rfl
   · simp [ownedBy, List.filter_append, huv]
 
+/-- u ≠ v なら、u が切り替えても v の持ち物は変わらない。 -/
 theorem toggle_others (s : State) (u v id : Nat) (huv : u ≠ v) :
     ownedBy (toggle s u id).2 v = ownedBy s v := by
   simp only [ownedBy, toggle]
@@ -197,6 +212,7 @@ theorem toggle_others (s : State) (u v id : Nat) (huv : u ≠ v) :
     simp [this]
   · intro t _; split <;> rfl
 
+/-- u ≠ v なら、u が消しても v の持ち物は変わらない。 -/
 theorem remove_others (s : State) (u v id : Nat) (huv : u ≠ v) :
     ownedBy (remove s u id).2 v = ownedBy s v := by
   simp only [ownedBy, remove, List.filter_filter]
@@ -206,6 +222,7 @@ theorem remove_others (s : State) (u v id : Nat) (huv : u ≠ v) :
   · simp [mine, h, Ne.symm huv]
   · simp [h]
 
+/-- x が u に見える ⇔ x は u が持ち主の todo の id（過不足なし）。 -/
 theorem visible_iff (s : State) (u x : Nat) :
     x ∈ visible s u ↔ ∃ t ∈ s.items, t.id = x ∧ t.owner = u := by
   simp only [visible, ownedBy, List.mem_map, List.mem_filter, beq_iff_eq]
@@ -223,6 +240,7 @@ theorem none_mine (s : State) (u id : Nat) (h : Inv s) (t : Todo) (ht : t ∈ s.
     subst this; simp [mine, ho]
   · simp [mine, hxid]
 
+/-- id 番の todo が他人のものなら、toggle は false を返し状態はそのまま。 -/
 theorem toggle_foreign (s : State) (u id : Nat) (h : Inv s) (t : Todo) (ht : t ∈ s.items)
     (hid : t.id = id) (ho : t.owner ≠ u) : toggle s u id = (false, s) := by
   have hnone := none_mine s u id h t ht hid ho
@@ -235,6 +253,7 @@ theorem toggle_foreign (s : State) (u id : Nat) (h : Inv s) (t : Todo) (ht : t �
       apply List.map_congr_left
       intro x hx; simp [hnone x hx]
 
+/-- id 番の todo が他人のものなら、remove は false を返し状態はそのまま。 -/
 theorem remove_foreign (s : State) (u id : Nat) (h : Inv s) (t : Todo) (ht : t ∈ s.items)
     (hid : t.id = id) (ho : t.owner ≠ u) : remove s u id = (false, s) := by
   have hnone := none_mine s u id h t ht hid ho

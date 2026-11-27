@@ -109,11 +109,14 @@ def readTodo (id : Key) : Principal → Generated → Http.Request → Handler H
 /-- `POST /todos` — 持ち主は主体。ID は Nyxis が決めた一意 ID。 -/
 def createTodo : Principal → Generated → Http.Request → Handler Http.Response := fun principal gen req => do
   let parsed : Except String Row := do
+    -- 本文の JSON から、空でないタイトルを取り出す
     let json ← parseObject req.body
     let title ← nonEmptyTitle json
     pure (rowOf
+      -- owner は本文の値ではなく、ログインした主体
       [ ("owner", some (.prim (.entityUID principal.uid)))
       , ("title", some title)
+      -- 作ったばかりの todo は未完了
       , ("done", some (.prim (.bool false))) ])
   match parsed with
   | .error e => pure (badRequest e)

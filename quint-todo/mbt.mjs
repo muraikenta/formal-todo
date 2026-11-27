@@ -52,22 +52,24 @@ for (const f of files) {
   }
   for (let i = 1; i < states.length; i++) {
     const s = states[i];
-    const type = s["mbt::actionTaken"];
-    const picks = fromItf(s["mbt::nondetPicks"]);
+    const type = s["mbt::actionTaken"];             // この歩で仕様が選んだ操作の名前（"add" など）
+    const picks = fromItf(s["mbt::nondetPicks"]);   // nondet で選んだ値（raw・id）
+    // 選ばれた引数はその値、この操作で使わなかった引数は undefined
     const arg = (n) => (picks[n]?.tag === "Some" ? picks[n].value : undefined);
     // Quint の action の引数と同じものを渡す（使わない引数はアプリ側が無視する）
     const action = { type, id: arg("id"), title: arg("raw") };
     const before = implView(impl);
     try {
-      impl = reduce(impl, action);
+      impl = reduce(impl, action); // アプリに同じ操作を1歩させる
     } catch (e) {
       failures.push({ file: f, step: i, action: JSON.stringify(action), impl: `例外: ${e.message}`, model: "" });
       break;
     }
-    const model = { todos: pick(s, "todos"), nextId: pick(s, "nextId") };
+    const model = { todos: pick(s, "todos"), nextId: pick(s, "nextId") }; // 同じ歩の仕様側の状態
     steps++;
     actionCount[type] = (actionCount[type] ?? 0) + 1;
     if (implView(impl) !== before) changedCount[type] = (changedCount[type] ?? 0) + 1;
+    // アプリと仕様で todos・nextId・残り件数のどれかが違えば食い違い
     if (implView(impl) !== modelView(model)) {
       failures.push({ file: f, step: i, action: JSON.stringify(action), impl: implView(impl), model: modelView(model) });
       break;

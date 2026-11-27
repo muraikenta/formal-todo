@@ -53,8 +53,10 @@ action "setDone" appliesTo {
 };
 
 // Todo を消す。
+// @effect: この操作が DB にすること（Todo の行を消す）
 @effect("delete Todo")
 action "deleteTodo" appliesTo {
+  // 操作できるのはログインした User だけ（匿名は不可）
   principal: [User],
   resource: [Todo]
 };

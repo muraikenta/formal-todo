@@ -243,6 +243,7 @@ DuplicateTab ==
   /\ SecondTab = "duplicate" /\ ~open[2] /\ ~closed[2] /\ open[1]
   /\ open' = [open EXCEPT ![2] = TRUE]
   /\ cid' = [cid EXCEPT ![2] = cid[1]]
+  \* 次の連番・送信待ち・確定した行・lastSeq は、保存された状態から読む
   /\ nextNo' = [nextNo EXCEPT ![2] = store[cid[1]].nextNo]
   /\ outbox' = [outbox EXCEPT ![2] = store[cid[1]].outbox]
   /\ conf' = [conf EXCEPT ![2] = store[cid[1]].conf]
@@ -283,8 +284,10 @@ CloseTab(t) ==
 
 \* push() の await の前まで: pushing でなく outbox が空でなければ先頭から送る
 PushStart(t) ==
+  \* 開いている・送信中でない・送信待ちがある・push の合計が上限未満
   /\ open[t] /\ pushing[t] = 0 /\ outbox[t] # <<>> /\ pushN[1] + pushN[2] < MaxPush
   /\ LET n == pushN[t] + 1 IN
+       \* 送信待ちの先頭から最大 50 件を、n 回目の要求として送る
        /\ reqs' = reqs \cup {[tab |-> t, n |-> n, ops |-> SubSeq(outbox[t], 1, Min(50, Len(outbox[t])))]}
        /\ pushing' = [pushing EXCEPT ![t] = n]
        /\ pushN' = [pushN EXCEPT ![t] = n]
@@ -337,6 +340,7 @@ PushOk ==
 PushGivesUp(t) ==
   /\ pushing[t] # 0
   /\ pushing' = [pushing EXCEPT ![t] = 0]
+  \* 届く途中の応答から、諦めたこの push の分を消す
   /\ resps' = {x \in resps : ~(x.tab = t /\ x.n = pushing[t])}
   /\ ServerUnchanged
   /\ UNCHANGED <<open, closed, cid, nextNo, outbox, conf, lastSeq, pushN, pullSt, store, reqs,
@@ -372,13 +376,16 @@ PullOk(t) ==
 
 -----------------------------------------------------------------------------
 Next ==
+  \* どれかのタブでユーザーが追加・名前変更・完了切替・削除する
   \/ \E t \in Tabs : YouCreate(t) \/ YouRename(t) \/ YouToggle(t) \/ YouDelete(t)
   \/ OpenNewTab \/ DuplicateTab
   \/ \E t \in Tabs : Reload(t) \/ CloseTab(t)
   \/ \E t \in Tabs : PushStart(t) \/ PushGivesUp(t)
+  \* 要求が消える・サーバが要求を処理する・タブに応答が届く
   \/ RequestLost \/ ServerPush \/ PushOk
   \/ \E t \in Tabs : PullRead(t) \/ PullOk(t)
 
+\* Init から始まり、毎歩 Next のどれかが起きる（何も変わらない歩も許す）
 Spec == Init /\ [][Next]_vars
 
 -----------------------------------------------------------------------------
@@ -386,6 +393,7 @@ Spec == Init /\ [][Next]_vars
 
 \* 1. 確認が来たとして送信待ちから外した操作は、その操作としてサーバに反映されている
 \*    （別の操作と取り違えて「もう反映済み」と捨てられていない）
+\*    式: acked のどの操作 o も applied に入っている
 AckedMeansApplied == \A o \in acked : o \in applied
 
 \* 2. 同じクライアントの操作は、サーバで操作した順に 1 回ずつ反映される
@@ -397,6 +405,7 @@ Settled ==
   /\ reqs = {} /\ resps = {}
   /\ \A t \in Tabs : open[t] =>
        (outbox[t] = <<>> /\ pushing[t] = 0 /\ pullSt[t] = Idle /\ lastSeq[t] = srvSeq)
+\*    式: Settled ならば、開いている全タブの画面 = サーバの一覧
 Converged == Settled => \A t \in Tabs : open[t] => View(t) = ServerView
 
 \* 4. ユーザーが積んだ操作は、サーバに反映済みか、開いているタブの送信待ちにあるか、

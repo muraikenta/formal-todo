@@ -26,11 +26,13 @@ function loadClientId(): string {
     sessionStorage.setItem("todo-client-id", id);
     return id;
   } catch {
+    // sessionStorage が使えないときは、保存せずに毎回新しい ID
     return crypto.randomUUID();
   }
 }
 
 const clientId = loadClientId();
+// 状態は localStorage のこのキーに保存する（全タブで共有の保存先）
 const storageKey = `todo-state:${clientId}`;
 
 function loadState(): ClientState {

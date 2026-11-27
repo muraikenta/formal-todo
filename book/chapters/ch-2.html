@@ -72,15 +72,19 @@ def mine (u id : Nat) (t : Todo) : Bool := t.id == id &amp;&amp; t.owner == u
 /-- 足す: u が持ち主の未完了の todo を末尾に足し、振った id を返す。id を使い切っていたら何も変えずに none。 -/
 def add (s : State) (u : Nat) (title : String) : Option Nat × State :=
   if s.nextId = MaxId then (none, s)
+  -- 新しい todo は ⟨id, 持ち主, 題名, 完了⟩ の順。そのあと nextId を1進める
   else (some s.nextId, ⟨s.items ++ [⟨s.nextId, u, title, false⟩], s.nextId + 1⟩)
 
 /-- 完了の切り替え: u が持ち主の id 番の todo の done を反転する。効いたか（そういう todo があったか）を返す。 -/
 def toggle (s : State) (u id : Nat) : Bool × State :=
+  -- 1つ目: 当てはまる todo が1件でもあるか（効いたか）
   (s.items.any (mine u id),
+   -- 2つ目: 当てはまる todo だけ done を反転し、ほかはそのままの状態
    { s with items := s.items.map fun t =&gt; if mine u id t then { t with done := !t.done } else t })
 
 /-- 消す: u が持ち主の id 番の todo を除く。効いたかを返す。 -/
 def remove (s : State) (u id : Nat) : Bool × State :=
+  -- 1つ目: 効いたか、2つ目: 当てはまる todo を除いた状態
   (s.items.any (mine u id), { s with items := s.items.filter (fun t =&gt; !mine u id t) })
 
 /-- u の未完了の件数。 -/
@@ -93,11 +97,15 @@ def Inv (s : State) : Prop :=
   (s.items.map (·.id)).Nodup ∧ (∀ t ∈ s.items, t.id &lt; s.nextId) ∧ s.nextId ≤ MaxId</code></pre></figure>
 <p><code>∧</code> は「かつ」、<code>∀ t ∈ s.items</code> は「どの todo t についても」、<code>Nodup</code> は「重複が無い」です。</p>
 <p>仕様の誤りは小さい例で確かめます。<code>example</code> は名前の無い定理、<code>by decide</code> は「計算して確かめて」です。</p>
-<figure class="code"><figcaption>todo-aeneas/lean/Spec.lean</figcaption><pre><code class="lang-lean">private def s1 := (add empty 1 "牛乳").2
+<figure class="code"><figcaption>todo-aeneas/lean/Spec.lean</figcaption><pre><code class="lang-lean">-- s1: アリスが「牛乳」を足した状態。s2: さらに「卵」。s3: ボブが「ボブの用事」
+-- （add の結果の .1 は返り値、.2 は新しい状態）
+private def s1 := (add empty 1 "牛乳").2
 private def s2 := (add s1 1 "卵").2
 private def s3 := (add s2 2 "ボブの用事").2
+-- 空の状態にアリスが足すと、最初に振られる id は 0
 example : (add empty 1 "牛乳").1 = some 0 := by decide
 -- …
+-- s3 でアリスが id 0 を切り替えると、アリスの未完了は1件になる
 example : openCount (toggle s3 1 0).2 1 = 1 := by decide</code></pre></figure>
 <p>使う人から見た性質も定理にします。</p>
 <figure class="code"><figcaption>todo-aeneas/lean/Spec.lean</figcaption><pre><code class="lang-lean">/-- 足すと、自分の未完了が1件増える。 -/
@@ -122,16 +130,19 @@ pub fn add(t: &amp;mut Todos, user: u32, title: String) -&gt; Option&lt;u32&gt; 
     }
     let id = t.next_id;
     t.items.push(Todo { id, owner: user, title, done: false });
+    // 上の if で最大値を除いたので、ここで u32 はあふれない
     t.next_id = id + 1;
     Some(id)
 }
 
 /// id の todo の完了／未完了を切り替える。user が持ち主のときだけ効き、効いたら true。
 pub fn toggle(t: &amp;mut Todos, user: u32, id: u32) -&gt; bool {
+    // 先頭から順に見て、id が一致する最初の位置 i で止まる（無ければ i は末尾）
     let mut i = 0;
     while i &lt; t.items.len() &amp;&amp; t.items[i].id != id {
         i += 1;
     }
+    // 見つかり、かつ持ち主が user のときだけ反転する
     if i &lt; t.items.len() &amp;&amp; t.items[i].owner == user {
         t.items[i].done = !t.items[i].done;
         true
@@ -162,8 +173,8 @@ pub fn toggle(t: &amp;mut Todos, user: u32, id: u32) -&gt; bool {
         ({ id := t.next_id, owner := user, title, done := false } : Todo)
     let i ← t.next_id + 1#u32
     ok (some t.next_id, { items := v, next_id := i })</code></pre></figure>
-<p><code>&amp;mut Todos</code> は「新しい <code>Todos</code> を返す」に変わり、戻り値は <code>Result</code>（<code>ok</code> か <dfn>panic</dfn>＝実行時エラーか）で包まれます。<code>1#u32</code> の前の <code>←</code> は「<code>u32</code> の上限（約43億）を超えたら（<dfn>あふれ</dfn>たら）ここで失敗」で、panic が見える形になります。</p>
-<aside class="warn"><b>落とし穴</b>Aeneas は標準ライブラリを全部は知りません。<code>std::mem::take</code> は中身の無い宣言（<dfn>axiom</dfn>。定義なしに「ある」とみなす宣言）になり、何も証明できませんでした。<code>std::mem::replace(&amp;mut v, Vec::new())</code> に替え、翻訳後は <code>grep axiom lean/TodoKernel.lean</code> で 0 件を確かめます。</aside>
+<p>このファイルは自動生成なのでコメントは足していません。上から「id を使い切っていたら何も変えずに返す」「末尾に足す」「next_id を1進める」で、Rust の <code>add</code> と1行ずつ対応します。<code>&amp;mut Todos</code> は「新しい <code>Todos</code> を返す」に変わり、戻り値は <code>Result</code>（<code>ok</code> か <dfn>panic</dfn>＝実行時エラーか）で包まれます。<code>1#u32</code> の前の <code>←</code> は「<code>u32</code> の上限（約43億）を超えたら（<dfn>あふれ</dfn>たら）ここで失敗」で、panic が見える形になります。</p>
+<aside class="warn"><b>落とし穴</b>Aeneas が中身を知っている標準ライブラリの関数は、Lean で動きを手書きしたモデルがあるものだけです。<code>std::mem::take</code> にはモデルがまだ無く、中身の無い宣言（<dfn>axiom</dfn>。定義なしに「ある」とみなす宣言）になって、何も証明できませんでした。<code>std::mem::replace(&amp;mut v, Vec::new())</code> に替え、翻訳後は <code>grep axiom lean/TodoKernel.lean</code> で 0 件を確かめます。</aside>
 </li>
 
 <li>
@@ -185,21 +196,19 @@ flowchart LR
 <p>Lean で書くと <code>add_correct</code> です。</p>
 <figure class="code"><figcaption>todo-aeneas/lean/Proofs.lean</figcaption><pre><code class="lang-lean">記法: `f x ⦃ y =&gt; P y ⦄` は「f x は失敗（panic）せずに値 y を返し、y は P を満たす」。
 -- …
+-- 前提 hinv: 今の状態を読み替えたものが不変条件 Inv を満たすなら
 theorem add_correct (t : Todos) (user : U32) (title : String) (hinv : Spec.Inv (abs t)) :
+    -- Rust の add は panic せず、返り値 r も新しい状態 t' も仕様の add と同じ
     add t user title ⦃ r t' =&gt; r.map (·.val) = (Spec.add (abs t) user.val title).1 ∧
                          abs t' = (Spec.add (abs t) user.val title).2 ⦄ := by
   unfold add
   split
   -- …</code></pre></figure>
-<ul>
-<li>前提 <code>hinv</code>: 今の状態が不変条件を満たすなら</li>
-<li>Rust の <code>add</code> は panic せず、返り値 <code>r</code> と新しい状態 <code>t'</code> を返す</li>
-<li>返り値は仕様の <code>add</code> と同じ</li>
-<li>新しい状態を読み替えると、仕様の <code>add</code> の結果と同じ</li>
-</ul>
 <p>「panic しない」は、<code>Inv</code> から「件数は next_id 以下」（<code>length_le_nextId</code>）を導いて示しました。</p>
 <p>同じ形の定理を4操作に作りました（<code>add_correct</code>・<code>toggle_correct</code>・<code>remove_correct</code>・<code>open_count_correct</code>）。<code>Inv</code> を前提に取るのは、panic しないことを言う <code>add</code> と、id の重複が無いことが要る <code>toggle</code> です。</p>
-<figure class="code"><figcaption>todo-aeneas/lean/Proofs.lean</figcaption><pre><code class="lang-lean">theorem toggle_correct (t : Todos) (user id : U32) (hinv : Spec.Inv (abs t)) :
+<figure class="code"><figcaption>todo-aeneas/lean/Proofs.lean</figcaption><pre><code class="lang-lean">-- 前提 hinv: id が重複しないこと（これで仕様の全部反転と Rust の最初の1件が一致する）
+theorem toggle_correct (t : Todos) (user id : U32) (hinv : Spec.Inv (abs t)) :
+    -- 効いたか b も新しい状態 t' も仕様の toggle と同じ
     toggle t user id ⦃ b t' =&gt; b = (Spec.toggle (abs t) user.val id.val).1 ∧
                          abs t' = (Spec.toggle (abs t) user.val id.val).2 ⦄ := by
   -- …</code></pre></figure>
@@ -250,7 +259,9 @@ theorem add_correct (t : Todos) (user : U32) (title : String) (hinv : Spec.Inv (
 fn check_inv(t: &amp;Todos) -&gt; Result&lt;(), String&gt; {
     let mut seen = HashSet::new();
     for x in &amp;t.items {
+        // ① insert は初めての id なら true を返す。false なら重複
         if !seen.insert(x.id) { return Err(format!("id {} が重複している", x.id)) }
+        // ② どの id も next_id より小さい
         if x.id &gt;= t.next_id { return Err(format!("id {} が next_id 以上", x.id)) }
     }
     Ok(())
