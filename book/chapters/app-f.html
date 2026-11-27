@@ -1,223 +1,300 @@
 <section class="chapter" id="app-f">
-<h2>付録F Lean の基本文法</h2>
+<h2>付録F Quint で仕様を全部の状態について調べる</h2>
 
-<p class="lead">本編のコード抜粋を読むときに引く早見です。網羅はせず、本書に出てくるものだけを TypeScript と並べて載せます。例はすべて Lean 4.36 で検査を通しています。</p>
+<p class="lead">本編では Lean で「どんな件数でも仕様どおり」と証明しました。この付録は別のやり方です。証明はせず、範囲を小さく区切って、起こりうる状態を機械に全部調べさせます。最後に、仕様から作った操作の列を JavaScript アプリに流して突き合わせます。</p>
 
 <div class="goals">
 <h3>この付録のゴール</h3>
 <ul>
-<li>本編の <code>def</code>・<code>structure</code>・<code>theorem</code> を、TypeScript に置き換えて読める</li>
-<li>主張の記号（<code>∧</code>・<code>∀</code>・<code>∈</code> など）を声に出して読める</li>
-<li>証明の中の <code>decide</code>・<code>simp</code>・<code>rw</code> などが「何をしてくれるか」が分かる</li>
+<li>todo アプリを「状態」と「操作」で書ける</li>
+<li>不変条件を書き、<code>quint test</code> / <code>quint run</code> / TLC で調べられる</li>
+<li>わざと壊した仕様で、検査の強さを測れる（変異テスト）</li>
+<li>仕様から作った操作の列でアプリをテストする（MBT）流れが分かる</li>
+<li>検査が緑でも残る見逃しを4つ言える</li>
 </ul>
 </div>
 
-<h3>値と関数</h3>
-<table>
-<thead><tr><th>Lean</th><th>TypeScript で書くと</th><th>メモ</th></tr></thead>
-<tbody>
-<tr><td><code>def double (x : Nat) : Nat := x * 2</code></td><td><code>const double = (x: number): number =&gt; x * 2</code></td><td>型は <code>名前 : 型</code> の順</td></tr>
-<tr><td><code>area 3 4</code></td><td><code>area(3, 4)</code></td><td>関数の適用は空白で区切る。括弧はまとまりを作るだけ。引数を一部だけ渡すと残りを受け取る関数になる（<code>mine u id</code>）</td></tr>
-<tr><td><code>xs.map f</code></td><td><code>xs.map(f)</code></td><td><code>List.map f xs</code> の略。<code>output.Perm input</code> も <code>List.Perm output input</code></td></tr>
-<tr><td><code>fun x =&gt; x % 2 == 0</code></td><td><code>x =&gt; x % 2 === 0</code></td><td>無名関数。最後の引数なら <code>xs.map fun t =&gt; …</code> と括弧を省ける</td></tr>
-<tr><td><code>(· * 10)</code>・<code>(· ≤ ·)</code>・<code>(·.id)</code></td><td><code>x =&gt; x * 10</code>・<code>(a, b) =&gt; a &lt;= b</code>・<code>t =&gt; t.id</code></td><td><code>·</code> が引数の置き場所。<code>·</code> 1つごとに引数が1つ</td></tr>
-<tr><td><code>if c then a else b</code></td><td><code>c ? a : b</code></td><td>式なので値を返し、<code>else</code> は省けない（<code>do</code> の中を除く）</td></tr>
-<tr><td><code>match n with | 0 =&gt; … | _ =&gt; …</code></td><td><code>switch</code></td><td>場合分け。<code>_</code> は「それ以外」</td></tr>
-<tr><td><code>let s := xs.sum</code></td><td><code>const s = …</code></td><td>再代入はできない</td></tr>
-<tr><td><code>a == b</code>・<code>&amp;&amp;</code>・<code>!b</code></td><td><code>a === b</code>・<code>&amp;&amp;</code>・<code>!b</code></td><td>どれも <code>Bool</code> を返す計算。<code>=</code> とは別（下の Prop）</td></tr>
-</tbody>
-</table>
-<figure class="code"><figcaption>例</figcaption><pre><code class="lang-lean">def double (x : Nat) : Nat := x * 2
+<h3>題材と道具</h3>
+<p>題材は todo アプリで、操作は追加・完了の切り替え・削除・題名の編集・全部切り替え・完了済みを消すの6つです。</p>
+<p>道具は <dfn>Quint</dfn>（クイント）です。システムの決まりを書く言語で、見た目は TypeScript に似ており、書いた仕様を実行も全状態の検査もできます。版は 0.34.0 です。</p>
+<p>証明との違いは、手間と保証の広さです。証明は手で組み立てる代わりに全部の件数で言えます。Quint は書くだけで機械が調べてくれますが、言えるのは調べた範囲の中だけです。</p>
+<p>Quint で書くのは<strong>アプリではなく、アプリの決まり</strong>です。アプリは JavaScript で書き、後半の MBT でつなぎます。</p>
 
-def area (w h : Nat) : Nat := w * h   -- 同じ型の引数はまとめて書ける
+<pre class="mermaid">
+flowchart LR
+  S["仕様 todo.qnt"] --&gt; T["quint test（具体例）"]
+  S --&gt; R["quint run（ランダム）"]
+  S --&gt; V["TLC（全状態）"]
+  S --&gt; G["トレース200本"]
+  G --&gt; M["mbt.mjs"]
+  A["アプリ todo-core.mjs"] --&gt; M
+</pre>
 
-#eval area 3 4          -- 12
-#eval double (area 3 4) -- 24（括弧が無いと double に area 自体を渡すことになり、型が合わない）
+<ol class="steps">
 
-#eval [1, 2, 3, 4].filter (fun x =&gt; x % 2 == 0)  -- [2, 4]
-#eval [3, 1, 2].map (· * 10)                      -- [30, 10, 20]
-#eval List.map (· * 10) [3, 1, 2]                 -- 同じ。xs.map f は List.map f xs の略
+<li>
+<h4>状態を書く</h4>
+<p>状態（アプリが覚えていること）は、todo の一覧と次に振る id の2つです。Quint では <code>var</code> で宣言します。</p>
+<figure class="code"><figcaption>quint-todo/todo.qnt</figcaption><pre><code class="lang-quint">  // 1件の todo: 番号・題名・完了したか
+  type Todo = { id: int, title: str, done: bool }
 
-def isMultOf (k n : Nat) : Bool := n % k == 0
-#eval [1, 2, 3, 4].filter (isMultOf 2)  -- [2, 4]。isMultOf 2 は「n を受け取る関数」
+  var todos: List[Todo]    // 画面に並ぶ順
+  var nextId: int          // 次に振る id
+  // 以下は「前後の性質」を書くための記録（アプリには無い）
+  var lastAction: str      // 直前の操作の名前（"add" など）
+  var lastId: int          // 直前の操作の対象 id
+  var lastTitle: str       // 直前の操作の題名（空白を取った後）
+  var prevTodos: List[Todo]  // 直前の操作をする前の todos
+  var prevNextId: int        // 直前の操作をする前の nextId</code></pre></figure>
+<p><code>last…</code> と <code>prev…</code> は検査用の記録で、手順7で使います。アプリの状態は todos と nextId だけです。</p>
+</li>
 
-def describe (n : Nat) : String :=
-  match n with
-  | 0 =&gt; "ゼロ"
-  | 1 =&gt; "いち"
-  | _ =&gt; "たくさん"
+<li>
+<h4>操作を書く</h4>
+<p>状態を変える操作を <dfn>action</dfn>（アクション）と呼びます。<code>todos'</code> のように <code>'</code>（プライム）を付けた名前が操作後の値です。</p>
+<figure class="code"><figcaption>quint-todo/todo.qnt</figcaption><pre><code class="lang-quint">  // 追加: 空白を取って空になるものは弾く（何も変わらない）
+  action add(raw: str): bool = {
+    // 生の入力を、空白を取った題名に変える（表で引く）
+    val title = INPUTS.get(raw)
+    all {
+      // 試す範囲の上限: nextId が MAX_ID 未満の間だけ追加できる
+      nextId &lt; MAX_ID,
+      // 検査用に「直前は add、題名は title」と記録する
+      record("add", -1, title),
+      // 空欄なら todos も nextId もそのまま
+      if (title == "")
+        all { todos' = todos, nextId' = nextId }
+      else {
+        // 普段は nextId を振る（BUG 版だけ「いまの件数」を振る）
+        val newId = if (BUG == "idFromLength") todos.length() else nextId
+        // 末尾に未完了で1件足し、nextId を1進める
+        all {
+          todos' = todos.append({ id: newId, title: title, done: false }),
+          nextId' = nextId + 1,
+        }
+      },
+    }
+  }</code></pre></figure>
+<p><code>all { … }</code> は「中の条件が全部成り立つ」です。</p>
+<p>空白を <code>INPUTS</code> の表で取るのは、Quint に <code>trim</code> が無いからです。</p>
+<p>最後に、1歩ごとに6つのどれかが起きると書きます。</p>
+<figure class="code"><figcaption>quint-todo/todo.qnt</figcaption><pre><code class="lang-quint">  // id は「いまある id」だけでなく範囲全体から選ぶ（無い id への操作が無害かも確かめる）
+  action step = {
+    nondet raw = INPUTS.keys().oneOf()      // 入力欄の文字列を候補から1つ選ぶ
+    nondet id = 0.to(MAX_ID - 1).oneOf()    // 対象の id を 0〜MAX_ID-1 から1つ選ぶ
+    // 次の6つのどれか1つが起きる
+    any {
+      add(raw),
+      toggle(id),
+      remove(id),
+      edit(id, raw),
+      toggleAll,
+      clearCompleted,
+    }
+  }</code></pre></figure>
+<p><dfn>nondet</dfn> は「この中のどれでもよい」、<code>any { … }</code> は「どれか1つが起きる」です。</p>
+<aside class="note"><b>ポイント</b>仕様は「この順に呼ぶ」手続きではなく、「どの状態からでも6つのどれかが起こりうる」という可能性の全体です。</aside>
+</li>
 
-def total (xs : List Nat) : Nat :=
-  let s := xs.sum
-  if s &gt; 100 then 100 else s</code></pre></figure>
+<li>
+<h4>不変条件を書く</h4>
+<p>第1章と同じく、どの操作の後でも成り立ってほしい性質（不変条件）を書きます。</p>
+<figure class="code"><figcaption>quint-todo/todo.qnt</figcaption><pre><code class="lang-quint">  // ---- 形の性質（1つの状態で言えること） ----
+  // id がかぶらない（id の種類の数 ＝ 件数）
+  val idsUnique = idsOf(todos).size() == todos.length()
+  // id は並び順に増えていく（追加は末尾・他の操作は順番を変えない）
+  val idsAscending = todos.indices().forall(i =&gt; i == 0 or todos[i - 1].id &lt; todos[i].id)
+  // 振った id は nextId 未満（次に振る id がすでに使われていない）
+  val idsFresh = todos.indices().forall(i =&gt; todos[i].id &lt; nextId)
+  // 題名が空の todo は無い
+  val noEmptyTitles = todos.indices().forall(i =&gt; todos[i].title != "")
+  // 保存される題名は必ず「空白を取った後」の形（生の入力のまま入っていない）
+  val titlesNormalized = todos.indices().forall(i =&gt; INPUTS.keys().map(k =&gt; INPUTS.get(k)).contains(todos[i].title))
+  // 形の性質を全部まとめたもの
+  val shapeOk = idsUnique and idsAscending and idsFresh and noEmptyTitles and titlesNormalized</code></pre></figure>
+<p>1つの状態を見れば言えるので、<dfn>形の性質</dfn>と呼びます。</p>
+</li>
 
-<h3>型</h3>
-<table>
-<thead><tr><th>Lean</th><th>TypeScript で近いもの</th><th>メモ</th></tr></thead>
-<tbody>
-<tr><td><code>Nat</code></td><td><code>number</code>（0 以上の整数だけ）</td><td><dfn>自然数</dfn>。上限もあふれも無い。<code>0 - 1</code> は <code>0</code></td></tr>
-<tr><td><code>Bool</code>・<code>String</code></td><td><code>boolean</code>・<code>string</code></td><td></td></tr>
-<tr><td><code>List Nat</code></td><td><code>number[]</code></td><td>型の引数も空白で渡す。<code>[1, 2]</code>・<code>xs ++ ys</code>（連結）</td></tr>
-<tr><td><code>Option Nat</code>（<code>some 5</code>／<code>none</code>）</td><td><code>number | undefined</code></td><td>値が無いことを型で表す。<code>o.map f</code> は中身があれば <code>f</code> を当てる</td></tr>
-<tr><td><code>Nat × String</code>・<code>p.1</code>・<code>p.2</code></td><td><code>[number, string]</code>・<code>p[0]</code>・<code>p[1]</code></td><td><dfn>組</dfn>。本書では「返り値と新しい状態」を返すのに使う</td></tr>
-<tr><td><code>structure</code></td><td><code>type Point = { x: number; y: number }</code></td><td><code>{ p with y := 5 }</code> は <code>{ ...p, y: 5 }</code>。<code>⟨1, 2⟩</code> は欄の順に並べて作る書き方。<code>{ title, done := false }</code> の <code>title</code> は <code>title := title</code> の略</td></tr>
-<tr><td><code>(e : T)</code></td><td><code>e as T</code></td><td>式に型を書き添える。TypeScript と違い、合わなければエラーになる</td></tr>
-<tr><td><code>deriving DecidableEq, Repr</code></td><td>なし</td><td>「等しいかを計算で判定できる」「<code>#eval</code> で表示できる」を自動で付ける</td></tr>
-<tr><td><code>Prop</code></td><td>なし</td><td>真偽値ではなく<dfn>主張</dfn>。証明するもの。真偽を計算で決める手順がある主張だけは <code>decide</code> で確かめられる</td></tr>
-</tbody>
-</table>
-<figure class="code"><figcaption>例</figcaption><pre><code class="lang-lean">#eval [5, 6].head?               -- some 5
-#eval ([] : List Nat).head?      -- none（(e : 型) は型を書き添える書き方）
-#eval (some 3).map (· * 10)      -- some 30。none なら none のまま
+<li>
+<h4>具体例で動かす（quint test）</h4>
+<p>まず具体的な操作の列で動きを確かめます。単体テストと同じ感覚です。</p>
+<figure class="code"><figcaption>quint-todo/todo.qnt</figcaption><pre><code class="lang-quint">  // "milk" と " milk " を足して全部切り替え → 2件とも完了、2件目の題名も "milk"
+  run addTwoThenToggleAllTest =
+    initState.then(add("milk")).then(add(" milk ")).then(toggleAll)
+      .expect(todos.length() == 2 and allDone(todos) and todos[1].title == "milk")
+  // 空欄・半角空白・全角空白は弾かれ、件数も nextId も 0 のまま
+  run emptyTitleRejectedTest =
+    initState.then(add("")).then(add(" ")).then(add("　")).expect(todos.length() == 0 and nextId == 0)</code></pre></figure>
+<p><code>.then(…)</code> は「続けてこの操作」、<code>.expect(…)</code> は「最後にこれが成り立つ」です。具体例は4本です。</p>
+<p>動かすときは、上限などの定数を埋めた版を選びます。</p>
+<figure class="code"><figcaption>quint-todo/todo.qnt</figcaption><pre><code class="lang-quint">// TLC で全網羅する版: id は 0〜3 まで（4件まで追加できる）
+module todo4 {
+  import inputs.*
+  // 定数を埋めて todo を取り込む（上限 4・標準の入力・バグなし）
+  import todo(MAX_ID = 4, INPUTS = INPUTS_STD, BUG = "none").*
+}
 
-def pair : Nat × String := (1, "牛乳")
-#eval pair.2  -- "牛乳"
+// MBT のトレースを作る版: 範囲を広げる（4 で区切ると「5件目で壊れる」実装を見逃した）
+module todo7 {
+  import inputs.*
+  // 上限だけ 7 にした同じ仕様
+  import todo(MAX_ID = 7, INPUTS = INPUTS_STD, BUG = "none").*
+}</code></pre></figure>
+<aside class="try"><b>やってみよう</b>具体例4本を流します。
+<pre><code class="lang-bash">cd quint-todo
+quint test todo.qnt --main=todo4</code></pre>
+</aside>
+</li>
 
-structure Point where
-  x : Nat
-  y : Nat
-deriving DecidableEq, Repr
+<li>
+<h4>ランダムに歩かせる（quint run）と、全部見る（TLC）</h4>
+<p><code>quint run</code> は最大30歩の列をランダムに1万本試し、不変条件が破れたらそこまでの列（<dfn>反例</dfn>）を見せます。</p>
+<p>ランダムでは通らない道が残るので、到達できる状態を1つ残らず調べる <dfn>TLC</dfn> も使います（この手法を<dfn>モデル検査</dfn>と呼びます）。</p>
+<aside class="try"><b>やってみよう</b>
+<code>safety</code> は <code>shapeOk</code> に手順7の性質を足した不変条件です。
+<pre><code class="lang-bash">cd quint-todo
+quint run todo.qnt --main=todo7 --invariant=safety --max-steps=30 --max-samples=10000
+quint verify todo.qnt --main=todo4 --backend=tlc --invariant=safety</code></pre>
+</aside>
+<p>TLC は id 0〜3 で <strong>225,531 状態</strong>を調べ、違反なしでした。id を件数で振る間違いを入れた <code>todo4_idFromLength</code> では違反が出ます。</p>
+<aside class="note"><b>ポイント</b>全部調べられるのは範囲を小さく区切ったからです。「id 0〜3 で違反なし」は「何件でも大丈夫」ではありません。</aside>
+</li>
 
-def p : Point := { x := 1, y := 2 }
-#eval { p with y := 5 }          -- { x := 1, y := 5 }
-#eval [p, ⟨3, 4⟩].map (·.x)      -- [1, 3]
+<li>
+<h4>わざと壊した仕様で検査を試す（変異テスト）</h4>
+<p>緑でも、検査が甘いだけかもしれません。第2章と同じ変異テストで、わざと書き間違えた仕様を検査が見つけるかを数えます。</p>
+<figure class="code"><figcaption>quint-todo/mutate-spec.mjs</figcaption><pre><code class="lang-js">// 各行: [名前, 置き換え元（todo.qnt に1か所だけある文字列）, 置き換え後]
+// 文字列中の \n は改行（複数行にまたがる箇所を置き換える）
+const M = [
+  ["toggle が何もしない", "todos' = mapTodos(todos, t =&gt; if (t.id == id) { ...t, done: not(t.done) } else t),", "todos' = todos,"],
+  ["toggle が2件変える", "if (t.id == id) { ...t, done: not(t.done) }", "if (t.id == id or t.id == id + 1) { ...t, done: not(t.done) }"],
+  // …
+  ["remove が全件消す", "todos' = todos.select(t =&gt; t.id != id),\n    nextId' = nextId,\n    record(\"remove\"", "todos' = List(),\n    nextId' = nextId,\n    record(\"remove\""],
+  // …
+];</code></pre></figure>
+<p>いまの仕様は <strong>20本中20本</strong>を検出します。</p>
+<aside class="try"><b>やってみよう</b>
+<pre><code class="lang-bash">cd quint-todo
+node mutate-spec.mjs</code></pre>
+</aside>
+</li>
 
-def IsEven (n : Nat) : Prop := n % 2 = 0   -- = で書く主張
-#check IsEven 4       -- IsEven 4 : Prop
-#check 4 % 2 == 0     -- 4 % 2 == 0 : Bool（== は計算）
+<li>
+<h4>前後の性質を足す</h4>
+<p>形の性質だけの最初の版は、<strong>17本中16本を見逃しました</strong>。「全部消す」「何もしない」も形は保つからです。</p>
+<p>そこで操作の前後を比べる <dfn>前後の性質</dfn>を足しました。</p>
+<figure class="code"><figcaption>quint-todo/todo.qnt</figcaption><pre><code class="lang-quint">  // 直前の操作が toggle なら、次の3つが全部成り立つ
+  val toggleOk = lastAction == "toggle" implies all {
+    sameIds(todos, prevTodos),                                          // id の並びは前と同じ（増えも減りもしない）
+    todos.indices().forall(i =&gt; todos[i].title == prevTodos[i].title),  // 題名はどれも変わらない
+    // 対象 id の1件だけ done が反転し、他の done は前のまま
+    todos.indices().forall(i =&gt;
+      todos[i].done == (if (prevTodos[i].id == lastId) not(prevTodos[i].done) else prevTodos[i].done)),
+  }
+  // …（addOk, removeOk, editOk, toggleAllOk, clearOk も同じ形）
+  // 操作ごとの前後の性質をまとめたもの
+  val stepOk = nextIdOk and addOk and toggleOk and removeOk and editOk and toggleAllOk and clearOk
 
--- 名前を付けた Prop は、このままでは decide が中身を見ない。判定の仕方を1行で教える
-instance (n : Nat) : Decidable (IsEven n) := by unfold IsEven; infer_instance
-example : IsEven 4 := by decide</code></pre></figure>
-<p><code>Sorted</code>・<code>IsSortOf</code>・<code>Inv</code>（第0章・第1章）は <code>Prop</code> を返す関数です。「この形の主張」を名前で呼べるようにしています。第0章の <code>Sorted</code>・<code>IsSortOf</code> に <code>by decide</code> が効くのも、<code>Spec.lean</code> に上と同じ <code>instance</code> の行があるからです。</p>
-<aside class="warn"><b>落とし穴</b><code>def</code> で名前を付けた <code>Prop</code> に <code>by decide</code> を使うと、<code>instance</code> の行が無ければ <code>failed to synthesize Decidable …</code> で止まります。主張が間違っているのではなく、計算の仕方が分からないというエラーです。</aside>
+  // 検査に渡す不変条件: 形の性質 ＋ 前後の性質
+  val safety = shapeOk and stepOk</code></pre></figure>
+<p>これで 20/20 になりました。</p>
+<aside class="note"><b>ポイント</b>操作ごとに「決まったところだけ変え、他には触らない」まで書いて、初めて操作の意味を書いたことになります。</aside>
+</li>
 
-<h3>主張の記号</h3>
-<table>
-<thead><tr><th>記号</th><th>読み方</th><th>本書での例</th></tr></thead>
-<tbody>
-<tr><td><code>a = b</code>・<code>a ≠ b</code></td><td>a と b は等しい／等しくない</td><td><code>u ≠ v</code></td></tr>
-<tr><td><code>a ≤ b</code>・<code>a &lt; b</code></td><td>以下／より小さい</td><td><code>s.nextId ≤ MaxId</code></td></tr>
-<tr><td><code>P ∧ Q</code></td><td>P かつ Q</td><td><code>Sorted output ∧ output.Perm input</code></td></tr>
-<tr><td><code>P ∨ Q</code></td><td>P または Q</td><td></td></tr>
-<tr><td><code>¬ P</code></td><td>P ではない</td><td><code>¬ IsSortOf [3, 1, 2] [1, 2]</code></td></tr>
-<tr><td><code>P → Q</code></td><td>P ならば Q</td><td>定理の前提（下）も同じ意味</td></tr>
-<tr><td><code>P ↔ Q</code>・<code>h.mp</code>・<code>h.mpr</code></td><td>P と Q は同値（過不足なし）。<code>h : P ↔ Q</code> の <code>.mp</code> は P→Q、<code>.mpr</code> は Q→P</td><td><code>x ∈ visible s u ↔ …</code>・<code>(u32_ne_iff _ _).mp hne</code></td></tr>
-<tr><td><code>∀ x, P x</code></td><td>どの x でも P x。<code>∀ t ∈ xs, P t</code> は <code>∀ t, t ∈ xs → P t</code> の略</td><td><code>∀ t ∈ s.items, t.id &lt; s.nextId</code></td></tr>
-<tr><td><code>∃ x, P x</code></td><td>P x となる x がある。<code>∃ t ∈ xs, P t</code> は <code>∃ t, t ∈ xs ∧ P t</code> の略</td><td><code>∃ t ∈ s.items, t.id = x ∧ t.owner = u</code></td></tr>
-<tr><td><code>x ∈ xs</code></td><td>x は xs に入っている</td><td><code>t ∈ s.items</code></td></tr>
-</tbody>
-</table>
-<figure class="code"><figcaption>例</figcaption><pre><code class="lang-lean">example : ∃ n : Nat, n &gt; 3 := ⟨4, by decide⟩   -- 4 がその x
-example : 2 ∈ [1, 2, 3] := by decide
-example : ∀ x ∈ [1, 2, 3], x &lt; 5 := by decide  -- 調べる範囲がリストの中だけなので計算できる
-example : 1 ≠ 2 ∧ ¬ (3 &lt; 1) := by decide
-example : ∀ n : Nat, n + 0 = n := by simp       -- n は無限にあるので decide は使えない
-example (a b : Nat) (h : a ≤ b) : ¬ b &lt; a := Nat.not_lt.mpr h  -- Nat.not_lt : ¬ a &lt; b ↔ b ≤ a を右から左に使う</code></pre></figure>
+<li>
+<h4>仕様から作った列をアプリに流す（MBT）</h4>
+<p>アプリの中身は画面から切り離した状態遷移の関数で、action 1つが <code>case</code> 1つに対応します。</p>
+<figure class="code"><figcaption>quint-todo/app/todo-core.mjs</figcaption><pre><code class="lang-js">export function reduce(state, action) {
+  // 操作の種類ごとに次の状態を返す（元の state は書き換えない）
+  switch (action.type) {
+    case "add": {
+      const title = (action.title ?? "").trim();
+      if (title === "") return state; // 空欄は弾く
+      // 末尾に未完了で1件足し、次に振る id を1進める
+      return {
+        todos: [...state.todos, { id: state.nextId, title, done: false }],
+        nextId: state.nextId + 1,
+      };
+    }
+    // …</code></pre></figure>
+<p><dfn>MBT</dfn>（モデルベーステスト）は、仕様が出した操作の列をアプリに1歩ずつ流し、毎歩状態を比べるテストです。列は <dfn>ITF トレース</dfn>という JSON に書き出します。</p>
+<figure class="code"><figcaption>quint-todo/mbt.mjs</figcaption><pre><code class="lang-js">  for (let i = 1; i &lt; states.length; i++) {
+    const s = states[i];
+    const type = s["mbt::actionTaken"];             // この歩で仕様が選んだ操作の名前（"add" など）
+    const picks = fromItf(s["mbt::nondetPicks"]);   // nondet で選んだ値（raw・id）
+    // 選ばれた引数はその値、この操作で使わなかった引数は undefined
+    const arg = (n) =&gt; (picks[n]?.tag === "Some" ? picks[n].value : undefined);
+    // Quint の action の引数と同じものを渡す（使わない引数はアプリ側が無視する）
+    const action = { type, id: arg("id"), title: arg("raw") };
+    // …
+    impl = reduce(impl, action); // アプリに同じ操作を1歩させる
+    // …
+    const model = { todos: pick(s, "todos"), nextId: pick(s, "nextId") }; // 同じ歩の仕様側の状態
+    // …
+    // アプリと仕様で todos・nextId・残り件数のどれかが違えば食い違い
+    if (implView(impl) !== modelView(model)) {</code></pre></figure>
+<p>比べるのは todos・nextId と「残り N 件」です。トレースは seed を固定して200本作るので、毎回同じ列になります。</p>
+<pre class="mermaid">
+sequenceDiagram
+  participant Q as "Quint（todo7）"
+  participant F as "ITF トレース"
+  participant B as "mbt.mjs"
+  participant A as "todo-core.mjs"
+  Q-&gt;&gt;F: "200本×30歩を書き出す"
+  B-&gt;&gt;F: "1歩読む（操作と引数）"
+  B-&gt;&gt;A: "reduce(state, action)"
+  A--&gt;&gt;B: "アプリの次の状態"
+  B-&gt;&gt;B: "仕様の状態と比べる"
+</pre>
+<p>6,000歩が全歩一致し、壊したアプリ（<code>mutate.mjs</code>）は <strong>19本中19本</strong>を検出しました。</p>
+<aside class="try"><b>やってみよう</b>
+<pre><code class="lang-bash">cd quint-todo
+./gen-traces.sh
+node mbt.mjs
+node mutate.mjs</code></pre>
+全部まとめて流すなら <code>./check.sh</code> です（約2分）。</aside>
+<aside class="warn"><b>落とし穴</b>MBT は「アプリが仕様どおりか」しか見ないので、仕様とアプリが同じ間違いをしていれば全部緑です。</aside>
+</li>
 
-<h3>定理と証明</h3>
-<p>形は <code>theorem 名前 (前提 : 主張) : 示したい主張 := by 手順</code> です。前提は関数の引数と同じ書き方で、「この前提が手に入ったら」と読みます。名前の要らない定理は <code>example</code> で書きます。<code>by</code> の後に並ぶ1つ1つの命令を<dfn>タクティク</dfn>と呼びます。</p>
-<table>
-<thead><tr><th>書き方</th><th>何をしてくれるか</th></tr></thead>
-<tbody>
-<tr><td><code>by decide</code></td><td>具体的な値の主張を、計算して確かめる（テストに近い）。変数を含む主張や、無限にある値についての <code>∀</code> には使えない</td></tr>
-<tr><td><code>simp [f, h, 定理]</code></td><td>標準の書き換え規則に、渡した定義・前提・定理を足して目標を簡単にする。閉じきれなければ残った形が次の目標になる</td></tr>
-<tr><td><code>unfold f</code></td><td>関数 <code>f</code> を定義の中身に展開する</td></tr>
-<tr><td><code>rw [h]</code></td><td>等式 <code>h : a = b</code> で、目標の <code>a</code> を <code>b</code> に書き換える</td></tr>
-<tr><td><code>exact e</code></td><td>「これがそのまま証明です」と <code>e</code> を渡す</td></tr>
-<tr><td><code>apply f</code></td><td>「f を使えば示せる」とし、f の前提で足りない分を次の目標にする</td></tr>
-<tr><td><code>rintro ⟨a, b⟩</code></td><td><code>∀</code> や <code>→</code> の前提を受け取り、組や <code>∧</code> を分解して名前を付ける。<code>-</code> は使わない側を捨てる</td></tr>
-<tr><td><code>split</code></td><td>目標の中の <code>if</code> や <code>match</code> を、枝ごとの目標に分ける</td></tr>
-<tr><td><code>show P</code></td><td>今の目標をこの形で見る、と書いて読みやすくする</td></tr>
-<tr><td><code>_</code></td><td>引数や式の一部を Lean に推論して埋めてもらう</td></tr>
-<tr><td><code>手順1; 手順2</code></td><td>手順を1行に並べる（改行と同じ）</td></tr>
-<tr><td><code>sorry</code></td><td>証明を後回しにする。検査は警告を出し、証明済みとは扱わない</td></tr>
-<tr><td><code>#eval e</code>・<code>#check e</code></td><td>式を計算して表示する／式の型を表示する（この付録の例で使う）</td></tr>
-</tbody>
-</table>
-<figure class="code"><figcaption>例（double は「値と関数」の例のもの）</figcaption><pre><code class="lang-lean">theorem double_eq (x : Nat) : double x = x + x := by
-  unfold double         -- 目標が x * 2 = x + x になる
-  exact Nat.mul_two x   -- 標準ライブラリの定理 Nat.mul_two : n * 2 = n + n をそのまま渡す
-
-example : double 3 = 6 := by decide
-
--- 前提 h が if の条件を片付ける（第1章の add_openCount と同じ形）
-def next (n limit : Nat) : Option Nat := if n = limit then none else some (n + 1)
-example (n limit : Nat) (h : n ≠ limit) : next n limit = some (n + 1) := by
-  simp [next, h]
-
--- 前提 h1・h2 から a = c
-example (a b c : Nat) (h1 : a = b) (h2 : b = c) : a = c := by
-  rw [h1]          -- 目標が b = c になる
-  show b = _       -- 今の目標を書いて確かめる。_ は Lean が埋める
-  exact h2
-
--- 「a ≤ b を示すには ¬ b &lt; a を示せばよい」（Nat.le_of_not_lt : ¬ b &lt; a → a ≤ b）
-example (a b : Nat) (h : ¬ b &lt; a) : a ≤ b := by
-  apply Nat.le_of_not_lt; exact h
-
-example (p q : Prop) : p ∧ q → q := by
-  rintro ⟨-, hq⟩   -- p ∧ q を受け取って前半と後半に分け、前半は捨てる
-  exact hq
-
-theorem later (n : Nat) : 2 * (List.range n).sum + n = n * n := by
-  sorry   -- 警告: declaration uses `sorry`</code></pre></figure>
-<aside class="warn"><b>落とし穴</b><code>sorry</code> が1つでも残ると、その定理は証明されていません。本書の検査で「sorry なし」と数えているのはこのためです。</aside>
-
-<h3>本書特有の書き方</h3>
-<table>
-<thead><tr><th>書き方</th><th>意味</th></tr></thead>
-<tbody>
-<tr><td><code>/-- … -/</code>・<code>-- …</code></td><td>直後の定義の説明（ドキュメントコメント）／行末までのコメント</td></tr>
-<tr><td><code>Spec.add</code></td><td>名前空間 <code>Spec</code> の <code>add</code>。仕様の関数と、Rust から翻訳した同名の関数を分ける</td></tr>
-<tr><td><code>private def</code></td><td>そのファイルの中だけで使う定義（第1章の例の状態 <code>s1</code>〜<code>s3</code>）</td></tr>
-<tr><td><code>U32</code>・<code>x.val</code>・<code>1#u32</code></td><td>Rust の <code>u32</code>。<code>.val</code> で <code>Nat</code> として取り出す。<code>1#u32</code> は u32 の 1。<code>core.num.U32.MAX</code> のような長い名前は Rust の <code>u32::MAX</code> の道筋をそのまま写したもの</td></tr>
-<tr><td><code>Result α</code>・<code>ok v</code></td><td>Aeneas の翻訳結果の型。成功なら <code>ok v</code>、panic（あふれ・範囲外）なら失敗</td></tr>
-<tr><td><code>do</code>・<code>let v ← e</code></td><td>失敗しうる計算 <code>e</code> を実行し、成功したら値を <code>v</code> に入れて続ける。失敗したらそこで止まり、全体が失敗になる。TypeScript の <code>const v = await e</code> に近い</td></tr>
-<tr><td><code>f x ⦃ y =&gt; P y ⦄</code></td><td><code>f x</code> は panic も無限ループもせずに <code>ok y</code> を返し、<code>y</code> は <code>P</code> を満たす。<code>⦃ r t' =&gt; … ⦄</code> は組の返り値を2つの名前で受け、使わない側は <code>_</code> にする</td></tr>
-</tbody>
-</table>
-<p>第1章の翻訳結果では、<code>Result</code>・<code>ok</code>・<code>←</code>・<code>1#u32</code> がまとめて出てきます。</p>
-<figure class="code"><figcaption>todo-aeneas/lean/TodoKernel.lean</figcaption><pre><code class="lang-lean">def add
-  (t : Todos) (user : Std.U32) (title : String) :
-  Result ((Option Std.U32) × Todos)
-  := do
-  if t.next_id = core.num.U32.MAX
-  then ok (none, t)
-  else
-    let v ←
-      alloc.vec.Vec.push t.items
-        ({ id := t.next_id, owner := user, title, done := false } : Todo)
-    let i ← t.next_id + 1#u32
-    ok (some t.next_id, { items := v, next_id := i })</code></pre></figure>
-<p><code>t.next_id + 1#u32</code> もあふれうる計算なので <code>←</code> で受けます。<code>⦃ ⦄</code> は、この関数の結果について主張するときに使います。</p>
-<figure class="code"><figcaption>todo-aeneas/lean/Proofs.lean</figcaption><pre><code class="lang-lean">theorem add_correct (t : Todos) (user : U32) (title : String) (hinv : Spec.Inv (abs t)) :
-    -- Rust の add は panic せず、返り値 r も新しい状態 t' も仕様の add と同じ
-    add t user title ⦃ r t' =&gt; r.map (·.val) = (Spec.add (abs t) user.val title).1 ∧
-                         abs t' = (Spec.add (abs t) user.val title).2 ⦄ := by</code></pre></figure>
-<p><code>r t'</code> は返り値の組 <code>(返り値, 新しい状態)</code> を2つの名前で受けています。<code>r.map (·.val)</code> は <code>Option U32</code> の中身を <code>Nat</code> に直してから仕様と比べています。</p>
-<p>第2章の <code>toggle_others_rust</code> も、上の表のタクティクで読めます。</p>
-<figure class="code"><figcaption>todo-aeneas/lean/Proofs.lean</figcaption><pre><code class="lang-lean">theorem toggle_others_rust (t : Todos) (user other id : U32) (hne : user ≠ other)
-    (hinv : Spec.Inv (abs t)) :
-    toggle t user id ⦃ _ t' =&gt; Spec.ownedBy (abs t') other.val = Spec.ownedBy (abs t) other.val ⦄ := by
-  apply WP.spec_mono (toggle_correct t user id hinv)
-  rintro ⟨b, t'⟩ ⟨-, h⟩
-  show Spec.ownedBy (abs t') other.val = _
-  -- 仕様で証明済みの Spec.toggle_others をそのまま使う
-  rw [h]; exact Spec.toggle_others _ _ _ _ ((u32_ne_iff _ _).mp hne)</code></pre></figure>
+<li>
+<h4>独立レビューで見つかった穴を塞ぐ</h4>
+<p>全部緑だった最初の版にも、別の目のレビューで穴が9件見つかりました。主な型は4つです。</p>
 <ul>
-<li><code>apply WP.spec_mono (…)</code>: 証明済みの <code>toggle_correct</code> の結論から、今の結論が出ることを示せばよい、とする</li>
-<li><code>rintro ⟨b, t'⟩ ⟨-, h⟩</code>: 返り値の組を <code>b</code>・<code>t'</code> に分け、<code>toggle_correct</code> の結論（<code>∧</code>）の前半を捨て、後半 <code>abs t' = …</code> を <code>h</code> と呼ぶ</li>
-<li><code>rw [h]; exact …</code>: <code>abs t'</code> を仕様の <code>toggle</code> の結果に書き換え、仕様の定理 <code>Spec.toggle_others</code> で閉じる。<code>_ _ _ _</code> の引数は Lean が埋め、<code>.mp</code> で <code>user ≠ other</code> を <code>user.val ≠ other.val</code> に直して渡す</li>
+<li><b>形だけの不変条件</b>: 壊した仕様17本中16本を通した（手順7）。</li>
+<li><b>前後の性質の不足</b>: 「他には触らない」を操作ごとに書いて塞いだ。</li>
+<li><b>範囲</b>: MBT も id 0〜3 だったため、「5件目以降を弾く」アプリを見逃した。いまは MBT を7件まで広げた。</li>
+<li><b>入力</b>: 題名の候補が "milk" "eggs" "" だけで、「trim を外す」「小文字にする」がすり抜けた。いまは次の表を使う。</li>
 </ul>
+<figure class="code"><figcaption>quint-todo/todo.qnt</figcaption><pre><code class="lang-quint">// 入力の候補: 空欄・空白だけ・全角空白だけ・前後に空白・大文字・日本語（全角空白で囲む）・長い題名
+module inputs {
+  // 左が入力欄に打たれる文字列、右が空白を取った後の題名
+  pure val INPUTS_STD = Map(
+    "" -&gt; "",
+    " " -&gt; "",     // 半角空白だけ → 空
+    "　" -&gt; "",    // 全角空白だけ → 空
+    "milk" -&gt; "milk",
+    " milk " -&gt; "milk",
+    "Milk" -&gt; "Milk",   // 大文字は変えない
+    "　牛乳を買う　" -&gt; "牛乳を買う",
+    "a very long title that keeps going and going" -&gt; "a very long title that keeps going and going",
+  )
+}</code></pre></figure>
+<p>MBT が「残り N 件」を比べていなかった穴も塞ぎました。</p>
+<p>検査は網で、網の目（範囲と入力）を決めるのは人です。</p>
+<aside class="warn"><b>落とし穴</b>TLC が保証するのは「書いた性質が、選んだ範囲と入力の中で成り立つ」ことだけです。画面の操作やタブ間の同期は対象外で、「IME 確定の Enter で編集まで確定する」「2タブで互いの追加を消す」などは MBT の外で見つかりました（同期は付録D）。</aside>
+</li>
+
+</ol>
 
 <div class="recap">
 <h3>まとめ</h3>
 <ul>
-<li>関数の適用は空白、型は <code>名前 : 型</code>。<code>·</code> は短い無名関数、<code>xs.map f</code> は <code>List.map f xs</code></li>
-<li><code>==</code>・<code>&amp;&amp;</code> は <code>Bool</code> の計算、<code>=</code>・<code>∧</code>・<code>∀</code> は <code>Prop</code> の主張。<code>decide</code> が効くのは計算で決められる主張だけ</li>
-<li>定理は「前提を引数に取り、主張を型に書き、<code>by</code> の後に手順を書く」。<code>sorry</code> が残れば未証明</li>
-<li>Aeneas の翻訳結果は <code>Result</code> を返し、<code>⦃ ⦄</code> で「panic も無限ループもせず、結果がこれを満たす」と書く</li>
+<li>Quint では、アプリを「状態（var）」と「操作（action）」で書き、nondet で「どれでも起こりうる」を表す</li>
+<li><code>quint test</code> は具体例、<code>quint run</code> はランダム、TLC は小さな範囲の全状態（225,531 状態）を調べる</li>
+<li>「形の性質」だけでは弱い。「前後の性質」を足すと、壊した仕様 20/20 を検出できた</li>
+<li>MBT で 6,000 歩をアプリに流して全歩一致。壊したアプリ 19/19 を検出</li>
+<li>通ったことより、何を見逃すかを数えるほうが大事。範囲・入力・比べる対象の選び方で見逃しが生まれる</li>
+<li>Quint の結論は「選んだ範囲の中」の話。すべての件数で言うには、本編（第1章）の証明が要る</li>
 </ul>
 </div>
 </section>

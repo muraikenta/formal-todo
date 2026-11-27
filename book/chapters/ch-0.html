@@ -49,7 +49,7 @@ def Sorted (l : List Nat) : Prop := l.Pairwise (· ≤ ·)  -- (· ≤ ·) は�
 /-- `output` は `input` をソートしたものである。 -/
 def IsSortOf (input output : List Nat) : Prop :=
   Sorted output ∧ output.Perm input  -- 並んでいる、かつ入力の並べ替え</code></pre></figure>
-<p><code>Sorted</code> は「小さい順に並んでいる」、<code>Perm</code> は「入力の並べ替えである（要素を足しても消してもいない）」です。<code>∧</code> は「かつ」。挿入ソートでもマージソートでも、正しいソートならこの2つを満たします。Lean の書き方は付録F にまとめました。</p>
+<p><code>Sorted</code> は「小さい順に並んでいる」、<code>Perm</code> は「入力の並べ替えである（要素を足しても消してもいない）」です。<code>∧</code> は「かつ」。挿入ソートでもマージソートでも、正しいソートならこの2つを満たします。Lean の書き方は付録A にまとめました。</p>
 </li>
 
 <li>
@@ -147,14 +147,14 @@ lake build</code></pre>
 <td>まとめ</td>
 <td colspan="2">本編で分かったことと、見逃しを数える方法</td>
 </tr>
+<tr><td>付録A</td><td>Lean の基本文法の早見</td><td colspan="2">本編のコードを読む助け</td></tr>
+<tr><td>付録B</td><td>Lean で Web サーバーを動かす（Nyxis の仕組み）</td><td colspan="2">証明と信頼の境目</td></tr>
+<tr><td>付録C</td><td>なぜ Rust か（JavaScript ではなく）</td><td colspan="2">読み物</td></tr>
 <tr>
-<td>付録A〜C</td>
-<td>ほかの道具：Quint（付録A）、h5i と Nyxis（付録B）、TLA+ と TLC（付録C）</td>
+<td>付録D〜F</td>
+<td>ほかの道具：TLA+ と TLC（付録D）、h5i と Nyxis（付録E）、Quint（付録F）</td>
 <td colspan="2">各付録で説明</td>
 </tr>
-<tr><td>付録D</td><td>なぜ Rust か（JavaScript ではなく）</td><td colspan="2">読み物</td></tr>
-<tr><td>付録E</td><td>Lean で Web サーバーを動かす（Nyxis の仕組み）</td><td colspan="2">証明と信頼の境目</td></tr>
-<tr><td>付録F</td><td>Lean の基本文法の早見</td><td colspan="2">本編のコードを読む助け</td></tr>
 </tbody>
 </table>
 

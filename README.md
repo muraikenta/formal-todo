@@ -15,12 +15,12 @@ Rust で書いた todo アプリを Lean で証明した記録と、同じ todo 
 | 第1章 | Lean と Rust で todo が仕様どおりと証明する（Aeneas） | [todo-aeneas](todo-aeneas/README.md) |
 | 第2章 | 認可を証明する（他人の todo には触れない） | [todo-aeneas](todo-aeneas/README.md) |
 | 第3章 | まとめ | — |
-| 付録A | Quint で仕様を全部の状態について調べる（TLC・変異テスト・MBT） | [quint-todo](quint-todo/README.md) |
-| 付録B | h5i と Nyxis：web アプリの枠組みごと認可を証明する | [h5i-todo](h5i-todo/README.md) ・ [nyxis-todo](nyxis-todo/README.md) |
-| 付録C | TLA+ と TLC で同期を検査する（複数タブで操作が消える 3 つの不具合） | [todo](todo/README.md) ・ [todo/verification](todo/verification/README.md) |
-| 付録D | Lean と Rust は相性がよく、JavaScript とは相性が悪い | [todo-aeneas](todo-aeneas/README.md) ・ [quint-todo](quint-todo/README.md) ・ [todo](todo/README.md) |
-| 付録E | Lean で Web サーバーも作れる（Nyxis の仕組み） | [nyxis-todo](nyxis-todo/README.md) |
-| 付録F | Lean の基本文法 | — |
+| 付録A | Lean の基本文法 | — |
+| 付録B | Lean で Web サーバーも作れる（Nyxis の仕組み） | [nyxis-todo](nyxis-todo/README.md) |
+| 付録C | Lean と Rust は相性がよく、JavaScript とは相性が悪い | [todo-aeneas](todo-aeneas/README.md) ・ [quint-todo](quint-todo/README.md) ・ [todo](todo/README.md) |
+| 付録D | TLA+ と TLC で同期を検査する（複数タブで操作が消える 3 つの不具合） | [todo](todo/README.md) ・ [todo/verification](todo/verification/README.md) |
+| 付録E | h5i と Nyxis：web アプリの枠組みごと認可を証明する | [h5i-todo](h5i-todo/README.md) ・ [nyxis-todo](nyxis-todo/README.md) |
+| 付録F | Quint で仕様を全部の状態について調べる（TLC・変異テスト・MBT） | [quint-todo](quint-todo/README.md) |
 
 ## その他のフォルダ
 

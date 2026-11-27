@@ -115,13 +115,13 @@ theorem add_openCount (s : State) (u : Nat) (title : String) (h : s.nextId ≠ M
 /-- 2回切り替えると元に戻る。 -/
 theorem toggle_toggle (s : State) (u id : Nat) : (toggle (toggle s u id).2 u id).2 = s := by
   -- …</code></pre></figure>
-<p>読み方は「<code>theorem 名前 (前提…) : 主張 := by 証明</code>」です。<code>(h : s.nextId ≠ MaxId)</code> は「id を使い切っていないなら」という前提です。記号やタクティク（<code>simp</code> など）は付録F で引けます。</p>
+<p>読み方は「<code>theorem 名前 (前提…) : 主張 := by 証明</code>」です。<code>(h : s.nextId ≠ MaxId)</code> は「id を使い切っていないなら」という前提です。記号やタクティク（<code>simp</code> など）は付録A で引けます。</p>
 <aside class="note"><b>ポイント</b>人が丁寧にレビューするのは Spec.lean だけです。仕様が間違っていれば、証明も間違ったことを保証します。</aside>
 </li>
 
 <li>
 <h4>Rust で中核を書く</h4>
-<p>証明するのは状態を変える中核（kernel）だけで、画面と保存（CLI）は別のクレートに分けました。なぜ Rust か（JavaScript ではなく）は付録D で説明します。</p>
+<p>証明するのは状態を変える中核（kernel）だけで、画面と保存（CLI）は別のクレートに分けました。なぜ Rust か（JavaScript ではなく）は付録C で説明します。</p>
 <figure class="code"><figcaption>todo-aeneas/kernel/src/lib.rs</figcaption><pre><code class="lang-rust">/// user が持ち主の未完了の todo を末尾に足し、振った id を返す。id を使い切ったら何もせず None。
 pub fn add(t: &amp;mut Todos, user: u32, title: String) -&gt; Option&lt;u32&gt; {
     if t.next_id == u32::MAX {

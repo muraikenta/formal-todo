@@ -1,208 +1,138 @@
 <section class="chapter" id="app-b">
-<h2>付録B h5i と Nyxis：web アプリの枠組みごと認可を証明する</h2>
+<h2>付録B Lean で Web サーバーも作れる</h2>
 
-<p class="lead">第2章の認可の証明は Rust の中核までで、保存や本人確認は証明の外でした。この付録では、DB と HTTP まで含めた web アプリの枠組みで同じ認可を証明する2つの道具、h5i と Nyxis を見ます。</p>
+<p class="lead">Lean は証明の道具だと思われがちですが、普通のプログラムも書けます。付録E の Nyxis は、HTTP サーバーそのものが Lean で動いています。この付録では、その仕組みと、どこまでが証明でどこからが信頼かを見ます。</p>
 
 <div class="goals">
 <h3>この付録のゴール</h3>
 <ul>
-<li>h5i で「判断をカーネルに集めて証明する」形が分かる</li>
-<li>Nyxis で人が承認するものが分かる</li>
-<li>3つの道具（todo-aeneas・h5i・Nyxis）で、証明の範囲と外に残るものを比べられる</li>
+<li>Lean が実行ファイルを作る道筋（C へのコンパイル・IO・FFI・lake）が分かる</li>
+<li>Nyxis でリクエストが DB に届くまでの道と、証明の範囲を区別できる</li>
+<li>「証明した言語でそのまま動かす」と「動かす言語から翻訳して証明する」を比べられる</li>
 </ul>
 </div>
+
+<h3>Lean はプログラミング言語でもある</h3>
+<p>Lean の公式サイトは、Lean を<a href="https://lean-lang.org/">プログラミング言語であり証明支援系</a>と紹介しています。実行の仕組みは次の4つです。</p>
+<ul>
+<li><b>C へのコンパイル</b>: Lean のコードは C に変換され、C コンパイラでオブジェクトファイルになり、実行ファイルにリンクされます（<a href="https://lean-lang.org/doc/reference/latest/Build-Tools-and-Distribution/Lake/">Lake のリファレンス</a>）。Lean の配布物には C のツールチェーンが入っています。</li>
+<li><b><dfn>IO</dfn></b>: ファイル・環境変数・ネットワークなどの副作用は <code>IO</code> 型の値として書きます。<code>main</code> も <code>IO Unit</code> を返す関数です。</li>
+<li><b><dfn>FFI</dfn></b>: <code>@[extern "記号名"]</code> を付けると、Lean の宣言が C の関数に結び付きます（<a href="https://lean-lang.org/doc/reference/latest/Run-Time-Code/Foreign-Function-Interface/">FFI のリファレンス</a>）。</li>
+<li><b><dfn>lake</dfn></b>: 標準のビルドツールです。依存の取得・ビルド・テストを受け持ちます。</li>
+</ul>
+<p>HTTP サーバーも、Lean の標準ライブラリに <code>Std.Http</code>（HTTP/1.1 サーバーの実装）があります。Nyxis はこれを使っています。</p>
 
 <ol class="steps">
 
 <li>
-<h4>h5i で DB と HTTP まで付ける</h4>
-<p><dfn>h5i</dfn> は Rust の web フレームワークです。判断を<dfn>カーネル</dfn>（DB・時計・通信に触らない純粋な関数）に集め、第1章と同じく Aeneas で証明します。サーバは受け渡しだけです。</p>
-<figure class="code"><figcaption>h5i-todo/kernel/src/lib.rs</figcaption><pre><code class="lang-rust">/// アプリの判断のすべて: コマンドに対する「書き込みの一覧と返事」か、
-/// 何も書かない「拒否」を返す。
-pub fn transition(actor: &amp;Principal, s: &amp;Snapshot, cmd: &amp;Command) -&gt; Outcome {
-    match cmd { // どの枝も、操作した人 actor.user で判断する
-        Command::Add { title } =&gt; add(actor.user, s, title),
-        Command::Rename { id, title } =&gt; rename(actor.user, s, *id, title),
-        Command::SetDone { id, completed } =&gt; set_done(actor.user, s, *id, *completed),
-        Command::Delete { id } =&gt; delete(actor.user, s, *id),
-        Command::List =&gt; Ok((Vec::new(), Reply::Todos(todos_of(&amp;s.todos, actor.user)))), // 何も書かず本人の分だけ返す
-    }
-}</code></pre></figure>
-<p>返す書き込み1つ1つが許されるかは、仕様の <code>allowed</code> で定めます。</p>
-<figure class="code"><figcaption>h5i-todo/proofs/Spec.lean</figcaption><pre><code class="lang-lean">/-- 権限のルール: 状態 `s` で、ユーザー `u` は書き込み `w` をしてよいか。 -/
-def allowed (s : St) (u : Nat) : Write → Prop
-  | .PutTodo t =&gt;
-    -- `u` の新しい todo か、`u` 自身の todo の変更。持ち主は変わらない。
-    t.owner.val = u ∧ titleOk t.title.val ∧
-      (t.id.val = s.next ∨ ∃ q, findTodo s t.id.val = some q ∧ q.owner.val = u)
-  | .DelTodo id =&gt;
-    -- 持ち主が、存在する todo を消す。
-    ∃ q, findTodo s id.val = some q ∧ q.owner.val = u
-    -- 次に使う id の番号は、1つ進めることしかできない。
-  | .SetCounter c =&gt; c.next_id.val = s.next + 1</code></pre></figure>
-<p>主な定理です（<code>h5i app check</code> で 108 定理、sorry なし。公理は Lean 標準の3つだけ）。</p>
-<ul>
-<li><code>authorized_reachable</code>: 成功したコマンドの書き込みは本人の todo だけ</li>
-<li><code>others_unchanged</code>: 他人の todo は1件も変わらない</li>
-<li><code>list_own</code>: 一覧は本人の todo ちょうど</li>
-<li><code>Effects.*_effect</code>・<code>Effects.*_ok</code>: 手順2の「中身」と「成功する」</li>
-<li><code>Storage.db_inv</code>: DB に書いて読み戻しても不変条件が保たれる</li>
-</ul>
-<aside class="try"><b>やってみよう</b>
-<p>証明と変異テストを流してサーバを起動し、「他人の todo を id 指定で触ってみる」欄で bob からアリスの todo を消してみます（Docker が要ります）。</p>
-<pre><code class="lang-bash">cd h5i-todo
-h5i app prove . &amp;&amp; h5i app mutate .
-./run.sh</code></pre>
-</aside>
+<h4>起動は普通の main 関数</h4>
+<p>Nyxis の todo の起動コードです。引数と環境変数を読み、サーバーを立てます。どの Web フレームワークにもある起動処理と同じ形です。</p>
+<figure class="code"><figcaption>nyxis-todo/backend/Main.lean</figcaption><pre><code class="lang-lean">def main (args : List String) : IO Unit := do
+  let port : UInt16 ← match args with
+    | [] =&gt; pure 8080
+    -- …（ポート番号の検査）
+  let some conninfo ← IO.getEnv "NYXIS_DATABASE_URL"
+    | throw (IO.userError "NYXIS_DATABASE_URL is required")
+  -- …（接続先・発行者・CORS の検査）
+  IO.println s!"todo: PostgreSQL backend, listening on port {port}"
+  Todo.Server.serve port conninfo issuer Todo.router cors</code></pre></figure>
+<p>実行ファイルは lakefile で宣言し、<code>lake build</code> で <code>todoServer</code> ができます。Nyxis はこのリポジトリと同じ階層に clone してビルドしておき、<code>require</code> で <code>../../../nyxis</code> を指します。</p>
+<figure class="code"><figcaption>nyxis-todo/backend/lakefile.lean</figcaption><pre><code class="lang-lean">-- Nyxis はこのリポジトリと同じ階層に clone しておく（../formal-todo と ../nyxis）
+require nyxis from "../../../nyxis"
+-- …
+@[default_target]
+lean_exe todoServer where
+  root := `Main</code></pre></figure>
 </li>
 
 <li>
-<h4>安全性の外を定理で埋める</h4>
-<p>第2章で見たとおり、安全性の定理だけなら何でも断るカーネルでも通ります。todo-aeneas は「実装＝仕様」で埋めましたが、h5i 版にはそれに当たる定理が最初はありませんでした。</p>
-<aside class="warn"><b>落とし穴</b>「改名で新しいタイトルを無視する」「完了フラグを勝手に戻す」カーネルも通ります。h5i 版の最初の版はこの状態で、レビューで指摘されました。</aside>
-<p>そこで2種類の定理を足します。<code>Principal</code> は操作した人、<code>Snapshot</code> は状態です。</p>
-<ul>
-<li><b>やったことの中身</b>（<code>*_effect</code>）: 成功したコマンドが何を残し、何を返すか</li>
-<li><b>成功する</b>（<code>*_ok</code>）: 持ち主の正しい操作は必ず成功する</li>
-</ul>
-<figure class="code"><figcaption>h5i-todo/proofs/Effects.lean</figcaption><pre><code class="lang-lean">/-- 持ち主は、存在する todo をいつでも完了（または未完了）にできる。 -/
-theorem set_done_ok (a : Principal) (s : Snapshot) (id : U64) (d : Bool) {q : Todo}
-    -- 前提 hq: その id の todo q がある。ho: q の持ち主は操作した人 a
-    (hq : findTodo (Snapshot.toSt s) id.val = some q) (ho : q.owner = a.user) :
-    -- 結論: 何かの書き込み ws をして成功し、返事は Done
-    ∃ ws, transition a s (.SetDone id d) = ok (.Ok (ws, .Done)) := by
-  -- …（証明は省略）</code></pre></figure>
-<p>変異テストは設定ファイルに「置き換える文字列」を書いて行います。</p>
-<figure class="code"><figcaption>h5i-todo/h5i-app.toml</figcaption><pre><code class="lang-toml">[[mutant]]
-name = "rename_keeps_old_title"
-# old を new に置き換える: 新しいタイトルを捨て、古いタイトルを残す
-old = "title: title.clone(), completed: t.completed"
-new = "title: t.title.clone(), completed: t.completed"</code></pre></figure>
-<p>安全性の定理は通ってしまい、「中身」の定理で初めて捕まります。</p>
-<aside class="warn"><b>落とし穴</b>変異テストは 15/15 で検出しましたが、これは「どこかで止まった」数です。15 件とも止まったのは途中の補題（<code>Commands.lean</code>）で、主張が偽になったとは限りません。</aside>
+<h4>DB には FFI で C のライブラリを呼ぶ</h4>
+<p>PostgreSQL への接続は、Lean で書き直していません。C のクライアント <dfn>libpq</dfn> を FFI で呼びます。Nyxis は <a href="https://github.com/typednotes/lean-pq">lean-pq</a>（libpq を Lean から呼ぶライブラリ）を、版を固定して取り込み、手を加えて使います。</p>
+<figure class="code"><figcaption>lean-pq/LeanPq/Extern.lean（Nyxis が固定した依存）</figcaption><pre><code class="lang-lean">@[extern "lean_pq_connect_db"]
+opaque PqConnectDb (conninfo : @&amp; String): EIO LeanPq.Error Handle</code></pre></figure>
+<p><code>EIO LeanPq.Error Handle</code> は「失敗すると <code>LeanPq.Error</code> を返し、成功すると接続 <code>Handle</code> を返す IO」、<code>@&amp;</code> は「文字列を渡すだけで所有権は渡さない」という印です。<code>opaque</code> なので、Lean からは中身が見えません。中身は C 側の <code>lean_pq_connect_db</code> で、そこが libpq の <code>PQconnectdb</code> を呼びます。JWT の署名の検査も同じく、OpenSSL の libcrypto を FFI で使います。</p>
+<aside class="note"><b>ポイント</b>FFI の先は Lean のカーネルが検査しません。<code>@[extern]</code> を付けた宣言は「C 側がこの型どおりに動く」と信頼しているだけです。</aside>
 </li>
 
 <li>
-<h4>Nyxis で「ポリシーとスキーマだけを人が承認する」</h4>
-<p><dfn>Nyxis</dfn> は Lean 製のバックエンドフレームワークです（サーバーが Lean で動く仕組みは付録E）。人が承認するのは <dfn>Cedar</dfn>（認可のルールを書く言語）の2ファイルだけです。</p>
-<ul>
-<li><dfn>スキーマ</dfn>: データとアクションの定義。テーブル定義も兼ねる</li>
-<li><dfn>ポリシー</dfn>: 誰がどのアクションをしてよいか。書いていない操作はすべて拒否</li>
-</ul>
-<figure class="code"><figcaption>backend/policies.cedar（Nyxis 版）</figcaption><pre><code class="lang-cedar">// Todo の読み取り・一覧・名前変更・完了切り替え・削除は、持ち主だけ。
-@id("own-todo")
-permit (
-  principal is User,
-  action in [Action::"listTodos", Action::"readTodo", Action::"renameTodo", Action::"setDone", Action::"deleteTodo"],
-  resource is Todo
-  // 条件: その todo の持ち主が、操作している本人
-) when { resource.owner == principal };
-
-// Todo は自分を持ち主にしてしか作れない。
-@id("create-own-todo")
-permit (
-  principal is User,
-  action == Action::"createTodo",
-  resource is Todo
-  // 作ろうとしている行の owner が本人のときだけ
-) when { resource.owner == principal };
-
-// …（User 行のポリシー「self-user」は省略）</code></pre></figure>
-<figure class="code"><figcaption>backend/schema.cedarschema（Nyxis 版）</figcaption><pre><code class="lang-cedar">// Todo。owner は作った人で、ハンドラではなく JWT の主体から決まる。
-entity Todo = {
-  "owner": User,
-  "title": String,
-  "done": Bool
-};
-// …（ほかのエンティティとアクションは省略）
-// Todo を消す。
-// @effect: この操作が DB にすること（Todo の行を消す）
-@effect("delete Todo")
-action "deleteTodo" appliesTo {
-  // 操作できるのはログインした User だけ（匿名は不可）
-  principal: [User],
-  resource: [Todo]
-};</code></pre></figure>
-<p>リクエストを処理する<dfn>ハンドラ</dfn>は AI に書かせてよい部分です。型の上で認可層にしか頼めず、DB に直接届きません。主体（操作している人）は <dfn>JWT</dfn>（ログインが発行する署名つきの札）から決まります。</p>
-<figure class="code"><figcaption>backend/Todo/Handlers.lean（Nyxis 版）</figcaption><pre><code class="lang-lean">/-- `POST /todos` — 持ち主は主体。ID は Nyxis が決めた一意 ID。 -/
-def createTodo : Principal → Generated → Http.Request → Handler Http.Response := fun principal gen req =&gt; do
-  let parsed : Except String Row := do
-    -- 本文の JSON から、空でないタイトルを取り出す
-    let json ← parseObject req.body
-    let title ← nonEmptyTitle json
-    pure (rowOf
-      -- owner は本文の値ではなく、ログインした主体
-      [ ("owner", some (.prim (.entityUID principal.uid)))
-      , ("title", some title)
-      -- 作ったばかりの todo は未完了
-      , ("done", some (.prim (.bool false))) ])
-  -- …（結果の返し方は省略）</code></pre></figure>
-<p>本文で持ち主を偽っても効きません。</p>
-<p><code>lake build</code> のたびに、「出された操作はすべて主体と一致し、ポリシーの範囲内」という定理が検査されます。</p>
-<figure class="code"><figcaption>backend/Todo/Approved.lean（Nyxis 版）</figcaption><pre><code class="lang-lean">theorem authorization_safety (router : Http.Router) (store : Db.Store)
-    -- requests: ログイン済みのリクエストの、どんな並びでもよい
-    (requests : List Runtime.AuthenticatedRequest) :
-    -- 1つ目: 出た操作はどれも、頼んだ人と同じ主体で、ポリシーが許す
-    (∀ r i, (r, i) ∈ (Runtime.trace (app router) store requests).issued →
-      i.principal = r.principal ∧ i.generated = r.generated ∧ Authz.Authorized schema policies i)
-    -- …（残りの連言は省略）</code></pre></figure>
-<p>本物のログインと DB を通す <code>run.py check</code> は 38 件通過しました。他人・匿名・偽や壊れた JWT での操作はすべて 403 で、DB は変わりません。</p>
-<p>認可層を迂回する試み2通りも、Lean のカーネル（証明を検査する部分。h5i のカーネルとは別物）とビルド時の監査（<code>nyxis_check_app</code>）が拒否しました。試したのはこの2通りだけです。</p>
-<aside class="warn"><b>落とし穴</b>ポリシーを <code>when { true }</code>（誰でも何でもできる）にしても定理は通り、止めたのは <code>#guard</code>（具体例のテスト）10 本だけでした。ポリシーの中身は人とテストが見ます。</aside>
+<h4>ハンドラは「頼みごとの列」というデータ</h4>
+<p>ハンドラの型 <code>Nyxis.Handler</code> は IO ではありません。「値を返して終わる」か「アクションを呼び、結果を待って続ける」かの2通りしかないデータです。</p>
+<figure class="code"><figcaption>Nyxis/Handler.lean（Nyxis 本体 v0.1.11）</figcaption><pre><code class="lang-lean">/-- A handler program. Either `pure`, or an action call `call` followed by waiting for the continuation. -/
+inductive Handler (α : Type) : Type where
+  /-- Finish by returning a value. -/
+  | pure (a : α) : Handler α
+  -- …
+  | call (action : EntityUID) (key : Db.Key) (values : Db.Row) (query : Db.ListQuery) (k : Outcome → Handler α) :
+      Handler α</code></pre></figure>
+<p>このデータを Nyxis が解釈し、<code>call</code> のたびに認可層で Cedar ポリシーを判定してから DB に届けます。ハンドラは DB にも IO にも直接届かないので、定理は「ハンドラが何を書いても」成り立ちます。</p>
 </li>
 
-<li>
-<h4>それでも本人確認は証明の外</h4>
-<p>DB と HTTP まで付けても、「本当にアリスか」はどちらも証明していません。</p>
-<ul>
-<li>h5i 版: HMAC トークン（サーバが署名した札）と JSON の変換</li>
-<li>Nyxis 版: HTTP の読み書きと、JWT の署名検査（OpenSSL）の中身（付録E）</li>
-</ul>
-<pre class="mermaid">flowchart LR
-  A["ブラウザ"] --> B["ログイン（本人確認）"]
-  B --> C["トークン・JWT の検証"]
-  C --> D["認可の判断（カーネル・ポリシー）"]
-  D --> E["DB"]
-  subgraph 証明の外
-    B
-    C
-  end
-  subgraph 証明した範囲
-    D
-  end</pre>
-</li>
 </ol>
 
-<h3>3つの道具を比べる</h3>
-<table>
-<caption>表B1: 認可の3つの性質が、どの定理に当たるか</caption>
-<thead><tr><th>性質</th><th>todo-aeneas</th><th>h5i-todo</th><th>Nyxis</th></tr></thead>
-<tbody>
-<tr><td>変わらない</td><td><code>add_others_rust</code> など3本</td><td><code>others_unchanged</code></td><td><code>authorization_safety</code>（操作はポリシーの範囲内）＋ポリシー「own-todo」</td></tr>
-<tr><td>見えない</td><td><code>visible_ids_only_own</code></td><td><code>list_own</code></td><td>同上（一覧は主体に許された行だけ）</td></tr>
-<tr><td>触れない</td><td><code>toggle_foreign</code>・<code>remove_foreign</code>（仕様の上）</td><td><code>authorized_reachable</code></td><td>同上（範囲外は 403。<code>run.py check</code> で確認）</td></tr>
-<tr><td>頼んだことをやる</td><td><code>toggle_correct</code> など（実装＝仕様）</td><td><code>Effects.*_effect</code>・<code>*_ok</code></td><td>定理の外（テストの領分）</td></tr>
-</tbody>
-</table>
+<h3>リクエストが DB に届くまで</h3>
+<p>緑が純粋なモデルで証明された部分、青が証明済みの接続コード、赤が信頼している接続コードと外部ライブラリです（Nyxis の <a href="https://github.com/NyxFoundation/nyxis/blob/main/ASSUMPTIONS.md">ASSUMPTIONS.md</a> の分け方を簡略化）。色の無いハンドラは、証明も信頼もしていない部分です。定理が「どんなハンドラでも」成り立つので、中身を問いません。</p>
+<pre class="mermaid">flowchart TB
+  classDef proven fill:#d8f3dc,stroke:#2d6a4f,color:#000
+  classDef conn fill:#d0e4ff,stroke:#1d4ed8,color:#000
+  classDef trust fill:#ffe0e0,stroke:#b02a37,color:#000
+  req["HTTP リクエスト"] --&gt; http["Std.Http で受ける"]:::trust
+  http --&gt; jwt["JWT から主体を決める（配線）"]:::conn
+  jwt -.- sig["署名検査 libcrypto（OpenSSL）"]:::trust
+  jwt --&gt; h["ハンドラ（中身は問わない）"]
+  h --&gt; authz["認可層: Cedar ポリシーで判定"]:::proven
+  authz --&gt; sql["発行した操作を SQL にする"]:::conn
+  sql --&gt; pq["libpq（FFI）"]:::trust
+  pq --&gt; db[("PostgreSQL")]</pre>
+<p>定理 <code>authorization_safety</code> は、サーバーの動き（ハンドラの呼び出しと認可層）を純粋なモデルにして証明しています。この定理自体は、HTTP・JWT・SQL への変換が正しいとは言っていません。ASSUMPTIONS.md によると、主体を JWT の検査結果からだけ取る配線や SQL の組み立ては別に証明されています。一方、HTTP の読み書き、DB から読んだ行が今の行であること、libpq・OpenSSL・時計の中身は信頼です。</p>
 
+<h3>ビルドのたびに定理を検査する</h3>
+<p>付録E で見た <code>authorization_safety</code> は、アプリの <code>Todo/Approved.lean</code> にあります。<code>lake build</code> はコンパイルと同時に Lean のカーネルでこの証明を検査します。さらに起動コードは、使っている公理が標準の3つだけかをビルド時に確かめます。</p>
+<figure class="code"><figcaption>nyxis-todo/backend/Main.lean</figcaption><pre><code class="lang-lean">run_cmd do
+  for n in [``Todo.Approved.app_schema, ``Todo.Approved.app_policies,
+      ``Todo.Approved.authorization_safety, ``Todo.Server.serve_handler,
+      ``Todo.Server.readAll_response] do
+    let axioms ← Lean.collectAxioms n
+    for a in axioms do
+      unless [``propext, ``Classical.choice, ``Quot.sound].contains a do
+        throwError "{n} depends on a disallowed axiom: {a}"</code></pre></figure>
+<p>ただし Lean そのものには、型の上では純粋に見せて実行時は別のことをする抜け道があります。<code>@[implemented_by]</code>（実行時だけ別の関数に差し替える）や <code>unsafe</code> です。Nyxis は、アプリの最上位モジュール <code>Todo.lean</code> の末尾に置いた <code>nyxis_check_app</code> で、アプリ側の全モジュールの宣言をビルド時に監査します。</p>
+<figure class="code"><figcaption>Nyxis/AppCheck.lean（Nyxis 本体 v0.1.11）</figcaption><pre><code class="lang-lean">    if info.isUnsafe then reject "unsafe declaration"
+    if (getExternAttrData? env n).isSome then reject "extern attribute"
+    if (Compiler.getImplementedBy? env n).isSome then reject "implemented_by attribute"</code></pre></figure>
+<p>アプリ側は <code>@[extern]</code> も使えません。FFI を使えるのは Nyxis の中の信頼された接続コードだけです。</p>
+<aside class="try"><b>やってみよう</b>作業用のコピーで、ハンドラに <code>@[implemented_by]</code> で「型の上では純粋・実行時はファイルを読む」関数を入れて <code>lake build</code> します。Lean のカーネルは通しますが、<code>nyxis_check_app</code> が <code>implemented_by attribute</code> で止めます。普通の関数で <code>unsafeBaseIO</code> を使うと、こちらは Lean が拒否します。</aside>
+<aside class="warn"><b>落とし穴</b>ポリシーを「誰でも何でもできる」に書き換えても、定理は通ります。定理が保証するのは「ハンドラがポリシーを超えない」ことで、ポリシーが意図どおりかではありません。そこは人の承認とテストの仕事です（付録E）。</aside>
+
+<h3>h5i との違い</h3>
+<p>付録E の h5i は、サーバーもカーネル（判断を集めた純粋な関数。Lean のカーネルとは別物）も Rust です。Lean はカーネルを Aeneas で翻訳した先で、証明のためだけに使います。動いているのは Rust のプログラムです。Nyxis はサーバー自体が Lean で、証明した定義から作った実行ファイルがそのまま動きます。</p>
+
+<h3>実務で使えるか</h3>
+<ul>
+<li>初回ビルドは約10分かかりました（依存の取得を含む）。</li>
+<li>依存が多いです。libpq・OpenSSL・Python 3.12 以上・curl・Supabase（Auth と PostgreSQL）が要り、手元で Supabase を動かすには Docker も使いました。</li>
+<li>版は v0.1.11 で、開発中と明記されています。本番で使う前に ASSUMPTIONS.md を読むよう README が求めています。</li>
+<li>起動の配線（Approved・Server・Main）は公式サンプルの写しです。人が考えて書いたのはハンドラとポリシーでした。</li>
+</ul>
+
+<h3>2つの道の比べ方</h3>
 <table>
-<caption>表B2: 人が読むもの・証明の外に残るもの</caption>
-<thead><tr><th></th><th>todo-aeneas</th><th>h5i-todo</th><th>Nyxis</th></tr></thead>
+<thead><tr><th></th><th>Aeneas（本編の todo-aeneas・付録E の h5i）</th><th>Nyxis</th></tr></thead>
 <tbody>
-<tr><td>人が読むもの</td><td>仕様 <code>Spec.lean</code></td><td>仕様 <code>Spec.lean</code> と、合格の条件にする定理の一覧（<code>h5i-app.toml</code>）</td><td>スキーマとポリシーの2ファイル</td></tr>
-<tr><td>証明する範囲</td><td>Rust の中核（CLI は証明しない）</td><td>カーネル＋DB に書いて読み戻すところ</td><td>ハンドラがポリシーを超えないこと</td></tr>
-<tr><td>証明の外</td><td>本人確認（<code>TODO_USER</code>）・画面と保存</td><td>JSON の変換・HMAC トークン・組織（テナント）ごとのデータの切り分け</td><td>HTTP の読み書き・署名検査と libpq の中身・ポリシーが意図どおりか</td></tr>
-<tr><td>わざと壊して確かめたこと</td><td>持ち主の確認外し4通り（第2章の表1）</td><td>変異テスト 15/15</td><td><code>when { true }</code> でも定理は通る</td></tr>
+<tr><td>動かす言語</td><td>Rust</td><td>Lean</td></tr>
+<tr><td>証明する言語</td><td>Lean（Rust から翻訳）</td><td>Lean（同じコード）</td></tr>
+<tr><td>信頼するもの</td><td>翻訳（Charon・Aeneas）が正しいこと、Rust のコンパイラ、証明の外の Rust（サーバーなど）</td><td>Lean のコンパイラ、証明していない接続コード（HTTP など）、FFI の先（libpq・OpenSSL）</td></tr>
+<tr><td>向いている場面</td><td>既存の Rust の資産・性能を活かしたい</td><td>証明した定義とずれずに動かしたい</td></tr>
 </tbody>
 </table>
 
 <div class="recap">
 <h3>まとめ</h3>
 <ul>
-<li>h5i は判断をカーネルに集め、DB に書いて読み戻すところまで証明する</li>
-<li>安全性に加えて「中身」と「成功する」の定理を足さないと、何もしないカーネルが通る</li>
-<li>Nyxis は人の承認をポリシーとスキーマに絞る。ポリシーが意図どおりかは定理の外</li>
-<li>どの道具でも本人確認は証明の外</li>
+<li>Lean は C にコンパイルして実行ファイルを作る。副作用は IO、C のライブラリは <code>@[extern]</code> で呼ぶ</li>
+<li>Nyxis はハンドラを「頼みごとのデータ」にし、認可層を通さないと DB に届かない形にした</li>
+<li>定理はサーバーの純粋なモデルについてで、どんなハンドラでも成り立つ。接続コードは一部だけ別に証明され、HTTP・libpq・OpenSSL は信頼している</li>
+<li>Lean の抜け道（<code>unsafe</code>・<code>implemented_by</code>・<code>extern</code>）は Nyxis のビルド時監査が止める</li>
+<li>「証明した言語でそのまま動かす」（Nyxis）か「動かす言語から翻訳して証明する」（Aeneas）か。信頼するものが変わる</li>
 </ul>
 </div>
 </section>

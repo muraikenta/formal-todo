@@ -1,152 +1,319 @@
 <section class="chapter" id="app-d">
-<h2>付録D Lean は Rust と相性がよく、JavaScript とは相性が悪い</h2>
-<p class="lead">本編では todo の中核を Rust で書き、Lean に翻訳して証明しました。同じ todo でも、JavaScript／TypeScript 版（付録A・C）では証明をせず、MBT（モデルに基づくテスト。仕様から作った操作の列を実装に流して突き合わせる）とモデル検査にしました。この付録では、その分け方の理由を説明します。</p>
+<h2>付録D TLA+ と TLC で同期を検査する</h2>
+<p class="lead">オフラインでも動く todo アプリを2つのタブとサーバのモデルにして、送信・失敗・遅れた応答がどの順に起きても約束が守られるかを全部調べます。テストが全部緑のアプリから、操作が黙って消える不具合を3つ見つけます。</p>
 
 <div class="goals">
 <h3>この付録のゴール</h3>
 <ul>
-<li>Rust の所有権と借用があると、書き換えを「新しい値を返す」関数に直せる理由を説明できる</li>
-<li>翻訳の限界と、翻訳で信頼している部分を言える</li>
-<li>JavaScript のコードを証明しにくい理由を、具体的なコードで説明できる</li>
-<li>証明する核を Rust に切り出し、外側は JS/TS のままにする分け方を説明できる</li>
+<li>楽観的更新・送信待ち・再送・opId・version・seq の役割を説明できる</li>
+<li>同期の不具合がテストで見つかりにくい理由を「タイミングの組み合わせ」で説明できる</li>
+<li>TLA+ で「状態」と「遷移」を書き、性質を不変条件として書ける</li>
+<li>TLC の反例を、画面の操作の手順として読める</li>
+<li>「範囲」と「モデルに入れていない操作」が見逃しを生むことを、実例で知る</li>
 </ul>
 </div>
 
-<h3>Lean の関数は書き換えをしない</h3>
-<p>Lean の関数は<dfn>純粋な関数</dfn>です。同じ引数なら同じ値を返し、引数を書き換えません。証明はこの性質に頼っています。「<code>t</code> に足したあとの <code>t</code>」を、普通の式として扱えるからです。</p>
-<p>一方、実際のプログラムは値を書き換えます。証明するには、書き換えを「新しい値を返す」に置き換える必要があります。置き換えてよいのは、<b>書き換えられる値を、ほかの誰も見ていない</b>ときだけです。誰かが同じ値を見ていると、その人から見た値も一緒に変わるので、「新しい値を返す」では表せません。同じ値を2つの名前から見ている状態を<dfn>別名</dfn>（エイリアス）と呼びます。</p>
+<h3>題材：同期つきの小さな todo アプリ</h3>
+<p>題材は <code>todo/</code> フォルダの、Bun・TypeScript・SQLite で書いた web アプリです。追加・名前の変更・完了の切り替え・削除ができ、複数のタブや端末から同じ一覧を使えます。</p>
+<p>回線が切れていても画面は動き、変更はつながったら送られます。この「あとで送る」部分を検査します。</p>
 
-<h3>Rust は別名を型で禁じている</h3>
-<p>Rust の <code>&amp;mut</code>（書き換えてよい借用）は、借りている間ほかの誰も同じ値を見られません。コンパイラがこれを検査します。だから <a href="https://github.com/AeneasVerif/aeneas">Aeneas</a> は、<code>&amp;mut Todos</code> を受け取る関数を「<code>Todos</code> を受け取り、新しい <code>Todos</code> を返す」関数に直せます。メモリやアドレスを Lean で扱う必要がありません。Aeneas の論文 <a href="https://arxiv.org/abs/2206.07185">Aeneas: Rust Verification by Functional Translation</a>（ICFP 2022）は、この考え方を「借用の規則に頼って、メモリの推論を要らなくする」と述べています。</p>
-<p>本編の <code>add</code> を並べます。上が手で書いた Rust、下が Charon（Rust のコンパイラから中間表現を取り出す道具）→ Aeneas が自動で作った Lean です。</p>
-<figure class="code"><figcaption>todo-aeneas/kernel/src/lib.rs</figcaption><pre><code class="lang-rust">pub fn add(t: &amp;mut Todos, user: u32, title: String) -&gt; Option&lt;u32&gt; {
-    if t.next_id == u32::MAX {
-        return None;
-    }
-    let id = t.next_id;
-    t.items.push(Todo { id, owner: user, title, done: false });
-    // 上の if で最大値を除いたので、ここで u32 はあふれない
-    t.next_id = id + 1;
-    Some(id)
-}</code></pre></figure>
-<figure class="code"><figcaption>todo-aeneas/lean/TodoKernel.lean</figcaption><pre><code class="lang-lean">def add
-  (t : Todos) (user : Std.U32) (title : String) :
-  Result ((Option Std.U32) × Todos)
-  := do
-  if t.next_id = core.num.U32.MAX
-  then ok (none, t)
-  else
-    let v ←
-      alloc.vec.Vec.push t.items
-        ({ id := t.next_id, owner := user, title, done := false } : Todo)
-    let i ← t.next_id + 1#u32
-    ok (some t.next_id, { items := v, next_id := i })</code></pre></figure>
-<p>違いは3つです。</p>
+<ol class="steps">
+
+<li>
+<h4>同期の仕組みを部品に分ける</h4>
+<p>README の「同期の設計」にある部品は次の6つです。</p>
 <ul>
-<li>引数の <code>&amp;mut Todos</code> が、ただの <code>Todos</code> になった</li>
-<li>戻り値が「元の戻り値 × 新しい <code>Todos</code>」の組になった。書き換えた結果は、戻り値として外に出る</li>
-<li>全体が <code>Result</code> に包まれた。<code>id + 1</code> のあふれや添字の範囲外は、panic ではなく失敗の値になる</li>
+<li><dfn>楽観的更新</dfn>：サーバの返事を待たずに画面を変えること。画面には、サーバから最後に聞いた行（<code>confirmed</code>）に未確認の操作を当て直したものを出します。</li>
+<li><dfn>送信待ち（outbox）</dfn>：サーバの確認がまだ来ていない操作の列。操作した順に並び、先頭から送ります。</li>
+<li><dfn>再送</dfn>：失敗・タイムアウト（5秒）・応答の消失を区別せず、同じ操作をもう一度送ること。間隔は 0.5 秒から倍々、上限 10 秒です。</li>
+<li><dfn>opId</dfn>：操作ごとの名札で、形は <code>クライアントID:連番</code>。サーバは反映した opId を記録し、同じ opId は二度反映しません。</li>
+<li><dfn>version</dfn>：todo ごとの版の番号。変わるたびに 1 増え、手元より大きい行が届いたときだけ置き換えます。</li>
+<li><dfn>seq</dfn>：サーバ全体の通し番号。各行に最後に変わったときの seq が付きます。クライアントは取り込んだ位置（<code>lastSeq</code>）を覚え、2秒ごとにそれより新しい変更を取り込みます（<dfn>pull</dfn>）。</li>
 </ul>
-<p><code>toggle</code> の「<code>t.items[i].done</code> を書き換える」も同じ形になります。<code>index_mut</code> が、借りた要素と一緒に「書き換えた要素を元の列に戻す関数」（<code>index_mut_back</code>）を返します。論文では、この戻す関数を <dfn>backward function</dfn> と呼んでいます。</p>
-<figure class="code"><figcaption>todo-aeneas/lean/TodoKernel.lean</figcaption><pre><code class="lang-lean">      let (t2, index_mut_back) ←
-        alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice Todo) v
-          i1
-      let v1 := index_mut_back { t2 with done := (¬ t1.done) }
-      ok (true, { items := v1, next_id := i })</code></pre></figure>
-<p>第0章のソートも同じです。<code>&amp;mut [u32]</code> をその場で並べ替える関数は、「新しい Slice を返す」関数として表されました。</p>
-
-<h3>翻訳の限界と、信頼している部分</h3>
-<p>Rust なら何でも翻訳できるわけではありません。この book で踏んだものと、Aeneas の README にある制約です。</p>
-<ul>
-<li><b>中身を知らない標準ライブラリ</b>：Aeneas が Lean でモデルを手書きした関数だけ、動きが分かります。<code>std::mem::take</code> はモデルが無く axiom になったので、<code>std::mem::replace(&amp;mut v, Vec::new())</code> に書き換えました（第1章）。</li>
-<li><b>ループの書き方</b>：<a href="https://github.com/AeneasVerif/aeneas">README</a> によると、入れ子のループの中の <code>return</code> と、外側のループへの <code>break</code>／<code>continue</code> はまだ扱えません。本編の中核は <code>while</code> と <code>for</code> を素直に書いています。</li>
-<li><b>unsafe と並行処理</b>：README では未対応です。論文も、内部可変性（<code>RefCell</code> など）と unsafe を使わない Rust を対象にしています。</li>
-</ul>
-<p>翻訳できたあとも、証明の外に残る部分があります。ソートの README では次を「証明していない層」として挙げました。todo も同じです。</p>
-<ul>
-<li>Charon が読む rustc と、実際にビルドする rustc。その先の LLVM のコード生成</li>
-<li>Charon／Aeneas の翻訳器そのもの</li>
-<li>Aeneas が手書きした標準ライブラリのモデル（ソートでは <code>swap</code> と添字、todo では <code>Vec</code> の <code>push</code> など）</li>
-<li>Lean のカーネル</li>
-</ul>
-<aside class="note"><b>ポイント</b>「Rust と相性がよい」は「Rust なら全部証明できる」ではありません。別名の無い、safe な、小さい関数なら、手で Lean に書き直さずに済む、という意味です。</aside>
-
-<h3>JavaScript はどこが難しいか</h3>
-<p>JavaScript には、Rust の借用検査に当たる仕組みがありません。証明しにくい理由を並べます。</p>
-<table>
-<thead><tr><th>性質</th><th>証明で困ること</th></tr></thead>
-<tbody>
-<tr><td>オブジェクトの共有と書き換え</td><td>どの変数も同じオブジェクトを指せる。<code>a.done = true</code> で、別の名前から見た値も変わる。「新しい値を返す」に直すには、誰が何を指しているかを全部追う必要がある</td></tr>
-<tr><td>動的な型</td><td>引数に何が来るかは実行するまで分からない。TypeScript の型は実行時には消え、<code>as</code> で外せる</td></tr>
-<tr><td>暗黙の型変換</td><td><code>==</code> や <code>+</code> が、値の種類によって違う規則で動く</td></tr>
-<tr><td>例外</td><td>どの呼び出しも投げうる。投げたかどうかが型に出ない</td></tr>
-<tr><td>非同期とイベントループ</td><td><code>await</code> のたびに、ほかの処理が割り込める。結果は実行順で変わる</td></tr>
-<tr><td>外界の API</td><td><code>localStorage</code>・<code>fetch</code>・タイマー・DOM。どれも Lean の外にあり、動きを誰かがモデルにする必要がある</td></tr>
-</tbody>
-</table>
-<p>この book で調べた範囲では、Aeneas のように JavaScript のコードをそのまま Lean に翻訳して証明する、実用段階の道具は見つけられませんでした。</p>
-
-<h3>だから付録A は MBT、付録C はモデル検査にした</h3>
-<p>付録A の <code>reduce</code> は、書き換えをせず新しい状態を返すように、わざと純粋に書きました。スプレッド構文（<code>...</code>）でコピーを作り、元の <code>state</code> には触りません。</p>
-<figure class="code"><figcaption>quint-todo/app/todo-core.mjs</figcaption><pre><code class="lang-js">export function reduce(state, action) {
-  // 操作の種類ごとに次の状態を返す（元の state は書き換えない）
-  switch (action.type) {
-    // …
-    case "toggle":
-      return {
-        ...state,
-        todos: state.todos.map((t) =&gt; (t.id === action.id ? { ...t, done: !t.done } : t)),
-      };
-    case "remove":
-      return { ...state, todos: state.todos.filter((t) =&gt; t.id !== action.id) };
-    // …
-  }
-}</code></pre></figure>
-<p>純粋なので、仕様から作った操作の列を流し、1歩ごとに Quint の状態と比べられます。ただし「純粋に書いた」ことは、人がそう書いただけです。Rust のようにコンパイラが保証してはいません。だから証明ではなく、実行列を流して突き合わせる MBT にしました。</p>
-<p>付録C の <code>sync.ts</code> も中身は純粋な関数です。難しいのはそれを呼ぶ外側で、<code>localStorage</code>・<code>fetch</code>・<code>setTimeout</code> が絡みます。</p>
-<figure class="code"><figcaption>todo/src/app.ts</figcaption><pre><code class="lang-js">function setState(next: ClientState): void {
-  state = next;
-  try {
-    localStorage.setItem(storageKey, JSON.stringify(state));
-  } catch {
-    // storage full or blocked: keep running in memory
-  }
-  render();
+<figure class="code"><figcaption>todo/src/sync.ts</figcaption><pre><code class="lang-js">function newOpId(state: ClientState): [string, ClientState] {
+  // 例: タブ c1 の 2 番目の操作は "c1:2"。連番は 1 ずつ増える
+  const opId = `${state.clientId}:${state.nextOpNo}`;
+  return [opId, { ...state, nextOpNo: state.nextOpNo + 1 }];
 }
 // …
-function schedulePush(delay: number): void {
-  if (pushTimer) clearTimeout(pushTimer);
-  pushTimer = setTimeout(push, delay);
+/** Record a user action: give it an op id and append it to the outbox. */
+export function enqueue(state: ClientState, action: LocalAction): ClientState {
+  const [opId, s] = newOpId(state);
+  const op = { ...action, opId } as Op;
+  return { ...s, outbox: [...s.outbox, op] };
 }</code></pre></figure>
-<p>付録C で見つけた不具合は、どれも「送信・失敗・遅れた応答・別のタブの操作がどの順に起きるか」で起きました。これはコードの1行ずつではなく、タイミングの組み合わせの問題です。そこでコードを翻訳するのをやめ、2つのタブとサーバの動きを手で TLA+ にモデル化しました。手で書いたモデルとコードがずれる危険は残ります。</p>
+<p>クライアント ID はタブごとの保存場所 <dfn>sessionStorage</dfn> に置きます。送信待ちを含む状態全体は、ブラウザ全体で共有される <dfn>localStorage</dfn> に、クライアント ID ごとのキーで保存します。</p>
+<figure class="code"><figcaption>todo/src/app.ts</figcaption><pre><code class="lang-js">// One client per tab: the id lives in sessionStorage (survives reload, not shared between tabs).
+function loadClientId(): string {
+  try {
+    const existing = sessionStorage.getItem("todo-client-id");
+    if (existing) return existing;
+    const id = crypto.randomUUID();
+    sessionStorage.setItem("todo-client-id", id);
+    return id;
+  } catch {
+    // sessionStorage が使えないときは、保存せずに毎回新しい ID
+    return crypto.randomUUID();
+  }
+}
 
-<h3>ほかの道具</h3>
-<ul>
-<li><b>Rust 側</b>：<a href="https://github.com/verus-lang/verus">Verus</a>（Rust のソースに事前・事後条件を書き SMT で検査）、<a href="https://github.com/model-checking/kani">Kani</a>（テストのように書いたハーネスを有界に全部調べる）、<a href="https://hax.cryspen.com">hax</a>（Rust を F*・Rocq や、Aeneas 経由で Lean などに翻訳）があります。</li>
-<li><b>JavaScript を「書く」のではなく「出す」道</b>：<a href="https://github.com/dafny-lang/dafny">Dafny</a> は、証明したコードを C#・Go・Python・Java・JavaScript に変換できます。JS のコードを証明するのではなく、証明した言語から JS を生成する道です。</li>
-<li><b>言語を揃えない道</b>：認可ポリシーの言語 Cedar は、<a href="https://github.com/cedar-policy/cedar-spec">Lean で書いたモデルと証明</a>を持ち、本番の Rust 実装とは乱択の差分テストで突き合わせています。仕様は Lean、実装は別の言語、という付録A と同じ形です。</li>
-</ul>
+const clientId = loadClientId();
+// 状態は localStorage のこのキーに保存する（全タブで共有の保存先）
+const storageKey = `todo-state:${clientId}`;</code></pre></figure>
+<pre class="mermaid">
+sequenceDiagram
+  participant U as "ユーザー"
+  participant T as "タブ"
+  participant S as "サーバ"
+  U->>T: "完了にする"
+  T->>T: "opId c1:2 を送信待ちに積む・画面をすぐ変える"
+  T->>S: "push（送信待ちの先頭から）"
+  S-->>T: "応答が消える"
+  T->>S: "同じ c1:2 を再送"
+  S->>S: "c1:2 は反映済みなので二重にしない"
+  S-->>T: "results に c1:2"
+  T->>T: "送信待ちから c1:2 を外す"
+  T->>S: "pull（lastSeq より新しい変更）"
+  S-->>T: "変更された行と seq"
+</pre>
+<aside class="note"><b>ポイント</b>この設計の要は「opId が同じなら同じ操作」という約束です。サーバは opId だけで再送か新しい操作かを決めます。</aside>
+</li>
 
-<h3>実務での分け方</h3>
-<pre class="mermaid">flowchart LR
-  UI["外側（画面・HTTP・DB）: JS/TS のまま、テストで確かめる"] --&gt; Core["核（権限・お金・状態遷移）: Rust の純粋な小さい関数"]
-  Core --&gt; Proof["Aeneas で Lean に翻訳し、仕様どおりと証明"]</pre>
+<li>
+<h4>なぜテストでは見つかりにくいのか</h4>
+<p>このアプリのテスト 18 件は全部緑です。再送、2台の同時編集、削除と編集の競合、オフラインからの復帰まで試しています。</p>
+<p>それでも、テストは書いた順番しか試しません。同期では次の出来事がどの順にも起きます。</p>
 <ul>
-<li>証明したいのは、壊れると困る小さい核です。権限の判定、金額の計算、状態の変え方などです。</li>
-<li>核は Rust で、<code>&amp;mut</code> か値を受け取って値を返す関数にします。I/O・時刻・乱数は引数で渡し、中では触りません。</li>
-<li>外側の HTTP・DB・画面は JS/TS のままでかまいません。核を呼ぶ方法（WebAssembly、別プロセスの API など）は別に選びます。呼び出し部分は証明の外なので、テストで確かめます。</li>
-<li>核を Rust にできない場合は、付録A のように仕様と実装を突き合わせる方法があります。</li>
+<li>タブ1で操作する・タブ2で操作する</li>
+<li>送る・送る前に失敗する・サーバに届く・応答が届く・タイムアウトで諦める</li>
+<li>pull する・pull の応答が届く</li>
+<li>リロードする・タブを複製する・タブを閉じる</li>
 </ul>
-<aside class="warn"><b>落とし穴</b>核を切り出しても、外側が核を正しく呼んでいるかは証明されません。第2章の認可でいえば、「操作したのは誰か」を外側が正しく渡すことは、証明の前提です。</aside>
+<p>タブ2つでも、並べ方は人が書き切れない数になります。テストが鍵を数本試すことなら、これから使う道具はありうる鍵を全部試すことです。</p>
+</li>
+
+<li>
+<h4>TLA+ で「状態」を書く</h4>
+<p><dfn>TLA+</dfn> は、システムを「状態」と「遷移」で書く仕様の言語です。<dfn>TLC</dfn> は TLA+ のモデル検査器で、遷移を全部の順番でたどります。付録F の Quint は、TLA+ の考え方を読みやすい文法にしたもので、検査に同じ TLC を使えます。</p>
+<p>モデル <code>todo/verification/SyncTodo.tla</code> では、まず状態を変数で書きます。タブごとの値は「タブ → 値」の対応で持ちます。</p>
+<figure class="code"><figcaption>todo/verification/SyncTodo.tla</figcaption><pre><code class="lang-tla">  \* ---- クライアント: src/sync.ts の ClientState と src/app.ts のフラグ ----
+  open,        \* タブが開いているか
+  closed,      \* タブを閉じたか（閉じたタブは二度と開かない）
+  cid,         \* ClientState.clientId（sessionStorage の todo-client-id）
+  nextNo,      \* ClientState.nextOpNo
+  outbox,      \* ClientState.outbox
+  conf,        \* ClientState.confirmed: id -&gt; 行 or None
+  lastSeq,     \* ClientState.lastSeq
+  pushing,     \* app.ts の pushing。0 = 送っていない、n = n 回目の push の応答待ち
+  pushN,       \* そのタブが始めた push の回数（要求を見分ける番号）
+  pullSt,      \* app.ts の pulling。Idle か、届く途中の pull の応答（busy = TRUE）
+  \* ---- ブラウザの保存先 ----
+  store,       \* localStorage の todo-state:&lt;clientId&gt;。クライアント ID -&gt; 最後に setState で保存した
+               \* [nextNo, outbox, conf, lastSeq]。複製したタブ同士は同じキーに上書きし合う
+  \* ---- ネットワーク ----
+  reqs,        \* 送ったがサーバがまだ処理していない push 要求 [tab, n, ops]
+  resps,       \* サーバが処理し、届く途中の push 応答 [tab, n, results]
+  \* …（ゴースト変数が続く）</code></pre></figure>
+<p>コメントに対応するコードの名前があります。モデルはコードを読まないので、この対応は人が付けています。</p>
+<p>コードに無い変数は<dfn>ゴースト変数</dfn>で、性質を書くためだけの記録です。<code>made</code> はユーザーが積んだ操作の全部、<code>acked</code> は確認が来て送信待ちから外した操作です。</p>
+</li>
+
+<li>
+<h4>TLA+ で「遷移」を書く</h4>
+<p>遷移1つを<dfn>アクション</dfn>と呼びます。<code>x'</code> は次の状態での x、<code>/\</code> は「かつ」、<code>UNCHANGED</code> は変わらない変数です。<code>[pushing EXCEPT ![t] = n]</code> は「タブ <code>t</code> の値だけを <code>n</code> に替えたもの」です。</p>
+<p>区切り方は「<code>await</code> を挟まない1区間を1アクションにする」です。JavaScript は1スレッドなので、その区間には何も割り込みません。<code>await</code> の前後は分け、間に何が起きてもよいようにします。</p>
+<p>送信の始まりでは、送信中でなく送信待ちが空でなければ、先頭から最大 50 件を送ります。</p>
+<figure class="code"><figcaption>todo/verification/SyncTodo.tla</figcaption><pre><code class="lang-tla">\* push() の await の前まで: pushing でなく outbox が空でなければ先頭から送る
+PushStart(t) ==
+  \* 開いている・送信中でない・送信待ちがある・push の合計が上限未満
+  /\ open[t] /\ pushing[t] = 0 /\ outbox[t] # &lt;&lt;&gt;&gt; /\ pushN[1] + pushN[2] &lt; MaxPush
+  /\ LET n == pushN[t] + 1 IN
+       \* 送信待ちの先頭から最大 50 件を、n 回目の要求として送る
+       /\ reqs' = reqs \cup {[tab |-&gt; t, n |-&gt; n, ops |-&gt; SubSeq(outbox[t], 1, Min(50, Len(outbox[t])))]}
+       /\ pushing' = [pushing EXCEPT ![t] = n]
+       /\ pushN' = [pushN EXCEPT ![t] = n]
+  /\ ServerUnchanged
+  /\ UNCHANGED &lt;&lt;open, closed, cid, nextNo, outbox, conf, lastSeq, pullSt, store, resps, usedIds, made, acked&gt;&gt;</code></pre></figure>
+<p>失敗やタイムアウトは「諦める」アクションです。送信中の印を外すだけで送信待ちは残るので、次の送信で同じ opId のまま再送されます。</p>
+<figure class="code"><figcaption>todo/verification/SyncTodo.tla</figcaption><pre><code class="lang-tla">\* catch: 失敗・タイムアウト（AbortSignal.timeout）・応答の消失。区別せず諦めて、あとで同じ op を再送
+\* fetch を中断したので、この要求の応答はもう届かない。catch は render だけで setState しない
+PushGivesUp(t) ==
+  /\ pushing[t] # 0
+  /\ pushing' = [pushing EXCEPT ![t] = 0]
+  \* 届く途中の応答から、諦めたこの push の分を消す
+  /\ resps' = {x \in resps : ~(x.tab = t /\ x.n = pushing[t])}
+  /\ ServerUnchanged
+  /\ UNCHANGED &lt;&lt;open, closed, cid, nextNo, outbox, conf, lastSeq, pushN, pullSt, store, reqs,
+                 usedIds, made, acked&gt;&gt;</code></pre></figure>
+<p>タブの複製もアクションです。ブラウザの仕様で sessionStorage が写るので、複製したタブは同じクライアント ID になり、localStorage の同じキーから状態を読みます。</p>
+<figure class="code"><figcaption>todo/verification/SyncTodo.tla</figcaption><pre><code class="lang-tla">\* タブを複製する: sessionStorage が写るので同じ ID。状態は localStorage の todo-state:&lt;ID&gt;
+\* （タブ 1 が setState のたびに保存したもの）から読む
+DuplicateTab ==
+  /\ SecondTab = "duplicate" /\ ~open[2] /\ ~closed[2] /\ open[1]
+  /\ open' = [open EXCEPT ![2] = TRUE]
+  /\ cid' = [cid EXCEPT ![2] = cid[1]]
+  \* 次の連番・送信待ち・確定した行・lastSeq は、保存された状態から読む
+  /\ nextNo' = [nextNo EXCEPT ![2] = store[cid[1]].nextNo]
+  /\ outbox' = [outbox EXCEPT ![2] = store[cid[1]].outbox]
+  /\ conf' = [conf EXCEPT ![2] = store[cid[1]].conf]
+  /\ lastSeq' = [lastSeq EXCEPT ![2] = store[cid[1]].lastSeq]
+  /\ UNCHANGED &lt;&lt;rows, srvSeq, applied, closed, pushing, pushN, pullSt,
+                 store, reqs, resps, usedIds, made, acked, lastExec, orderOk&gt;&gt;</code></pre></figure>
+<p>最後に、ありうる遷移を「または（<code>\/</code>）」でつなぎます。<code>\E t \in Tabs : …</code> は「どれかのタブ t で」です。<code>Spec</code> の行は決まり文句です。</p>
+<figure class="code"><figcaption>todo/verification/SyncTodo.tla</figcaption><pre><code class="lang-tla">Next ==
+  \* どれかのタブでユーザーが追加・名前変更・完了切替・削除する
+  \/ \E t \in Tabs : YouCreate(t) \/ YouRename(t) \/ YouToggle(t) \/ YouDelete(t)
+  \/ OpenNewTab \/ DuplicateTab
+  \/ \E t \in Tabs : Reload(t) \/ CloseTab(t)
+  \/ \E t \in Tabs : PushStart(t) \/ PushGivesUp(t)
+  \* 要求が消える・サーバが要求を処理する・タブに応答が届く
+  \/ RequestLost \/ ServerPush \/ PushOk
+  \/ \E t \in Tabs : PullRead(t) \/ PullOk(t)
+
+\* Init から始まり、毎歩 Next のどれかが起きる（何も変わらない歩も許す）
+Spec == Init /\ [][Next]_vars</code></pre></figure>
+</li>
+
+<li>
+<h4>守ってほしい4つの性質を書く</h4>
+<p>性質は不変条件で書き、TLC がたどった全状態で確かめます。</p>
+<ul>
+<li><code>AckedMeansApplied</code>：送信待ちから外した操作は、その操作としてサーバに反映されている。破れると、変更が黙って消えたまま「同期済み」と出ます。</li>
+<li><code>ClientOrderKept</code>：同じクライアント ID の操作は、サーバで連番の順に1回ずつ処理される。破れると、遅れた古い再送が新しい値を巻き戻します。</li>
+<li><code>Converged</code>：送信待ちも途中の要求も無く全タブが pull し終えたら、全タブの一覧がサーバと同じ。破れると、タブごとに違う一覧が直りません。</li>
+<li><code>NoOpLost</code>：積んだ操作は、サーバに反映済みか、開いているタブの送信待ちか、途中の要求にある。破れると、操作がどこからも送られなくなります。</li>
+</ul>
+<figure class="code"><figcaption>todo/verification/SyncTodo.tla</figcaption><pre><code class="lang-tla">\* 1. 確認が来たとして送信待ちから外した操作は、その操作としてサーバに反映されている
+\*    （別の操作と取り違えて「もう反映済み」と捨てられていない）
+\*    式: acked のどの操作 o も applied に入っている
+AckedMeansApplied == \A o \in acked : o \in applied
+
+\* 2. 同じクライアントの操作は、サーバで操作した順に 1 回ずつ反映される
+\*    （再送が二重に反映されたり、古い再送が新しい値を巻き戻したりしない）
+ClientOrderKept == orderOk
+
+\* 3. 送信待ちも届く途中の要求も無く、全タブが最後まで pull したら、全タブの一覧がサーバと同じ
+Settled ==
+  /\ reqs = {} /\ resps = {}
+  /\ \A t \in Tabs : open[t] =&gt;
+       (outbox[t] = &lt;&lt;&gt;&gt; /\ pushing[t] = 0 /\ pullSt[t] = Idle /\ lastSeq[t] = srvSeq)
+\*    式: Settled ならば、開いている全タブの画面 = サーバの一覧
+Converged == Settled =&gt; \A t \in Tabs : open[t] =&gt; View(t) = ServerView
+
+\* 4. ユーザーが積んだ操作は、サーバに反映済みか、開いているタブの送信待ちにあるか、
+\*    サーバに向かう途中の要求に入っている（どこからも送られなくなって消えていない）
+NoOpLost ==
+  \A o \in made :
+     \/ o \in applied
+     \/ \E t \in Tabs : open[t] /\ o \in Range(outbox[t])
+     \/ \E r \in reqs : o \in Range(r.ops)</code></pre></figure>
+<aside class="note"><b>ポイント</b>4つとも「どう守るか」ではなく「何が守られていればよいか」を書いています。仕様を実装の都合から切り離すためです。</aside>
+</li>
+
+<li>
+<h4>範囲を決めて TLC で全部たどる</h4>
+<p>全部たどるには世界を有限にします。設定ファイル（<code>.cfg</code>）で、todo の数や操作の回数に上限を付けます。2枚目のタブを「同じ URL を別タブで開く」か「複製する」かもここで選びます。</p>
+<figure class="code"><figcaption>todo/verification/SyncTodo.cfg</figcaption><pre><code class="lang-tla">\* 別のタブで同じ URL を開く場合（クライアント ID がタブごとに違う）・リロードあり。4 つの性質がすべて成り立つはず。todo 1 件
+CONSTANTS
+  \* todo の ID は 1 つだけ（todo 1 件）
+  Ids = {1}
+  \* 名前は "A" と "B" の 2 種類
+  Titles = {"A", "B"}
+  \* 各タブの操作は 2 回まで
+  MaxOpNo = 2
+  \* push は全タブ合計で 3 回まで
+  MaxPush = 3
+  \* 2 枚目は同じ URL を別タブで開く（"duplicate" なら複製）
+  SecondTab = "new"
+  \* リロードあり・タブを閉じるなし・古い画面からの操作なし
+  CanReload = TRUE
+  CanClose = FALSE
+  StaleUI = FALSE
+SPECIFICATION Spec
+\* 全部の状態で確かめる 4 つの性質
+INVARIANTS AckedMeansApplied ClientOrderKept Converged NoOpLost
+\* 上限まで操作して止まった状態を、行き詰まり（エラー）と見なさない
+CHECK_DEADLOCK FALSE
+</code></pre></figure>
+<p>この設定では4つとも成り立ちます（1,499,907 状態・1ワーカーで約 90 秒）。設定は6つあり、入れる操作が違います。</p>
+<ul>
+<li><code>SyncTodo.cfg</code>：別タブで同じ URL を開く・リロードあり・todo 1件。4つとも成り立つ</li>
+<li><code>SyncTodoTwoTodos.cfg</code>：同じで todo 2件・push 2回まで。4つとも成り立つ（651,021 状態・約 40 秒）</li>
+<li><code>SyncTodoDuplicateTab.cfg</code>：タブの複製。<code>AckedMeansApplied</code> と <code>NoOpLost</code> が破れる</li>
+<li><code>SyncTodoDuplicateReload.cfg</code>：複製＋リロード。<code>NoOpLost</code> と <code>AckedMeansApplied</code> が破れる</li>
+<li><code>SyncTodoCloseTab.cfg</code>：タブを閉じる。<code>NoOpLost</code> が破れる</li>
+<li><code>SyncTodoStaleUI.cfg</code>：編集中で描き直しが止まった古い画面からの操作も加えた版。4つとも成り立つ（16,004,587 状態。重いので任意）</li>
+</ul>
+<aside class="try"><b>やってみよう</b>TLC は、pstack（AI エージェント向けのスキル集）の statechart スクリプトから呼びます。反例を「タブ1・タブ2・サーバ」の言葉の手順に直してくれます（<code>view.mjs</code>）。<code>todo/</code> フォルダで、<code>S</code> にスクリプトのパスを入れて5つの設定を回します。初回は TLC と Java を入れるのでネットワークが要ります。
+<pre><code class="lang-bash">S=&lt;pstack の skills/statechart/scripts/statechart のパス&gt;
+V=verification; O=$(mktemp -d)
+for c in SyncTodo SyncTodoTwoTodos SyncTodoDuplicateTab SyncTodoDuplicateReload SyncTodoCloseTab; do
+  echo "=== $c"; "$S" "$V/SyncTodo.tla" --config "$V/$c.cfg" --view "$V/view.mjs" --out "$O/$c"
+done</code></pre>
+<code>SyncTodo</code> と <code>SyncTodoTwoTodos</code> の報告の「Rules that hold」に4つ並べば正常です。残り3つは破れるのが今の正常です。</aside>
+</li>
+
+<li>
+<h4>反例を手順として読む（発見1 タブの複製）</h4>
+<p>性質が破れると、TLC はそこに至る最短の手順（反例）を出します。反例はそのまま再現手順です。</p>
+<p><code>SyncTodoDuplicateTab.cfg</code> では <code>AckedMeansApplied</code> が 9 ステップで破れます。画面の言葉にすると次のとおりです。</p>
+<ol>
+<li>タブ1で todo「A」を追加する（op <code>c1:1</code>）</li>
+<li>タブを複製する。sessionStorage が写るので同じ ID <code>c1</code>、同じ状態（次の連番は 2）になる</li>
+<li>タブ1で名前を「B」に変える → op <code>c1:2</code></li>
+<li>タブ2で完了にする → これも op <code>c1:2</code></li>
+<li>両方が送る。サーバは先に届いたタブ1の <code>c1:2</code> を反映し、あとのタブ2の <code>c1:2</code> を「再送」と見なして反映しない</li>
+<li>タブ2は応答に <code>c1:2</code> があるので送信待ちから外し、「同期済み」と出る。サーバの todo は「B」未完了のまま</li>
+</ol>
+<pre class="mermaid">
+flowchart LR
+  A["タブ1 c1:2 名前をBに"] --> S["サーバ c1:2 を反映"]
+  B["タブ2 c1:2 完了にする"] --> R["サーバ 反映済みの c1:2 と見なす"]
+  R --> X["タブ2 送信待ちから外す・同期済みと表示"]
+  X --> L["完了の操作が消える"]
+</pre>
+<p>「opId が同じなら同じ操作」という約束が、複製で崩れました。重なったのが追加なら、その todo は作られず画面からも消えます。</p>
+</li>
+
+<li>
+<h4>反例を読む（発見2 保存の上書き・発見3 タブを閉じる）</h4>
+<p><b>発見2：複製したタブ同士が保存を上書きし合う。</b>2つのタブは同じキー <code>todo-state:c1</code> に保存するので、リロードすると最後に保存した<em>もう一方のタブ</em>の状態を読みます。<code>SyncTodoDuplicateReload.cfg</code> で <code>NoOpLost</code> が 5 ステップで破れます。</p>
+<ol>
+<li>タブ1で追加する</li>
+<li>タブを複製する</li>
+<li>タブ1で名前を変える（<code>c1:2</code> 名前）</li>
+<li>タブ2で完了にする（<code>c1:2</code> 完了。保存が上書きされる）</li>
+<li>タブ1をリロードする → タブ1の送信待ちが「1:追加・2:完了」になり、名前の変更が消える</li>
+</ol>
+<p><b>発見3：送信待ちが残ったタブを閉じると、二度と送られない。</b>ID はそのタブの sessionStorage にしか無く、開き直すと新しい ID になり、古いキーは誰も読みません。<code>SyncTodoCloseTab.cfg</code> で <code>NoOpLost</code> が 2 ステップで破れます。</p>
+<ol>
+<li>タブ1で追加する</li>
+<li>タブ1を閉じる</li>
+</ol>
+<p>反例はモデルの上の話なので、モデルの書き間違いもありえます。3つとも本物のコードで手順を流して再現し、本物の不具合と確かめました。</p>
+<aside class="note"><b>ポイント</b>README の「同じ URL を別タブで開くと別のクライアントになる」は複製で、「変更は送信待ちに残り、つながったら送られる」はタブを閉じると成り立ちません。検査は、設計書の言葉が破れる場面を手順で示しました。</aside>
+<aside class="warn"><b>落とし穴</b>「クライアント ID を起動ごとに作り直す」直し方は誤りです。リロードのたびに新しいキーを読み、発見3と同じ消失が毎回起きます。直したらモデルも同じ意味に直して回し直します。</aside>
+</li>
+
+<li>
+<h4>見逃しの形を知る</h4>
+<p>最初の検証では <code>SyncTodo.cfg</code> が全部緑でも、不具合は残っていました。理由は2つです。</p>
+<p><b>1つ目：範囲が小さすぎると出ない不具合がある。</b>todo 1件では push の応答の行がいつも最新版なので、「push の応答で lastSeq を進める」誤りは原理的に出ません。わざと入れて試すと、todo 1件では素通りし、<code>SyncTodoTwoTodos.cfg</code> で 11 ステップの反例が出ました。2件の設定はこのために足したものです。</p>
+<p><b>2つ目：モデルに無い操作は調べようがない。</b>最初のモデルにはリロードとタブを閉じる操作が無く、監査で指摘されて足したら発見2と3が出ました。TLC は書かなかった遷移を一度もたどりません。</p>
+<aside class="warn"><b>落とし穴</b>今のモデルにも無いもの：3枚目のタブや複製の複製、50 件を超える分割、pull のページ送り、localStorage への保存の失敗、「いつかは同期が済む」こと（活性）。コードを変えてもモデルは変わらないので、モデルを直さずに回した緑は何も示しません。</aside>
+<aside class="try"><b>やってみよう</b>検査が働くかは、わざと壊して確かめます。<code>SyncTodo.tla</code> の <code>SameOpId</code>（いまは <code>a.cid = b.cid /\ a.no = b.no</code>）を <code>a.no = b.no</code> だけにして <code>SyncTodo.cfg</code> で回すと、別タブの連番 2 を取り違える 10 ステップの反例が出るはずです。確かめたら元に戻します。</aside>
+</li>
+
+</ol>
 
 <div class="recap">
 <h3>まとめ</h3>
 <ul>
-<li>Lean の証明は、書き換えの無い純粋な関数を前提にしている</li>
-<li>Rust は別名を型で禁じるので、Aeneas は <code>&amp;mut</code> を「新しい値を返す」に自動で直せる</li>
-<li>翻訳には限界（モデルの無い標準ライブラリ、ループの書き方、unsafe）があり、翻訳器と rustc は信頼している</li>
-<li>JavaScript は共有と書き換え・動的な型・非同期・外界の API が多く、コードをそのまま証明しにくい。だから付録A は MBT、付録C は手で書いたモデルの検査にした</li>
-<li>実務では、証明する核を Rust の小さい純粋な関数に切り出し、外側は JS/TS のままにする分け方がとれる</li>
+<li>同期は楽観的更新・送信待ち・再送・opId・version・seq の組み合わせで、要は「opId が同じなら同じ操作」</li>
+<li>テストは書いた順番しか試さない。TLC は書いた遷移を全部の順番でたどる</li>
+<li>1アクションは「await を挟まない1区間」。性質は「何が守られていればよいか」を不変条件で書く</li>
+<li>テスト 18 件が緑のアプリから、タブの複製・保存の上書き・タブを閉じる、で操作が消える不具合を3つ見つけ、本物のコードで再現した</li>
+<li>見逃しは「範囲が小さい」と「モデルに無い操作」から出る。検査はモデルに書いたことしか守らない</li>
 </ul>
 </div>
 </section>
