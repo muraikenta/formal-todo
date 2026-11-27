@@ -1,0 +1,291 @@
+<section class="chapter" id="ch-3">
+<h2>第3章 認可を証明する：他人の todo には触れない</h2>
+
+<p class="lead">「アリスの todo はボブには変えられない・見えない」を、全ユーザー・全 id・全状態について証明します。道具は Aeneas・h5i・Nyxis の3つです。</p>
+
+<div class="goals">
+<h3>この章のゴール</h3>
+<ul>
+<li>認可を「変わらない・見えない・触れない」の3文で書ける</li>
+<li>仕様の上の認可を Rust に持ち上げる流れが分かる</li>
+<li>「悪いことが起きない」だけでは足りない理由が分かる</li>
+<li>Nyxis で人が承認するものが分かる</li>
+<li>本人確認が証明の外に残ることを説明できる</li>
+</ul>
+</div>
+
+<h3>認可とは</h3>
+<p><dfn>認可</dfn>は「この人はこの操作をしてよいか」を決めることです。<dfn>本人確認</dfn>（認証・ログイン）は「本当にアリスか」を確かめることで、別物です。</p>
+<p>よくある事故が <dfn>IDOR</dfn>（id を書き換えると他人のデータに届く不具合）です。<code>/todos/42</code> を 43 に変えたら他人の todo が消えた、という種類で、これが認可の判断で起きないことを示します。</p>
+<p>第2章の todo には、すでに<dfn>持ち主</dfn>（owner。作った人）が入っています。</p>
+
+<ol class="steps">
+
+<li>
+<h4>ステップ1: 認可の性質を言葉にする</h4>
+<p>まず守りたいことを日本語で書きます。</p>
+<ol>
+<li><b>変わらない</b>: A が足す・切り替える・消すのどれをしても、B の持ち物は1件も変わらない</li>
+<li><b>見えない</b>: A に見せる id は、ちょうど「A が持ち主の todo の id」</li>
+<li><b>触れない</b>: 他人の id を指定すると、失敗を返し、状態はそのまま</li>
+</ol>
+<p>「変わらない」だけでは<em>読む</em>穴を、「見えない」だけでは<em>消す</em>穴を見逃すので、3つに分けます。</p>
+<aside class="note"><b>ポイント</b>証明は仕様に書いたことしか守りません。性質を1つ書き忘れたら、その穴はどの定理にも引っかかりません。</aside>
+</li>
+
+<li>
+<h4>ステップ2: 仕様に持ち主を入れる（Aeneas 版）</h4>
+<p>第2章の <code>Spec.lean</code> で読み飛ばした持ち主の部分です。<code>u</code> は操作した人です。</p>
+<figure class="code"><figcaption>todo-aeneas/lean/Spec.lean</figcaption><pre><code class="lang-lean">/-- t は「u が持ち主の、id 番の todo」か。切り替え・削除が効く相手。 -/
+def mine (u id : Nat) (t : Todo) : Bool := t.id == id &amp;&amp; t.owner == u
+
+-- …（add は省略）
+
+/-- 完了の切り替え: u が持ち主の id 番の todo の done を反転する。効いたか（そういう todo があったか）を返す。 -/
+def toggle (s : State) (u id : Nat) : Bool × State :=
+  (s.items.any (mine u id),
+   { s with items := s.items.map fun t =&gt; if mine u id t then { t with done := !t.done } else t })
+
+/-- 消す: u が持ち主の id 番の todo を除く。効いたかを返す。 -/
+def remove (s : State) (u id : Nat) : Bool × State :=
+  (s.items.any (mine u id), { s with items := s.items.filter (fun t =&gt; !mine u id t) })</code></pre></figure>
+<p>さらに <code>ownedBy</code>（u の todo だけのリスト）と、その id の一覧 <code>visible</code> を定義します。</p>
+</li>
+
+<li>
+<h4>ステップ3: 3つの性質を定理として書く</h4>
+<p>ステップ1の3文を定理にします。</p>
+<figure class="code"><figcaption>todo-aeneas/lean/Spec.lean</figcaption><pre><code class="lang-lean">theorem add_others (s : State) (u v : Nat) (title : String) (huv : u ≠ v) :
+    ownedBy (add s u title).2 v = ownedBy s v := by
+  -- …（証明は省略）
+
+theorem visible_iff (s : State) (u x : Nat) :
+    x ∈ visible s u ↔ ∃ t ∈ s.items, t.id = x ∧ t.owner = u := by
+  -- …（証明は省略）
+
+theorem toggle_foreign (s : State) (u id : Nat) (h : Inv s) (t : Todo) (ht : t ∈ s.items)
+    (hid : t.id = id) (ho : t.owner ≠ u) : toggle s u id = (false, s) := by
+  -- …（証明は省略）</code></pre></figure>
+<ul>
+<li><code>add_others</code>: u ≠ v なら、u が足しても v の持ち物は同じ（変わらない）。<code>toggle_others</code>・<code>remove_others</code> も同じ形</li>
+<li><code>visible_iff</code>: x が u に見える ⇔ x は u の todo の id（見えない）。「⇔」なので過不足がない</li>
+<li><code>toggle_foreign</code>: id 番の todo の持ち主が u でなければ「失敗・状態そのまま」（触れない）</li>
+</ul>
+<p><code>(h : Inv s)</code> は第2章の不変条件（id が重複しない など）です。id が重複すると、同じ id の自分の todo と他人の todo が並びうるからです。</p>
+</li>
+
+<li>
+<h4>ステップ4: Rust の実装に持ち上げる</h4>
+<p>第2章で「実装＝仕様」（<code>toggle_correct</code> など）を証明済みなので、仕様の定理をそのまま Rust の定理に言い換えられます。</p>
+<figure class="code"><figcaption>todo-aeneas/lean/Proofs.lean</figcaption><pre><code class="lang-lean">theorem toggle_others_rust (t : Todos) (user other id : U32) (hne : user ≠ other)
+    (hinv : Spec.Inv (abs t)) :
+    toggle t user id ⦃ _ t' =&gt; Spec.ownedBy (abs t') other.val = Spec.ownedBy (abs t) other.val ⦄ := by
+  apply WP.spec_mono (toggle_correct t user id hinv)
+  rintro ⟨b, t'⟩ ⟨-, h⟩
+  show Spec.ownedBy (abs t') other.val = _
+  rw [h]; exact Spec.toggle_others _ _ _ _ ((u32_ne_iff _ _).mp hne)</code></pre></figure>
+<p>最後の行で仕様の定理 <code>Spec.toggle_others</code> を使っています。Rust のループ相手に証明し直す必要はありません。</p>
+<table>
+<caption>表1: 持ち主の確認をわざと外したとき（todo-aeneas/README.md より。<code>*_loop_spec</code> は各操作のループ部分の証明）</caption>
+<thead><tr><th>壊し方（Rust 側）</th><th>単体テスト</th><th>証明</th></tr></thead>
+<tbody>
+<tr><td>remove が持ち主を確かめない</td><td>通る</td><td>止まる（remove_loop_spec）</td></tr>
+<tr><td>remove でユーザー 0 だけは他人の todo も消せる（裏口）</td><td>通る</td><td>止まる（remove_loop_spec）</td></tr>
+<tr><td>一覧に id 1000 以上の他人の todo も混ざる</td><td>通る</td><td>止まる（visible_ids_loop_spec）</td></tr>
+<tr><td>toggle が持ち主を確かめない</td><td>落ちる</td><td>止まる（toggle_correct）</td></tr>
+</tbody>
+</table>
+<p>単体テストは「ボブはアリスの todo を切り替えられない」場面しか見ないので、残りの穴を素通りします。</p>
+<aside class="try"><b>やってみよう</b>
+<p><code>kernel/src/lib.rs</code> の remove の条件 <code>item.id == id &amp;&amp; item.owner == user</code> から <code>&amp;&amp; item.owner == user</code> を消して流し直し、証明が止まるのを見たら戻します。</p>
+<pre><code class="lang-bash">cd todo-aeneas
+./build.sh</code></pre>
+</aside>
+</li>
+
+<li>
+<h4>ステップ5: 「悪いことが起きない」だけでは足りない</h4>
+<p>ステップ3の定理は「起きてはいけないことが起きない」という<dfn>安全性</dfn>です。何でも断るカーネルでも、安全性の定理はすべて通ってしまいます。</p>
+<p>ここからのコードは h5i 版（ステップ6）です。<code>Principal</code> は操作した人、<code>Snapshot</code> は状態、<code>transition</code> はコマンドを処理する関数です。</p>
+<aside class="warn"><b>落とし穴</b>「改名で新しいタイトルを無視する」「完了フラグを勝手に戻す」カーネルも通ります。h5i 版の最初の版はこの状態で、レビューで指摘されました。</aside>
+<p>そこで2種類の定理を足します。</p>
+<ul>
+<li><b>やったことの中身</b>（<code>*_effect</code>）: 成功したコマンドが何を残し、何を返すか</li>
+<li><b>成功する</b>（<code>*_ok</code>）: 持ち主の正しい操作は必ず成功する</li>
+</ul>
+<figure class="code"><figcaption>h5i-todo/proofs/Effects.lean</figcaption><pre><code class="lang-lean">/-- 持ち主は、存在する todo をいつでも完了（または未完了）にできる。 -/
+theorem set_done_ok (a : Principal) (s : Snapshot) (id : U64) (d : Bool) {q : Todo}
+    (hq : findTodo (Snapshot.toSt s) id.val = some q) (ho : q.owner = a.user) :
+    ∃ ws, transition a s (.SetDone id d) = ok (.Ok (ws, .Done)) := by
+  -- …（証明は省略）</code></pre></figure>
+<p>「持ち主で（<code>ho</code>）、todo があれば（<code>hq</code>）、SetDone は成功する」と読みます。</p>
+<p>確かめ方は第1章の<dfn>変異テスト</dfn>（わざと壊したカーネルを検査が落とせるかを見る）です。</p>
+<figure class="code"><figcaption>h5i-todo/h5i-app.toml</figcaption><pre><code class="lang-toml">[[mutant]]
+name = "rename_keeps_old_title"
+old = "title: title.clone(), completed: t.completed"
+new = "title: t.title.clone(), completed: t.completed"</code></pre></figure>
+<p>改名が古いタイトルを残す壊し方で、「中身」の定理で初めて捕まります。</p>
+</li>
+
+<li>
+<h4>ステップ6: h5i で DB と HTTP まで付ける</h4>
+<p><dfn>h5i</dfn> は Rust の web フレームワークです。判断を<dfn>カーネル</dfn>（DB・時計・通信に触らない純粋な関数）に集め、Aeneas で証明します。サーバは受け渡しだけです。</p>
+<figure class="code"><figcaption>h5i-todo/kernel/src/lib.rs</figcaption><pre><code class="lang-rust">/// アプリの判断のすべて: コマンドに対する「書き込みの一覧と返事」か、
+/// 何も書かない「拒否」を返す。
+pub fn transition(actor: &amp;Principal, s: &amp;Snapshot, cmd: &amp;Command) -&gt; Outcome {
+    match cmd {
+        Command::Add { title } =&gt; add(actor.user, s, title),
+        Command::Rename { id, title } =&gt; rename(actor.user, s, *id, title),
+        Command::SetDone { id, completed } =&gt; set_done(actor.user, s, *id, *completed),
+        Command::Delete { id } =&gt; delete(actor.user, s, *id),
+        Command::List =&gt; Ok((Vec::new(), Reply::Todos(todos_of(&amp;s.todos, actor.user)))),
+    }
+}</code></pre></figure>
+<p>返す書き込み1つ1つが許されるかは、仕様の <code>allowed</code> で定めます。</p>
+<figure class="code"><figcaption>h5i-todo/proofs/Spec.lean</figcaption><pre><code class="lang-lean">/-- 権限のルール: 状態 `s` で、ユーザー `u` は書き込み `w` をしてよいか。 -/
+def allowed (s : St) (u : Nat) : Write → Prop
+  | .PutTodo t =&gt;
+    -- `u` の新しい todo か、`u` 自身の todo の変更。持ち主は変わらない。
+    t.owner.val = u ∧ titleOk t.title.val ∧
+      (t.id.val = s.next ∨ ∃ q, findTodo s t.id.val = some q ∧ q.owner.val = u)
+  | .DelTodo id =&gt;
+    -- 持ち主が、存在する todo を消す。
+    ∃ q, findTodo s id.val = some q ∧ q.owner.val = u
+  | .SetCounter c =&gt; c.next_id.val = s.next + 1</code></pre></figure>
+<p>主な定理です（<code>h5i app check</code> で 108 定理、sorry なし。公理は Lean 標準の3つだけで、第5章で触れます）。</p>
+<ul>
+<li><code>authorized_reachable</code>: 成功したコマンドの書き込みは本人の todo だけ</li>
+<li><code>others_unchanged</code>: 他人の todo は1件も変わらない</li>
+<li><code>list_own</code>: 一覧は本人の todo ちょうど</li>
+<li><code>Effects.*_effect</code>・<code>Effects.*_ok</code>: ステップ5の「中身」と「成功する」</li>
+<li><code>Storage.db_inv</code>: DB に書いて読み戻しても不変条件が保たれる</li>
+</ul>
+<aside class="warn"><b>落とし穴</b>変異テストは 15/15 で検出しましたが、これは「どこかで止まった」数です。15 件とも止まったのは途中の補題（<code>Commands.lean</code>）で、主張が偽になったとは限りません。</aside>
+<aside class="try"><b>やってみよう</b>
+<p>証明と変異テストを流してサーバを起動し、「他人の todo を id 指定で触ってみる」欄で bob からアリスの todo を消してみます（Docker が要ります）。</p>
+<pre><code class="lang-bash">cd h5i-todo
+h5i app prove . &amp;&amp; h5i app mutate .
+./run.sh</code></pre>
+</aside>
+</li>
+
+<li>
+<h4>ステップ7: Nyxis で「ポリシーとスキーマだけを人が承認する」</h4>
+<p><dfn>Nyxis</dfn> は Lean 製のバックエンドフレームワークです。人が承認するのは <dfn>Cedar</dfn>（認可のルールを書く言語）の2ファイルだけです。</p>
+<ul>
+<li><dfn>スキーマ</dfn>: データとアクションの定義。テーブル定義も兼ねる</li>
+<li><dfn>ポリシー</dfn>: 誰がどのアクションをしてよいか。書いていない操作はすべて拒否</li>
+</ul>
+<figure class="code"><figcaption>backend/policies.cedar（Nyxis 版）</figcaption><pre><code class="lang-cedar">// Todo の読み取り・一覧・名前変更・完了切り替え・削除は、持ち主だけ。
+@id("own-todo")
+permit (
+  principal is User,
+  action in [Action::"listTodos", Action::"readTodo", Action::"renameTodo", Action::"setDone", Action::"deleteTodo"],
+  resource is Todo
+) when { resource.owner == principal };
+
+// Todo は自分を持ち主にしてしか作れない。
+@id("create-own-todo")
+permit (
+  principal is User,
+  action == Action::"createTodo",
+  resource is Todo
+) when { resource.owner == principal };
+
+// …（User 行のポリシー「self-user」は省略）</code></pre></figure>
+<figure class="code"><figcaption>backend/schema.cedarschema（Nyxis 版）</figcaption><pre><code class="lang-cedar">// Todo。owner は作った人で、ハンドラではなく JWT の主体から決まる。
+entity Todo = {
+  "owner": User,
+  "title": String,
+  "done": Bool
+};
+// …（ほかのエンティティとアクションは省略）
+// Todo を消す。
+@effect("delete Todo")
+action "deleteTodo" appliesTo {
+  principal: [User],
+  resource: [Todo]
+};</code></pre></figure>
+<p>リクエストを処理する<dfn>ハンドラ</dfn>は AI に書かせてよい部分です。型の上で認可層にしか頼めず、DB に直接届きません。主体（操作している人）は <dfn>JWT</dfn>（ログインが発行する署名つきの札）から決まります。</p>
+<figure class="code"><figcaption>backend/Todo/Handlers.lean（Nyxis 版）</figcaption><pre><code class="lang-lean">/-- `POST /todos` — 持ち主は主体。ID は Nyxis が決めた一意 ID。 -/
+def createTodo : Principal → Generated → Http.Request → Handler Http.Response := fun principal gen req =&gt; do
+  let parsed : Except String Row := do
+    let json ← parseObject req.body
+    let title ← nonEmptyTitle json
+    pure (rowOf
+      [ ("owner", some (.prim (.entityUID principal.uid)))
+      , ("title", some title)
+      , ("done", some (.prim (.bool false))) ])
+  -- …（結果の返し方は省略）</code></pre></figure>
+<p>持ち主は <code>principal</code> から入るので、本文で偽っても効きません。</p>
+<p><code>lake build</code> のたびに、「出された操作はすべて主体と一致し、ポリシーの範囲内」という定理が検査されます。</p>
+<figure class="code"><figcaption>backend/Todo/Approved.lean（Nyxis 版）</figcaption><pre><code class="lang-lean">theorem authorization_safety (router : Http.Router) (store : Db.Store)
+    (requests : List Runtime.AuthenticatedRequest) :
+    (∀ r i, (r, i) ∈ (Runtime.trace (app router) store requests).issued →
+      i.principal = r.principal ∧ i.generated = r.generated ∧ Authz.Authorized schema policies i)
+    -- …（残りの連言は省略）</code></pre></figure>
+<p>本物のログイン（Supabase Auth）と DB を通す <code>run.py check</code> は 38 件通過しました。他人・匿名・偽や壊れた JWT での操作はすべて 403 で、DB は変わりません。</p>
+<p>認可層を迂回する試み2通りも、Lean のカーネル（証明を検査する部分。h5i のカーネルとは別物）とビルド時の監査（<code>nyxis_check_app</code>）が拒否しました。試したのはこの2通りだけです。</p>
+<aside class="warn"><b>落とし穴</b>ポリシーを <code>when { true }</code>（誰でも何でもできる）にしても定理は通り、止めたのは <code>#guard</code>（具体例のテスト）10 本だけでした。ポリシーの中身は人とテストが見ます。</aside>
+</li>
+
+<li>
+<h4>ステップ8: 本人確認は証明の外</h4>
+<p>どの道具も「本当にアリスか」は証明していません。</p>
+<ul>
+<li>todo-aeneas: 環境変数 <code>TODO_USER</code> を信じるだけ</li>
+<li>h5i 版: HMAC トークン（サーバが署名した札）と JSON の変換</li>
+<li>Nyxis 版: HTTP・JWT・SQL への変換</li>
+</ul>
+<p>証明は「渡されたユーザーが正しいなら」までです。この境目を<dfn>信頼の境界</dfn>と呼びます。</p>
+<pre class="mermaid">flowchart LR
+  A["ブラウザ"] --> B["ログイン（本人確認）"]
+  B --> C["トークン・JWT の検証"]
+  C --> D["認可の判断（カーネル・ポリシー）"]
+  D --> E["DB"]
+  subgraph 証明の外
+    B
+    C
+  end
+  subgraph 証明した範囲
+    D
+  end</pre>
+<aside class="note"><b>ポイント</b>定理の名前と一緒に「何を信じたか」を書き出します。証明は金庫で、鍵を誰に渡すかは金庫の外です。</aside>
+</li>
+</ol>
+
+<h3>3つの道具を比べる</h3>
+<table>
+<caption>表2: 認可の3つの性質が、どの定理に当たるか</caption>
+<thead><tr><th>性質</th><th>todo-aeneas</th><th>h5i-todo</th><th>Nyxis</th></tr></thead>
+<tbody>
+<tr><td>変わらない</td><td><code>add_others_rust</code> など3本</td><td><code>others_unchanged</code></td><td><code>authorization_safety</code>（操作はポリシーの範囲内）＋ポリシー「own-todo」</td></tr>
+<tr><td>見えない</td><td><code>visible_ids_only_own</code></td><td><code>list_own</code></td><td>同上（一覧は主体に許された行だけ）</td></tr>
+<tr><td>触れない</td><td><code>toggle_foreign</code>・<code>remove_foreign</code>（仕様の上）</td><td><code>authorized_reachable</code></td><td>同上（範囲外は 403。<code>run.py check</code> で確認）</td></tr>
+<tr><td>頼んだことをやる</td><td><code>toggle_correct</code> など（実装＝仕様）</td><td><code>Effects.*_effect</code>・<code>*_ok</code></td><td>定理の外（テストの領分）</td></tr>
+</tbody>
+</table>
+
+<table>
+<caption>表3: 人が読むもの・証明の外に残るもの</caption>
+<thead><tr><th></th><th>todo-aeneas</th><th>h5i-todo</th><th>Nyxis</th></tr></thead>
+<tbody>
+<tr><td>人が読むもの</td><td>仕様 <code>Spec.lean</code></td><td>仕様 <code>Spec.lean</code> と、合格の条件にする定理の一覧（<code>h5i-app.toml</code>）</td><td>スキーマとポリシーの2ファイル</td></tr>
+<tr><td>証明する範囲</td><td>Rust の中核（CLI は証明しない）</td><td>カーネル＋DB に書いて読み戻すところ</td><td>ハンドラがポリシーを超えないこと</td></tr>
+<tr><td>証明の外</td><td>本人確認（<code>TODO_USER</code>）・画面と保存</td><td>JSON の変換・HMAC トークン・組織（テナント）ごとのデータの切り分け</td><td>HTTP・JWT・SQL への変換・ポリシーが意図どおりか</td></tr>
+<tr><td>わざと壊して確かめたこと</td><td>持ち主の確認外し4通り（表1）</td><td>変異テスト 15/15</td><td><code>when { true }</code> でも定理は通る</td></tr>
+</tbody>
+</table>
+
+<div class="recap">
+<h3>まとめ</h3>
+<ul>
+<li>認可は「変わらない・見えない・触れない」の3文に分けて定理にする</li>
+<li>「実装＝仕様」があれば、仕様の定理を Rust に持ち上げられる</li>
+<li>単体テストは思いついた場面しか見ない。証明は全ユーザー・全 id・全状態について言う</li>
+<li>安全性だけだと「何もしないカーネル」でも通る。「中身」と「成功する」を足す</li>
+<li>Nyxis は人の承認をポリシーとスキーマに絞る。ポリシーが意図どおりかは定理の外</li>
+<li>本人確認はどの道具でも証明の外</li>
+</ul>
+</div>
+</section>

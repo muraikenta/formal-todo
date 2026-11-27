@@ -1,0 +1,11 @@
+[package]
+name = "todo-kernel"
+description = "The verified kernel of a todo app"
+edition = "2024"
+version = "0.1.0"
+publish = false
+
+# Extracted to Lean by Charon + Aeneas (`h5i app extract`).
+[dependencies]
+h5i-app-schema = { workspace = true }
+h5i-app-sql = { workspace = true }

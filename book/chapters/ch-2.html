@@ -1,0 +1,276 @@
+<section class="chapter" id="ch-2">
+<h2>第2章 Lean と Rust で「実装が仕様どおり」を証明する</h2>
+
+<p class="lead">この章では、Rust のコードが仕様どおりに動くことを<b>証明</b>します。</p>
+
+<div class="goals">
+<h3>この章のゴール</h3>
+<ul>
+<li>定理・証明・<code>sorry</code> を説明できる</li>
+<li>仕様を実装より先に書く理由が分かる</li>
+<li>Rust が Charon と Aeneas で Lean に翻訳される流れが分かる</li>
+<li>「実装＝仕様」の定理の主張を読める</li>
+<li>証明が見つけるバグと、見逃すバグを知る</li>
+</ul>
+</div>
+
+<p>題材は第1章と同じ todo で、操作は4つです。</p>
+<ul>
+<li>足す（<code>add</code>）: 未完了の todo を末尾に足し、id を振る</li>
+<li>切り替える（<code>toggle</code>）: 完了と未完了を反転する</li>
+<li>消す（<code>remove</code>）: 指定した id の todo を除く</li>
+<li>未完了の件数（<code>openCount</code>）</li>
+</ul>
+
+<aside class="note"><b>ポイント</b>コードにある <code>user</code>（操作した人）と <code>owner</code>（持ち主）は第3章「認可」で使います。この章では読み飛ばしてかまいません。</aside>
+
+<pre class="mermaid">
+flowchart LR
+  S["仕様 Spec.lean（人が書く）"]
+  R["Rust の中核 kernel/src/lib.rs"]
+  C["Charon（Rust を読み取る）"]
+  A["Aeneas（Lean に翻訳）"]
+  K["翻訳結果 TodoKernel.lean"]
+  P["証明 Proofs.lean"]
+  R --> C --> A --> K
+  S --> P
+  K --> P
+</pre>
+
+<ol class="steps">
+
+<li>
+<h4>Lean とは何か・定理と証明・sorry</h4>
+<p><dfn>Lean</dfn> はプログラミング言語であり、<dfn>定理証明支援系</dfn>（書いた証明が正しいかを機械が確かめる道具）でもあります。</p>
+<p><dfn>定理</dfn>は「いつでも成り立つ」と主張する文です。例:「2回切り替えると元に戻る」。<dfn>証明</dfn>はその理由を書いたもので、足りないとビルドが通りません。テストと違い、すべての入力について言えます。</p>
+<p><dfn>sorry</dfn> は「証明はあとで書く」という仮置きです。Lean は警告だけ出して定理を正しいと扱うので、完成前に 0 件を確かめます。</p>
+<aside class="try"><b>やってみよう</b>何も出なければ 0 件です。
+<pre><code class="lang-bash">cd todo-aeneas
+grep -n sorry lean/*.lean</code></pre></aside>
+</li>
+
+<li>
+<h4>仕様 Spec.lean を先に書く（実装を見ない）</h4>
+<p>最初に書くのは仕様です。実装を見てから書くと、実装のバグまで仕様に写してしまいます。</p>
+<p>todo 1件は id・持ち主・題名・完了の4つ。状態は todo のリストと「次に振る id」です。</p>
+<figure class="code"><figcaption>todo-aeneas/lean/Spec.lean</figcaption><pre><code class="lang-lean">structure Todo where
+  id : Nat
+  owner : Nat
+  title : String
+  done : Bool
+deriving DecidableEq, Repr
+
+structure State where
+  items : List Todo
+  nextId : Nat
+deriving DecidableEq, Repr</code></pre></figure>
+<p><code>Nat</code> は上限の無い自然数です。仕様は数学の数で書きます。</p>
+<p>操作は「状態を受け取り、新しい状態を返す関数」です。<code>MaxId</code> は id の上限（2<sup>32</sup>−1）、<code>empty</code> は空の状態、<code>Option Nat</code> は「数がある（<code>some</code>）か無い（<code>none</code>）か」です。</p>
+<figure class="code"><figcaption>todo-aeneas/lean/Spec.lean</figcaption><pre><code class="lang-lean">/-- t は「u が持ち主の、id 番の todo」か。切り替え・削除が効く相手。 -/
+def mine (u id : Nat) (t : Todo) : Bool := t.id == id &amp;&amp; t.owner == u
+
+/-- 足す: u が持ち主の未完了の todo を末尾に足し、振った id を返す。id を使い切っていたら何も変えずに none。 -/
+def add (s : State) (u : Nat) (title : String) : Option Nat × State :=
+  if s.nextId = MaxId then (none, s)
+  else (some s.nextId, ⟨s.items ++ [⟨s.nextId, u, title, false⟩], s.nextId + 1⟩)
+
+/-- 完了の切り替え: u が持ち主の id 番の todo の done を反転する。効いたか（そういう todo があったか）を返す。 -/
+def toggle (s : State) (u id : Nat) : Bool × State :=
+  (s.items.any (mine u id),
+   { s with items := s.items.map fun t =&gt; if mine u id t then { t with done := !t.done } else t })
+
+/-- 消す: u が持ち主の id 番の todo を除く。効いたかを返す。 -/
+def remove (s : State) (u id : Nat) : Bool × State :=
+  (s.items.any (mine u id), { s with items := s.items.filter (fun t =&gt; !mine u id t) })
+
+/-- u の未完了の件数。 -/
+def openCount (s : State) (u : Nat) : Nat := (s.items.filter (fun t =&gt; !t.done &amp;&amp; t.owner == u)).length</code></pre></figure>
+<p><code>toggle</code> は「当てはまる todo を<b>全部</b>反転する」と読みます。ループを書かず、<code>map</code>（全部を変換）と <code>filter</code>（条件で残す）で結果だけを言います。</p>
+<p>次に<dfn>不変条件</dfn>（どの操作のあとも状態が満たすべき約束）を書きます。</p>
+<figure class="code"><figcaption>todo-aeneas/lean/Spec.lean</figcaption><pre><code class="lang-lean">/-- 状態がいつも満たすべきこと（不変条件）:
+  ① id が重複しない ② どの id も nextId より小さい ③ nextId は上限を超えない -/
+def Inv (s : State) : Prop :=
+  (s.items.map (·.id)).Nodup ∧ (∀ t ∈ s.items, t.id &lt; s.nextId) ∧ s.nextId ≤ MaxId</code></pre></figure>
+<p><code>∧</code> は「かつ」、<code>∀ t ∈ s.items</code> は「どの todo t についても」、<code>Nodup</code> は「重複が無い」です。</p>
+<p>仕様の誤りは小さい例で確かめます。<code>example</code> は名前の無い定理、<code>by decide</code> は「計算して確かめて」です。</p>
+<figure class="code"><figcaption>todo-aeneas/lean/Spec.lean</figcaption><pre><code class="lang-lean">private def s1 := (add empty 1 "牛乳").2
+private def s2 := (add s1 1 "卵").2
+private def s3 := (add s2 2 "ボブの用事").2
+example : (add empty 1 "牛乳").1 = some 0 := by decide
+-- …
+example : openCount (toggle s3 1 0).2 1 = 1 := by decide</code></pre></figure>
+<p>使う人から見た性質も定理にします。</p>
+<figure class="code"><figcaption>todo-aeneas/lean/Spec.lean</figcaption><pre><code class="lang-lean">/-- 足すと、自分の未完了が1件増える。 -/
+theorem add_openCount (s : State) (u : Nat) (title : String) (h : s.nextId ≠ MaxId) :
+    openCount (add s u title).2 u = openCount s u + 1 := by
+  simp [add, h, openCount, List.filter_append]
+
+/-- 2回切り替えると元に戻る。 -/
+theorem toggle_toggle (s : State) (u id : Nat) : (toggle (toggle s u id).2 u id).2 = s := by
+  -- …</code></pre></figure>
+<p>読み方は「<code>theorem 名前 (前提…) : 主張 := by 証明</code>」です。<code>(h : s.nextId ≠ MaxId)</code> は「id を使い切っていないなら」という前提です。</p>
+<aside class="note"><b>ポイント</b>人が丁寧にレビューするのは Spec.lean だけです。仕様が間違っていれば、証明も間違ったことを保証します。</aside>
+</li>
+
+<li>
+<h4>Rust で中核を書く</h4>
+<p>証明するのは状態を変える中核（kernel）だけで、画面と保存（CLI）は別のクレートに分けました。</p>
+<figure class="code"><figcaption>todo-aeneas/kernel/src/lib.rs</figcaption><pre><code class="lang-rust">/// user が持ち主の未完了の todo を末尾に足し、振った id を返す。id を使い切ったら何もせず None。
+pub fn add(t: &amp;mut Todos, user: u32, title: String) -&gt; Option&lt;u32&gt; {
+    if t.next_id == u32::MAX {
+        return None;
+    }
+    let id = t.next_id;
+    t.items.push(Todo { id, owner: user, title, done: false });
+    t.next_id = id + 1;
+    Some(id)
+}
+
+/// id の todo の完了／未完了を切り替える。user が持ち主のときだけ効き、効いたら true。
+pub fn toggle(t: &amp;mut Todos, user: u32, id: u32) -&gt; bool {
+    let mut i = 0;
+    while i &lt; t.items.len() &amp;&amp; t.items[i].id != id {
+        i += 1;
+    }
+    if i &lt; t.items.len() &amp;&amp; t.items[i].owner == user {
+        t.items[i].done = !t.items[i].done;
+        true
+    } else {
+        false
+    }
+}</code></pre></figure>
+<p>仕様は<b>全部</b>、Rust は<b>最初の1件</b>だけ反転します。一致するのは id が重複しないとき、つまり <code>Inv</code> の①が要ります。</p>
+</li>
+
+<li>
+<h4>Aeneas で Rust を Lean に翻訳する（Charon → Aeneas）</h4>
+<p>Lean は Rust を直接読めないので、2つの道具で翻訳します。</p>
+<ul>
+<li><dfn>Charon</dfn>: Rust のコンパイラの途中結果を読み、中間形式（<code>.llbc</code>）に書き出す</li>
+<li><dfn>Aeneas</dfn>: 中間形式を、意味を保って Lean の関数に翻訳する（翻訳の正しさは信頼する前提）</li>
+</ul>
+<p><code>build.sh</code> が <code>cargo test</code> → <code>charon</code> → <code>aeneas</code> → <code>lake build</code> を順に流します。翻訳された <code>add</code> は次のとおりです。</p>
+<figure class="code"><figcaption>todo-aeneas/lean/TodoKernel.lean</figcaption><pre><code class="lang-lean">def add
+  (t : Todos) (user : Std.U32) (title : String) :
+  Result ((Option Std.U32) × Todos)
+  := do
+  if t.next_id = core.num.U32.MAX
+  then ok (none, t)
+  else
+    let v ←
+      alloc.vec.Vec.push t.items
+        ({ id := t.next_id, owner := user, title, done := false } : Todo)
+    let i ← t.next_id + 1#u32
+    ok (some t.next_id, { items := v, next_id := i })</code></pre></figure>
+<p><code>&amp;mut Todos</code> は「新しい <code>Todos</code> を返す」に変わり、戻り値は <code>Result</code>（<code>ok</code> か <dfn>panic</dfn>＝実行時エラーか）で包まれます。<code>1#u32</code> の前の <code>←</code> は「あふれたらここで失敗」で、panic が見える形になります。</p>
+<aside class="warn"><b>落とし穴</b>Aeneas は標準ライブラリを全部は知りません。<code>std::mem::take</code> は中身の無い宣言（<dfn>axiom</dfn>。定義なしに「ある」とみなす宣言）になり、何も証明できませんでした。<code>std::mem::replace(&amp;mut v, Vec::new())</code> に替え、翻訳後は <code>grep axiom lean/TodoKernel.lean</code> で 0 件を確かめます。</aside>
+</li>
+
+<li>
+<h4>「実装＝仕様」を証明する（読み方を覚える）</h4>
+<p>Rust の <code>Todos</code> を仕様の状態に<b>読み替える</b>関数 <code>abs</code> を決めます。</p>
+<figure class="code"><figcaption>todo-aeneas/lean/Proofs.lean</figcaption><pre><code class="lang-lean">/-- Rust の todo 1件を仕様の todo に読み替える（u32 の id・持ち主は自然数に）。 -/
+def absTodo (t : Todo) : Spec.Todo := ⟨t.id.val, t.owner.val, t.title, t.done⟩
+
+/-- Rust の状態を仕様の状態に読み替える。 -/
+def abs (t : Todos) : Spec.State := ⟨t.items.val.map absTodo, t.next_id.val⟩</code></pre></figure>
+<p>示したいのは「どちら回りでも同じ」です。</p>
+<pre class="mermaid">
+flowchart LR
+  T["Rust の状態 t"] -- "Rust の add" --> T2["Rust の状態 t'"]
+  T -- "abs で読み替え" --> S["仕様の状態"]
+  T2 -- "abs で読み替え" --> X["同じになるはず"]
+  S -- "Spec.add" --> X
+</pre>
+<p>Lean で書くと <code>add_correct</code> です。</p>
+<figure class="code"><figcaption>todo-aeneas/lean/Proofs.lean</figcaption><pre><code class="lang-lean">記法: `f x ⦃ y =&gt; P y ⦄` は「f x は失敗（panic）せずに値 y を返し、y は P を満たす」。
+-- …
+theorem add_correct (t : Todos) (user : U32) (title : String) (hinv : Spec.Inv (abs t)) :
+    add t user title ⦃ r t' =&gt; r.map (·.val) = (Spec.add (abs t) user.val title).1 ∧
+                         abs t' = (Spec.add (abs t) user.val title).2 ⦄ := by
+  unfold add
+  split
+  -- …</code></pre></figure>
+<ul>
+<li>前提 <code>hinv</code>: 今の状態が不変条件を満たすなら</li>
+<li>Rust の <code>add</code> は panic せず、返り値 <code>r</code> と新しい状態 <code>t'</code> を返す</li>
+<li>返り値は仕様の <code>add</code> と同じ</li>
+<li>新しい状態を読み替えると、仕様の <code>add</code> の結果と同じ</li>
+</ul>
+<p>「panic しない」は、<code>Inv</code> から「件数は next_id 以下」（<code>length_le_nextId</code>）を導いて示しました。</p>
+<p>同じ形の定理を4操作に作りました（<code>add_correct</code>・<code>toggle_correct</code>・<code>remove_correct</code>・<code>open_count_correct</code>）。<code>Inv</code> を前提に取るのは、panic しないことを言う <code>add</code> と、id の重複が無いことが要る <code>toggle</code> です。</p>
+<figure class="code"><figcaption>todo-aeneas/lean/Proofs.lean</figcaption><pre><code class="lang-lean">theorem toggle_correct (t : Todos) (user id : U32) (hinv : Spec.Inv (abs t)) :
+    toggle t user id ⦃ b t' =&gt; b = (Spec.toggle (abs t) user.val id.val).1 ∧
+                         abs t' = (Spec.toggle (abs t) user.val id.val).2 ⦄ := by
+  -- …</code></pre></figure>
+<p>証明本体は <code>unfold</code>・<code>split</code>・<code>step</code>・<code>simp</code> の組み合わせです。いまは<b>主張（<code>:</code> と <code>:= by</code> の間）だけ読めれば十分</b>です。</p>
+<p><code>while</code> のある関数では、<dfn>ループ不変条件</dfn>（1周ごとに保たれる約束。例:「i より前に探している id は無い」）を人が書きます。証明の手間の多くはここです。</p>
+<aside class="note"><b>ポイント</b>仕様の上で証明した性質（2回切り替えると元に戻る、など）は、「実装＝仕様」を通してそのまま Rust の性質になります。</aside>
+<aside class="try"><b>やってみよう</b>最後の <code>lake build</code>（Lean のビルド）がエラー無しで終われば、4操作の「実装＝仕様」が確かめられています。
+<pre><code class="lang-bash">cd todo-aeneas
+./build.sh</code></pre></aside>
+</li>
+
+<li>
+<h4>わざと壊すと、証明が止まる</h4>
+<p>証明がバグを捕まえるかは、Rust をわざと壊して確かめます。4通り試しました（認可を足す前の版）。</p>
+<table>
+<thead><tr><th>壊し方（Rust）</th><th>単体テスト</th><th>証明</th></tr></thead>
+<tbody>
+<tr><td>toggle が反転でなく常に「完了」にする</td><td>通る</td><td>止まる（toggle_correct）</td></tr>
+<tr><td>remove が id = 40億 のときだけ消さない</td><td>通る</td><td>止まる（remove_correct）</td></tr>
+<tr><td>add が次の id を進めない</td><td>落ちる</td><td>止まる（add_correct）</td></tr>
+<tr><td>件数が完了済みも数える</td><td>落ちる</td><td>止まる（open_count_correct）</td></tr>
+</tbody>
+</table>
+<p>上の2つは単体テストを素通りしました。テストは思いついた場面しか見ませんが、証明は全状態・全 id について言います。</p>
+<aside class="try"><b>やってみよう</b><code>kernel/src/lib.rs</code> の <code>toggle</code> にある <code>t.items[i].done = !t.items[i].done;</code> の右辺を <code>true</code> に変えて流します。<code>cargo test</code> は通り、<code>toggle_correct</code> で止まるはずです。確かめたら元に戻します。
+<pre><code class="lang-bash">cd todo-aeneas
+./build.sh</code></pre></aside>
+</li>
+
+<li>
+<h4>証明していない層（保存・CLI）に穴があった</h4>
+<p>証明が通ったあと、別の目で穴を探させると本物の穴が5件見つかりました。<b>すべて「証明していない層」と「前提の出どころ」にあり、中核には無し</b>でした。</p>
+<table>
+<thead><tr><th>見つかった穴</th><th>直し方</th></tr></thead>
+<tbody>
+<tr><td>題名に改行・タブを入れると保存ファイルが壊れ、消した todo が復活する</td><td>題名の改行・タブを拒否。保存する前に「読み戻すと同じ状態になるか」を確かめる</td></tr>
+<tr><td>読めないファイルを空とみなし、<code>list</code> を1回打つだけで全件が消える</td><td>ファイルが無いときだけ空から始め、それ以外は止める</td></tr>
+<tr><td>完了の列が 0/1 以外でも黙って未完了と読む</td><td>0/1 以外は止める</td></tr>
+<tr><td>コマンド名が <code>done</code> なのに中身は切り替えで、2回打つと未完了に戻る</td><td>コマンド名を <code>toggle</code> に</td></tr>
+<tr><td><code>add_correct</code> の前提（Vec の長さが上限未満）を誰が満たすのか示していない</td><td>前提を <code>Inv</code> に替え、そこから導いた</td></tr>
+</tbody>
+</table>
+<p>4つ目のように、名前と中身のずれは仕様に無いので定理は何も言いません。</p>
+<p><code>toggle_correct</code> の<b>前提</b> <code>Inv</code> は、ファイルから読んだ状態では保証されないので、CLI が読むたびに検査します。</p>
+<figure class="code"><figcaption>todo-aeneas/cli/src/main.rs</figcaption><pre><code class="lang-rust">/// 証明の前提（Spec.Inv）: id が重複しない・どの id も next_id より小さい。
+/// toggle の証明はこれを仮定しているので、外から来た状態は必ずここを通す。
+/// （③ next_id ≤ u32 の最大値 は型で成り立つ）
+fn check_inv(t: &amp;Todos) -&gt; Result&lt;(), String&gt; {
+    let mut seen = HashSet::new();
+    for x in &amp;t.items {
+        if !seen.insert(x.id) { return Err(format!("id {} が重複している", x.id)) }
+        if x.id &gt;= t.next_id { return Err(format!("id {} が next_id 以上", x.id)) }
+    }
+    Ok(())
+}</code></pre></figure>
+<aside class="warn"><b>落とし穴</b>証明は仕様に書いたことしか守りません。外の層は境界で検査します。「Aeneas の Vec のモデルが本物と同じ」（メモリ不足は扱わない）も残る前提です。<code>lake build</code> は Rust との対応を見ないので、Rust を直したら <code>build.sh</code> を流し直します。</aside>
+</li>
+
+</ol>
+
+<p>手間の目安（認可を足したあと）は、中核 約120行・仕様 約250行・証明 約450行です。だから証明は小さな中核に絞ります。</p>
+
+<div class="recap">
+<h3>まとめ</h3>
+<ul>
+<li>Lean は証明を機械が確かめる道具。<code>sorry</code> 0 件でビルドが通って初めて「証明できた」</li>
+<li>仕様は実装を見ずに先に書き、小さい例と性質の証明で確かめる</li>
+<li>Rust は Charon → Aeneas で Lean に翻訳され、panic の可能性は <code>Result</code> で見える</li>
+<li>「Rust で操作して読み替え ＝ 読み替えて仕様で操作」を4操作で証明。<code>add</code> と <code>toggle</code> は <code>Inv</code> が前提</li>
+<li>わざと壊した4通りはすべて証明が止まり、うち2つは単体テストを素通りした</li>
+<li>本物の穴5件は、すべて証明していない層と前提の出どころにあった</li>
+</ul>
+</div>
+</section>

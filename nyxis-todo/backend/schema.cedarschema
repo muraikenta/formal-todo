@@ -1,0 +1,74 @@
+// Todo アプリの Cedar スキーマ（Nyxis では、このファイルがそのままテーブル定義になる）。
+// エンティティ型 = テーブル、属性 = 列、エンティティ ID = 主キー。各アクションに効果を1つだけ付ける。
+// 人がレビューして承認するのは、このファイルと policies.cedar の2つだけ。
+
+// ユーザー。Supabase Auth のユーザー ID が主キー。
+entity User = {
+  "name": String
+};
+
+// Todo。owner は作った人で、ハンドラではなく JWT の主体から決まる。
+entity Todo = {
+  "owner": User,
+  "title": String,
+  "done": Bool
+};
+
+// 匿名の主体（Nyxis の予約語。テーブルではない）。
+entity Anonymous;
+
+// 自分の Todo の一覧。行ごとに policies.cedar の条件で絞られる。
+@effect("list Todo")
+action "listTodos" appliesTo {
+  principal: [User, Anonymous],
+  resource: [Todo]
+};
+
+// Todo を1件読む。
+@effect("read Todo")
+action "readTodo" appliesTo {
+  principal: [User, Anonymous],
+  resource: [Todo]
+};
+
+// Todo を作る。提案された行（owner, title, done）が対象になる。
+@effect("insert Todo")
+action "createTodo" appliesTo {
+  principal: [User],
+  resource: [Todo]
+};
+
+// タイトルを変える（title の列だけ）。
+@effect("update Todo(title)")
+action "renameTodo" appliesTo {
+  principal: [User],
+  resource: [Todo]
+};
+
+// 完了・未完了を切り替える（done の列だけ）。
+@effect("update Todo(done)")
+action "setDone" appliesTo {
+  principal: [User],
+  resource: [Todo]
+};
+
+// Todo を消す。
+@effect("delete Todo")
+action "deleteTodo" appliesTo {
+  principal: [User],
+  resource: [Todo]
+};
+
+// 自分の User 行を作る（初回ログイン時）。
+@effect("insert User")
+action "registerUser" appliesTo {
+  principal: [User],
+  resource: [User]
+};
+
+// User 行を読む。
+@effect("read User")
+action "readUser" appliesTo {
+  principal: [User],
+  resource: [User]
+};

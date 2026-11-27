@@ -1,0 +1,1757 @@
+<title>形式検証 todo 入門</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700;900&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: 本のように左に目次（章とステップ）、右に 68 字幅の本文。スマホでは目次を折りたたみ1段に。 */
+:root {
+  --paper: #f6f8f7;
+  --sheet: #ffffff;
+  --ink: #16201d;
+  --ink-soft: #4b5a55;
+  --rule: #d9e1de;
+  --accent: #0f6b55;        /* 証明が閉じた色（∎） */
+  --accent-soft: #e3f1ec;
+  --warn: #9a4a12;
+  --warn-soft: #fbeee4;
+  --try: #2d4f9e;
+  --try-soft: #e8eefb;
+  --code-bg: #eef2f0;
+  --code-ink: #1b2a26;
+  --font-display: "Zen Kaku Gothic New", "Hiragino Sans", "Noto Sans JP", sans-serif;
+  --font-body: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0f1513; --sheet: #141c19; --ink: #e3ebe8; --ink-soft: #a3b2ad; --rule: #2a3632;
+    --accent: #5fcfac; --accent-soft: #173229; --warn: #f0a46c; --warn-soft: #33231a;
+    --try: #8fb0f5; --try-soft: #1b2440; --code-bg: #0b100e; --code-ink: #d5e3de; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0f1513; --sheet: #141c19; --ink: #e3ebe8; --ink-soft: #a3b2ad; --rule: #2a3632;
+  --accent: #5fcfac; --accent-soft: #173229; --warn: #f0a46c; --warn-soft: #33231a;
+  --try: #8fb0f5; --try-soft: #1b2440; --code-bg: #0b100e; --code-ink: #d5e3de; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 16px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body {
+  background: var(--paper); color: var(--ink);
+  font-family: var(--font-body); font-size: 16px; line-height: 1.9;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0;
+}
+a { color: var(--accent); text-underline-offset: 3px; }
+a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+.book { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 48px; }
+@media (max-width: 960px) { .book { grid-template-columns: minmax(0, 1fr); gap: 0; } }
+
+/* 目次 */
+.toc { position: sticky; top: env(safe-area-inset-top, 0px); align-self: start; max-height: 100vh; overflow-y: auto; padding-block: 40px 24px; font-size: 13.5px; line-height: 1.6; }
+.toc .brand { font-family: var(--font-display); font-weight: 900; font-size: 17px; letter-spacing: .02em; margin: 0 0 4px; }
+.toc .brand span { color: var(--accent); }
+.toc .sub { color: var(--ink-soft); font-size: 12px; margin: 0 0 20px; }
+.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.toc nav > ol > li > a { display: grid; grid-template-columns: 2.2em 1fr; padding: 6px 8px; border-radius: 6px; color: var(--ink); text-decoration: none; font-weight: 500; }
+.toc nav > ol > li > a .no { color: var(--ink-soft); font-family: var(--font-mono); font-size: 12px; padding-top: 1px; }
+.toc nav > ol > li > a:hover { background: var(--accent-soft); }
+.toc nav > ol > li.active > a { background: var(--accent-soft); color: var(--accent); }
+.toc li ol { display: none; margin: 2px 0 8px 2.7em; border-left: 1px solid var(--rule); }
+.toc li.active ol { display: grid; }
+.toc li ol a { display: block; padding: 3px 10px; color: var(--ink-soft); text-decoration: none; font-size: 12.5px; }
+.toc li ol a:hover { color: var(--accent); }
+.toc details summary { cursor: pointer; list-style: none; }
+.toc details summary::-webkit-details-marker { display: none; }
+@media (min-width: 961px) { .toc details > summary { display: none; } }
+@media (max-width: 960px) {
+  .toc { position: static; max-height: none; padding-block: 20px 0; }
+  .toc details { border: 1px solid var(--rule); border-radius: 10px; background: var(--sheet); padding: 12px 14px; }
+  .toc details summary { font-weight: 700; font-family: var(--font-display); }
+  .toc details summary::after { content: " ▾"; color: var(--ink-soft); }
+  .toc details[open] summary { margin-bottom: 10px; }
+}
+
+/* 本文 */
+main { padding-block: 40px 96px; min-width: 0; }
+.cover { padding-block: 24px 40px; border-bottom: 1px solid var(--rule); margin-bottom: 8px; }
+.cover .eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: .12em; color: var(--accent); text-transform: uppercase; margin: 0 0 12px; }
+.cover h1 { font-family: var(--font-display); font-weight: 900; font-size: clamp(30px, 5vw, 46px); line-height: 1.3; margin: 0 0 16px; text-wrap: balance; }
+.cover p { max-width: 40em; color: var(--ink-soft); margin: 0; }
+.cover .path { margin-top: 24px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; }
+.cover .path a { border: 1px solid var(--rule); background: var(--sheet); padding: 4px 12px; border-radius: 999px; color: var(--ink); text-decoration: none; }
+.cover .path a:hover { border-color: var(--accent); color: var(--accent); }
+.cover .path i { color: var(--ink-soft); font-style: normal; }
+
+figure.map { margin: 32px 0 0; padding: 20px 16px 8px; border: 1px solid var(--rule); border-radius: 14px; background: var(--sheet); overflow-x: auto; }
+figure.map svg { display: block; width: 100%; min-width: 560px; height: auto; font-family: var(--font-body); }
+figure.map .axis { stroke: var(--ink-soft); stroke-width: 1.5; }
+figure.map .axis-head { fill: var(--ink-soft); }
+figure.map .ax { fill: var(--ink); font-size: 14px; font-weight: 700; }
+figure.map .ax-sub { fill: var(--ink-soft); font-size: 12px; }
+figure.map .dot circle { fill: var(--sheet); stroke: var(--accent); stroke-width: 3; }
+figure.map .dot.solid circle { fill: var(--accent); }
+figure.map .dot text { fill: var(--ink); font-size: 14px; font-weight: 700; font-family: var(--font-display); }
+figure.map .dot text.ch { fill: var(--accent); font-size: 11px; font-family: var(--font-mono); font-weight: 600; }
+figure.map .qed { fill: var(--accent); font-size: 13px; font-weight: 700; }
+.tok-c { color: var(--ink-soft); font-style: italic; }
+.tok-s { color: var(--warn); }
+.tok-k { color: var(--accent); font-weight: 600; }
+.tok-n { color: var(--try); }
+.chapter { max-width: 46em; padding-block: 56px 24px; border-bottom: 1px solid var(--rule); }
+.chapter > * { max-width: 100%; }
+.chapter h2 { font-family: var(--font-display); font-weight: 900; font-size: clamp(24px, 3.4vw, 32px); line-height: 1.4; margin: 0 0 12px; text-wrap: balance; }
+.chapter h3 { font-family: var(--font-display); font-weight: 700; font-size: 21px; line-height: 1.5; margin: 44px 0 10px; text-wrap: balance; }
+.chapter h4 { font-family: var(--font-display); font-weight: 700; font-size: 17.5px; line-height: 1.5; margin: 0 0 6px; }
+.chapter p { margin: 0 0 14px; }
+.chapter .lead { font-size: 17.5px; color: var(--ink-soft); }
+.chapter ul, .chapter ol { padding-left: 1.4em; margin: 0 0 14px; }
+.chapter li { margin-bottom: 4px; }
+dfn { font-style: normal; font-weight: 700; background: linear-gradient(transparent 62%, var(--accent-soft) 62%); }
+code { font-family: var(--font-mono); font-size: .88em; background: var(--code-bg); color: var(--code-ink); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+strong, b { font-weight: 700; }
+
+.goals, .recap { border: 1px solid var(--rule); background: var(--sheet); border-radius: 10px; padding: 16px 20px 6px; margin: 20px 0 28px; }
+.goals h3, .recap h3 { margin: 0 0 8px; font-size: 14px; letter-spacing: .08em; color: var(--accent); }
+.recap { margin-top: 40px; position: relative; }
+.recap::after { content: "∎"; position: absolute; right: 18px; bottom: 10px; color: var(--accent); font-size: 18px; }
+
+/* ステップ */
+ol.steps { list-style: none; padding: 0; margin: 20px 0 24px; counter-reset: step; display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
+ol.steps > li { min-width: 0; counter-increment: step; position: relative; padding: 0 0 24px 52px; margin: 0; }
+ol.steps > li::before { content: counter(step); position: absolute; left: 0; top: 0; width: 34px; height: 34px; border-radius: 50%; background: var(--accent); color: var(--sheet); font-family: var(--font-mono); font-weight: 600; font-size: 15px; display: grid; place-items: center; }
+ol.steps > li::after { content: ""; position: absolute; left: 16.5px; top: 40px; bottom: 6px; width: 1px; background: var(--rule); }
+ol.steps > li:last-child::after { display: none; }
+ol.steps > li > h4 { padding-top: 3px; }
+
+/* コード */
+figure.code { min-width: 0; max-width: 100%; margin: 16px 0 20px; border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; background: var(--code-bg); }
+figure.code figcaption { font-family: var(--font-mono); font-size: 12px; color: var(--ink-soft); padding: 7px 14px; border-bottom: 1px solid var(--rule); background: var(--sheet); overflow-wrap: anywhere; }
+pre { margin: 0; overflow-x: auto; }
+pre code { display: block; background: none; padding: 14px 16px; font-size: 13px; line-height: 1.65; overflow-wrap: normal; white-space: pre; border-radius: 0; }
+aside pre, .chapter > pre:not(.mermaid) { background: var(--code-bg); border-radius: 8px; border: 1px solid var(--rule); margin: 10px 0; }
+pre.mermaid { background: var(--sheet); border: 1px solid var(--rule); border-radius: 10px; padding: 16px; margin: 16px 0 20px; text-align: center; }
+
+/* 囲み */
+aside { border-radius: 10px; padding: 14px 18px 4px; margin: 18px 0 22px; border: 1px solid var(--rule); }
+aside > b:first-child { display: block; font-family: var(--font-display); font-size: 13px; letter-spacing: .08em; margin-bottom: 4px; }
+aside.note { background: var(--accent-soft); border-color: transparent; }
+aside.note > b:first-child { color: var(--accent); }
+aside.warn { background: var(--warn-soft); border-color: transparent; }
+aside.warn > b:first-child { color: var(--warn); }
+aside.try { background: var(--try-soft); border-color: transparent; }
+aside.try > b:first-child { color: var(--try); }
+aside p:last-child { margin-bottom: 10px; }
+
+/* 表 */
+.table-wrap { overflow-x: auto; margin: 16px 0 22px; border: 1px solid var(--rule); border-radius: 10px; background: var(--sheet); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; line-height: 1.6; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; vertical-align: top; padding: 9px 12px; border-bottom: 1px solid var(--rule); }
+th { font-family: var(--font-display); font-weight: 700; background: var(--accent-soft); white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+
+dl.glossary { display: grid; grid-template-columns: minmax(7em, max-content) minmax(0, 1fr); gap: 8px 20px; margin: 16px 0 24px; }
+dl.glossary dt { font-weight: 700; }
+dl.glossary dd { margin: 0; color: var(--ink-soft); }
+@media (max-width: 560px) { dl.glossary { grid-template-columns: minmax(0, 1fr); gap: 2px; } dl.glossary dd { margin-bottom: 10px; } }
+
+.pager { display: flex; justify-content: space-between; gap: 12px; margin-top: 28px; font-size: 14px; flex-wrap: wrap; }
+.pager a { text-decoration: none; border: 1px solid var(--rule); border-radius: 8px; padding: 8px 14px; background: var(--sheet); color: var(--ink); }
+.pager a:hover { border-color: var(--accent); color: var(--accent); }
+.pager .next { margin-left: auto; }
+.cards-title { font-family: var(--font-display); font-size: 14px; letter-spacing: .08em; color: var(--accent); margin: 40px 0 12px; }
+.cards { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 12px; }
+.cards li { min-width: 0; }
+.cards a { display: grid; grid-template-rows: auto auto 1fr; gap: 6px; height: 100%; padding: 16px 18px; border: 1px solid var(--rule); border-radius: 12px; background: var(--sheet); color: var(--ink); text-decoration: none; transition: border-color .15s, transform .15s; }
+.cards a:hover { border-color: var(--accent); transform: translateY(-1px); }
+@media (prefers-reduced-motion: reduce) { .cards a { transition: none; } .cards a:hover { transform: none; } }
+.cards .no { font-family: var(--font-mono); font-size: 12px; color: var(--accent); font-weight: 600; }
+.cards .t { font-family: var(--font-display); font-weight: 700; font-size: 16.5px; line-height: 1.5; }
+.cards .d { font-size: 13.5px; line-height: 1.7; color: var(--ink-soft); }
+.chapter-bar { display: flex; align-items: center; gap: 12px; font-size: 12.5px; color: var(--ink-soft); font-family: var(--font-mono); margin-bottom: 18px; }
+.chapter-bar a { color: var(--ink-soft); text-decoration: none; font-family: var(--font-body); }
+.chapter-bar a:hover { color: var(--accent); }
+.chapter-bar .meter { flex: 1; height: 3px; background: var(--rule); border-radius: 2px; overflow: hidden; }
+.chapter-bar .meter i { display: block; height: 100%; background: var(--accent); }
+.chapter { border-bottom: 0; padding-top: 32px; }
+.pager a { padding: 12px 16px; }
+.pager small { display: block; font-size: 11.5px; color: var(--ink-soft); }
+.cover-links { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 20px 0 0 !important; font-size: 13px; }
+.cover-links .gh { display: inline-block; padding: 8px 16px; border-radius: 8px; background: var(--ink); color: var(--paper); text-decoration: none; font-weight: 700; }
+.cover-links .gh:hover { background: var(--accent); }
+.chapter-bar .code-link { white-space: nowrap; }
+figcaption a { color: inherit; text-decoration: none; }
+figcaption a:hover { color: var(--accent); text-decoration: underline; }
+footer.colophon { color: var(--ink-soft); font-size: 12.5px; padding-top: 32px; max-width: 46em; }
+</style>
+
+<div class="book">
+  <aside class="toc" aria-label="目次">
+    <p class="brand">形式検証 <span>todo</span> 入門</p>
+    <p class="sub">4 つの todo アプリで学ぶ、仕様・検査・証明</p>
+    <details id="toc-details">
+      <summary>目次</summary>
+      <nav><ol><li data-ch="ch-0"><a href="#ch-0"><span class="no">0</span><span>はじめに：形式検証ってなに？</span></a><ol><li><a href="#ch-0-s2">テストで困ること</a></li><li><a href="#ch-0-s3">形式検証とは</a></li><li><a href="#ch-0-s4">3つの役割：仕様・実装・証明</a></li><li><a href="#ch-0-s5">小さな例で3段を体験する</a></li><li><a href="#ch-0-s6">テストとの違いをもう一度</a></li><li><a href="#ch-0-s7">この book で作る4つの todo</a></li></ol></li><li data-ch="ch-1"><a href="#ch-1"><span class="no">1</span><span>Quint で todo の仕様を書いて、全部の状態を調べる</span></a><ol><li><a href="#ch-1-s2">題材と道具</a></li></ol></li><li data-ch="ch-2"><a href="#ch-2"><span class="no">2</span><span>Lean と Rust で「実装が仕様どおり」を証明する</span></a></li><li data-ch="ch-3"><a href="#ch-3"><span class="no">3</span><span>認可を証明する：他人の todo には触れない</span></a><ol><li><a href="#ch-3-s2">認可とは</a></li><li><a href="#ch-3-s3">3つの道具を比べる</a></li></ol></li><li data-ch="ch-4"><a href="#ch-4"><span class="no">4</span><span>TLA+ で同期を検査する：複数タブで操作が消える</span></a><ol><li><a href="#ch-4-s2">題材：同期つきの小さな todo アプリ</a></li></ol></li><li data-ch="ch-5"><a href="#ch-5"><span class="no">5</span><span>まとめ：どの道具をいつ使うか</span></a><ol><li><a href="#ch-5-s2">道具の比較表</a></li><li><a href="#ch-5-s3">共通の教訓</a></li><li><a href="#ch-5-s4">初心者の次の一歩</a></li><li><a href="#ch-5-s5">用語集</a></li></ol></li></ol></nav>
+    </details>
+  </aside>
+  <main>
+    <header class="cover" id="home-view">
+      <p class="eyebrow">A step-by-step book · 初心者向け</p>
+      <h1>todo アプリで学ぶ<br>形式検証のはじめかた</h1>
+      <p>同じ「todo アプリ」を、Quint・Lean（Aeneas）・h5i と Nyxis・TLA+ の4通りで検証しました。テストが全部通っていたアプリから、検査でどんな不具合が見つかったのか。どの道具が何を保証して、何を保証しないのか。1章ずつ手を動かしながら追っていきます。</p>
+      <p class="cover-links"><a class="gh" href="https://github.com/muraikenta/formal-todo">GitHub でコードを見る ↗</a><span>MIT License</span></p>
+      <figure class="map" aria-label="この本で使う道具の地図">
+        <svg viewBox="0 0 720 230" role="img">
+          <title>道具の地図：左は小さな範囲を全部調べるモデル検査、右はすべての入力で成り立つことを示す定理証明</title>
+          <line class="axis" x1="40" y1="120" x2="680" y2="120"/>
+          <polygon class="axis-head" points="680,114 692,120 680,126"/>
+          <polygon class="axis-head" points="40,114 28,120 40,126"/>
+          <text class="ax" x="40" y="150">小さな範囲を全部調べる</text>
+          <text class="ax-sub" x="40" y="170">書いて数秒で反例が出る・範囲の外は言えない</text>
+          <text class="ax" x="680" y="150" text-anchor="end">すべての入力で証明する</text>
+          <text class="ax-sub" x="680" y="170" text-anchor="end">見逃しが無い・書くのに手間がかかる</text>
+          <g class="dot" transform="translate(130,120)"><circle r="9"/><text y="-22" text-anchor="middle">Quint</text><text class="ch" y="-42" text-anchor="middle">1章</text></g>
+          <g class="dot" transform="translate(250,120)"><circle r="9"/><text y="-22" text-anchor="middle">TLA+</text><text class="ch" y="-42" text-anchor="middle">4章</text></g>
+          <g class="dot solid" transform="translate(470,120)"><circle r="9"/><text y="-22" text-anchor="middle">Lean + Aeneas</text><text class="ch" y="-42" text-anchor="middle">2章</text></g>
+          <g class="dot solid" transform="translate(600,120)"><circle r="9"/><text y="-22" text-anchor="middle">h5i / Nyxis</text><text class="ch" y="-42" text-anchor="middle">3章</text></g>
+          <text class="qed" x="360" y="215" text-anchor="middle">どちらも「仕様に書いたこと」しか守らない ∎</text>
+        </svg>
+      </figure>
+      <h2 class="cards-title">章の一覧</h2>
+      <ol class="cards"><li><a href="#ch-0"><span class="no">CHAPTER 0</span><span class="t">はじめに：形式検証ってなに？</span><span class="d">形式検証が「何をしてくれて、何をしてくれないか」を、小さな関数 sum_to でつかみます。</span></a></li><li><a href="#ch-1"><span class="no">CHAPTER 1</span><span class="t">Quint で todo の仕様を書いて、全部の状態を調べる</span><span class="d">todo アプリの決まりを Quint で仕様に書き、起こりうる状態を機械に全部調べさせます。最後に、仕様から作った操作の列を JavaScript アプリに流して突き合わせます。</span></a></li><li><a href="#ch-2"><span class="no">CHAPTER 2</span><span class="t">Lean と Rust で「実装が仕様どおり」を証明する</span><span class="d">この章では、Rust のコードが仕様どおりに動くことを証明します。</span></a></li><li><a href="#ch-3"><span class="no">CHAPTER 3</span><span class="t">認可を証明する：他人の todo には触れない</span><span class="d">「アリスの todo はボブには変えられない・見えない」を、全ユーザー・全 id・全状態について証明します。道具は Aeneas・h5i・Nyxis の3つです。</span></a></li><li><a href="#ch-4"><span class="no">CHAPTER 4</span><span class="t">TLA+ で同期を検査する：複数タブで操作が消える</span><span class="d">オフラインでも動く todo アプリを2つのタブとサーバのモデルにして、送信・失敗・遅れた応答がどの順に起きても約束が守られるかを全部調べます。テストが全部緑のアプリから、操作が黙って消える不具合を3つ見つけます。</span></a></li><li><a href="#ch-5"><span class="no">CHAPTER 5</span><span class="t">まとめ：どの道具をいつ使うか</span><span class="d">第1〜4章の道具を比べ、場面ごとの選び方を決めます。最後に、「全部緑」でも残る見逃しの数え方をまとめます。</span></a></li></ol>
+    </header>
+<section class="chapter" id="ch-0"><div class="chapter-bar"><a href="#home">← 表紙</a><span class="meter"><i style="width:17%"></i></span><span>1 / 6</span><a class="code-link" href="https://github.com/muraikenta/formal-todo/tree/main/lean-aeneas">コードを見る ↗</a></div>
+<h2>第0章 はじめに：形式検証ってなに？</h2>
+<p class="lead">形式検証が「何をしてくれて、何をしてくれないか」を、小さな関数 <code>sum_to</code> でつかみます。</p>
+
+<div class="goals">
+<h3 id="ch-0-s1">この章のゴール</h3>
+<ul>
+<li>「テストは選んだ入力だけ、形式検証は全部（ただし仕様に書いたことだけ）」を説明できる</li>
+<li>仕様・実装・証明を、それぞれ誰が書き、どう信じるかが分かる</li>
+<li>この book の4つの todo と、各道具の「保証すること・しないこと」を見渡せる</li>
+</ul>
+</div>
+
+<h3 id="ch-0-s2">テストで困ること</h3>
+<p><code>sum_to(10)</code> が 55 になるテストが緑でも、言えるのは「10 で 55 が返った」ことだけです。テストは人が選んだ入力しか確かめません。</p>
+<p>筆者の実験では、todo の「消す」操作を「id が 40億のときだけ消さない」ように壊しても、単体テストは全部通りました。</p>
+
+<h3 id="ch-0-s3">形式検証とは</h3>
+<p><dfn>形式検証</dfn>とは、プログラムが約束を守ることを、数学の方法ですべての場合について確かめることです。この約束（何を返すべきか）を実装とは別に書いたものを<dfn>仕様</dfn>と呼びます。</p>
+
+<aside class="note"><b>ポイント</b>テストは選んだ入力だけ。形式検証は全部の入力。ただし、確かめるのは仕様に書いたことだけです。</aside>
+
+<h3 id="ch-0-s4">3つの役割：仕様・実装・証明</h3>
+<ul>
+<li><b>仕様</b>：何を返すべきか。人が、実装を見ずに先に書きます。</li>
+<li><b>実装</b>：ふだんのプログラム（Rust・JavaScript・TypeScript）。</li>
+<li><b><dfn>証明</dfn></b>：「実装は仕様どおり」という主張を、論理でつないだもの。その主張を<dfn>定理</dfn>と呼びます。機械が一字一句検査するので、間違った証明は通りません。</li>
+</ul>
+
+<pre class="mermaid">
+flowchart LR
+  A["① 仕様（人が書く）"] --> C["③ 証明（機械が検査）"]
+  B["② 実装（人 or AI が書く）"] --> C
+  C --> D["前提を満たすすべての入力で 実装 ＝ 仕様"]
+</pre>
+
+<p>人が読むのは仕様と定理の主張（何を前提に何を言うか）です。手順は機械に任せます。</p>
+
+<h3 id="ch-0-s5">小さな例で3段を体験する</h3>
+<p>第2章の流れを眺めます。題材は「0 + 1 + … + n を返す」<code>sum_to</code>、道具は <dfn>Lean</dfn>（証明を書いて機械に検査させる言語）です。</p>
+
+<ol class="steps">
+<li>
+<h4>仕様を書く</h4>
+<p>「何を返すか」だけを書き、ループのことは書きません。<code>Nat</code> は上限もあふれもない数学の自然数です。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/lean-aeneas/Spec.lean">lean-aeneas/Spec.lean</a></figcaption><pre><code class="lang-lean">/-- u32 に収まる（0 〜 2^32 − 1）。 -/
+def FitsU32 (x : Nat) : Prop := x ≤ 2 ^ 32 - 1
+-- …
+/-- 仕様3: sum_to は 0 + 1 + 2 + … + n を返す（和の記号で書く。ループのことは書かない）。 -/
+def sum (n : Nat) : Nat := ∑ i ∈ range (n + 1), i</code></pre></figure>
+<p><code>∑ i ∈ range (n + 1), i</code> は「0 から n までを全部足す」の意味です。</p>
+</li>
+
+<li>
+<h4>仕様そのものを確かめる</h4>
+<p>仕様が間違っていれば、間違った実装も証明を通ります。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/lean-aeneas/Spec.lean">lean-aeneas/Spec.lean</a></figcaption><pre><code class="lang-lean">example : sum 10 = 55 := by decide
+
+/-- 仕様の性質: 和はガウスの公式 n(n+1)/2 と一致する（仕様どうしの関係。実装とは無関係）。 -/
+theorem two_mul_sum (n : Nat) : 2 * sum n = n * (n + 1) := by
+  -- …</code></pre></figure>
+<p>和を <code>range n</code> と書き間違えたら、1行目で止まりました。</p>
+</li>
+
+<li>
+<h4>実装を書く</h4>
+<p>実装はふつうの Rust です。<code>u32</code> は 0 から 2<sup>32</sup> − 1（約43億）までなので、大きすぎる答えは<dfn>あふれ</dfn>ます。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/rust/src/lib.rs">rust/src/lib.rs</a></figcaption><pre><code class="lang-rust">pub fn sum_to(n: u32) -&gt; u32 {
+    let mut total = 0;
+    let mut i = 0;
+    while i &lt; n {
+        i += 1;
+        total += i;
+    }
+    total
+}</code></pre></figure>
+</li>
+
+<li>
+<h4>「実装 ＝ 仕様」を証明する</h4>
+<p>Rust は Aeneas（第2章）が Lean の関数に自動で翻訳します。その翻訳結果が仕様と一致することを定理に書きます。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/lean-aeneas/Proofs.lean">lean-aeneas/Proofs.lean</a></figcaption><pre><code class="lang-lean">theorem sum_to_correct (n : U32) (h : Spec.FitsU32 (Spec.sum n.val)) :
+    sum_to n ⦃ r =&gt; r.val = Spec.sum n.val ⦄ := by
+  -- …（証明の手順。Lean が検査する）</code></pre></figure>
+<p>読み方は「答えが u32 に収まるなら（<code>h</code>）、<code>sum_to n</code> は失敗せずに <code>r</code> を返し、それは <code>Spec.sum</code> と等しい」です。<code>.val</code> は u32 を自然数として取り出します。<code>h</code> のような条件を定理の<dfn>前提</dfn>と呼びます。</p>
+</li>
+
+<li>
+<h4>わざと壊して、証明が止まるのを見る</h4>
+<p>ループの「i を進める」と「足す」の2行を入れ替えると、<code>sum_to 10</code> は 45 になり、仕様を変えなくても証明が通らなくなりました。</p>
+</li>
+</ol>
+
+<aside class="warn"><b>落とし穴</b>この定理が言うのは「収まるなら仕様どおり」までです。収まらないときの失敗は証明していません。また、翻訳はあふれを「失敗」と扱いますが、Rust の既定の release ビルドは黙って折り返すので、あふれたときの動きは一致しません。</aside>
+
+<aside class="try"><b>やってみよう</b>Lean と、ビルド済みの Aeneas の Lean ライブラリ（<code>lakefile.toml</code> が相対パスで参照）があれば、証明が通るかを確かめられます。エラーも <code>sorry</code>（証明の省略）も出なければ成功です。
+<pre><code class="lang-bash">cd lean-aeneas
+lake build</code></pre>
+初回は Mathlib（数学の定理集）のキャッシュ展開込みで、筆者の環境では2分ほどかかりました。翻訳の道具（Charon と Aeneas）は第2章で説明します。</aside>
+
+<h3 id="ch-0-s6">テストとの違いをもう一度</h3>
+<p><code>add</code> 関数に「<code>a = 123456789, b = 1</code> のときだけ 0 を返す」バグを入れました。ランダムな入力で実装と見本の答えを比べる<dfn>差分テスト</dfn>は、100万件を種を変えて3回流しても見逃し、証明は通りませんでした。</p>
+<p>一方、todo には「コマンド名は done なのに、中身は完了と未完了の切り替え」という作りがありました。仕様どおりなので、定理は何も言いません。形式検証は契約書どおりかを全ページ調べる監査で、書き忘れた項目は対象外です。</p>
+
+<h3 id="ch-0-s7">この book で作る4つの todo</h3>
+<p>4種類の道具は、「全部」の範囲と守るものが違います。</p>
+
+<div class="table-wrap"><table>
+<thead>
+<tr><th>章</th><th>todo と道具</th><th>保証すること</th><th>保証しないこと</th></tr>
+</thead>
+<tbody>
+<tr>
+<td>第1章</td>
+<td>Quint で書いた仕様＋JavaScript のアプリ</td>
+<td>id 0〜3 の範囲で、たどり着ける 225,531 通りの<dfn>状態</dfn>（ある時点のデータ全体）をすべて調べ、仕様の決まりが破れないこと。仕様から作った実行列 200本 × 30歩 ＝ 6,000 歩で、アプリが仕様どおり動くこと</td>
+<td>調べた範囲の外。実行列に出てこない動き。画面の層（クリックや日本語入力の変換確定など）</td>
+</tr>
+<tr>
+<td>第2章</td>
+<td>Rust の中核＋Lean の証明（Aeneas）</td>
+<td>追加・切り替え・削除・未完了の件数の4操作が、前提（id が重複しない等）を満たすすべての状態で仕様どおりであること</td>
+<td>画面と保存。仕様に書いていないこと。翻訳ツールと Lean そのものは信頼している</td>
+</tr>
+<tr>
+<td>第3章</td>
+<td>認可つき todo（Aeneas の認可版・h5i・Nyxis）</td>
+<td>他人の todo は変わらない・見えない・触れないこと（h5i は 108 定理）。Nyxis は「ハンドラはポリシー（権限の決まり）の範囲を超えない」こと</td>
+<td>ログインした人が本人か。JSON・HTTP・SQL への変換など証明していない層。ポリシーそのものが意図どおりか</td>
+</tr>
+<tr>
+<td>第4章</td>
+<td>複数タブで同期する todo（TLA+）</td>
+<td>タブ2枚・todo 1〜2件などの範囲で、送信・失敗・リロードが「どの順に起きても」4つの性質が守られること（破れる順番があれば手順を示す）</td>
+<td>範囲の外。モデルとコードのずれ（コードを変えたらモデルも直す）</td>
+</tr>
+</tbody>
+</table></div>
+
+<p>第4章では、テスト18件が緑だった todo から、操作が黙って消える不具合を3つ見つけます。第5章では道具の選び方と、見逃しを数える方法をまとめます。</p>
+
+<aside class="note"><b>ポイント</b>第1章から順に読んでください。Quint はすぐ<dfn>反例</dfn>（決まりが破れる具体的な手順）が出るので、入口に向いています。</aside>
+
+<aside class="warn"><b>落とし穴</b>検査が全部緑でも、正しさの証明にはなりません。筆者の最初の版は、仕様を壊しても緑のままでした。各章で「わざと壊して、検査が止まるか」を確かめます。</aside>
+
+<div class="recap">
+<h3 id="ch-0-s8">まとめ</h3>
+<ul>
+<li>テストは選んだ入力だけ、形式検証は全部の入力を確かめる。ただし仕様に書いたことだけ</li>
+<li>仕様は人が先に書いて小さい例で確かめ、証明は機械が検査する</li>
+<li>定理には前提がある。前提の外と、証明していない層（画面・保存・本人確認など）は守られない</li>
+<li>Quint → Lean と Rust → 認可 → TLA+ の順に、4つの todo で道具を使い分ける</li>
+</ul>
+</div>
+<nav class="pager"><a class="prev" href="#home"><small>← 表紙</small>章の一覧</a><a class="next" href="#ch-1"><small>次の章 →</small>第1章 Quint で todo の仕様を書いて、全部の状態を調べる</a></nav>
+</section>
+<section class="chapter" id="ch-1"><div class="chapter-bar"><a href="#home">← 表紙</a><span class="meter"><i style="width:33%"></i></span><span>2 / 6</span><a class="code-link" href="https://github.com/muraikenta/formal-todo/tree/main/quint-todo">コードを見る ↗</a></div>
+<h2>第1章 Quint で todo の仕様を書いて、全部の状態を調べる</h2>
+
+<p class="lead">todo アプリの決まりを Quint で仕様に書き、起こりうる状態を機械に全部調べさせます。最後に、仕様から作った操作の列を JavaScript アプリに流して突き合わせます。</p>
+
+<div class="goals">
+<h3 id="ch-1-s1">この章のゴール</h3>
+<ul>
+<li>todo アプリを「状態」と「操作」で書ける</li>
+<li>不変条件を書き、<code>quint test</code> / <code>quint run</code> / TLC で調べられる</li>
+<li>わざと壊した仕様で、検査の強さを測れる（変異テスト）</li>
+<li>仕様から作った操作の列でアプリをテストする（MBT）流れが分かる</li>
+<li>検査が緑でも残る見逃しを4つ言える</li>
+</ul>
+</div>
+
+<h3 id="ch-1-s2">題材と道具</h3>
+<p>題材は todo アプリで、操作は追加・完了の切り替え・削除・題名の編集・全部切り替え・完了済みを消すの6つです。</p>
+<p>道具は <dfn>Quint</dfn>（クイント）です。システムの決まりを書く言語で、見た目は TypeScript に似ており、書いた仕様を実行も全状態の検査もできます。版は 0.34.0 です。</p>
+<p>Quint で書くのは<strong>アプリではなく、アプリの決まり</strong>です。アプリは JavaScript で書き、後半の MBT でつなぎます。</p>
+
+<pre class="mermaid">
+flowchart LR
+  S["仕様 todo.qnt"] --&gt; T["quint test（具体例）"]
+  S --&gt; R["quint run（ランダム）"]
+  S --&gt; V["TLC（全状態）"]
+  S --&gt; G["トレース200本"]
+  G --&gt; M["mbt.mjs"]
+  A["アプリ todo-core.mjs"] --&gt; M
+</pre>
+
+<ol class="steps">
+
+<li>
+<h4>ステップ1: 状態を書く</h4>
+<p>アプリが覚えていることを <dfn>状態</dfn> と呼びます。todo の一覧と、次に振る id の2つです。Quint では <code>var</code> で宣言します。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/quint-todo/todo.qnt">quint-todo/todo.qnt</a></figcaption><pre><code class="lang-quint">  type Todo = { id: int, title: str, done: bool }
+
+  var todos: List[Todo]    // 画面に並ぶ順
+  var nextId: int          // 次に振る id
+  // 以下は「前後の性質」を書くための記録（アプリには無い）
+  var lastAction: str
+  var lastId: int          // 直前の操作の対象 id
+  var lastTitle: str       // 直前の操作の題名（空白を取った後）
+  var prevTodos: List[Todo]
+  var prevNextId: int</code></pre></figure>
+<p><code>last…</code> と <code>prev…</code> は検査用の記録で、ステップ7で使います。アプリの状態は todos と nextId だけです。</p>
+</li>
+
+<li>
+<h4>ステップ2: 操作を書く</h4>
+<p>状態を変える操作を <dfn>action</dfn>（アクション）と呼びます。<code>todos'</code> のように <code>'</code>（プライム）を付けた名前が操作後の値です。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/quint-todo/todo.qnt">quint-todo/todo.qnt</a></figcaption><pre><code class="lang-quint">  // 追加: 空白を取って空になるものは弾く（何も変わらない）
+  action add(raw: str): bool = {
+    val title = INPUTS.get(raw)
+    all {
+      nextId &lt; MAX_ID,
+      record("add", -1, title),
+      if (title == "")
+        all { todos' = todos, nextId' = nextId }
+      else {
+        val newId = if (BUG == "idFromLength") todos.length() else nextId
+        all {
+          todos' = todos.append({ id: newId, title: title, done: false }),
+          nextId' = nextId + 1,
+        }
+      },
+    }
+  }</code></pre></figure>
+<p><code>all { … }</code> は「中の条件が全部成り立つ」です。<code>nextId &lt; MAX_ID</code> は、調べる範囲を有限にするための上限です。</p>
+<p><code>record</code> は直前の操作の記録、<code>BUG</code> はわざと間違えた版への切り替えです。<code>INPUTS.get(raw)</code> は生の入力を空白を取った題名に変える表で、Quint に <code>trim</code> が無いので表で渡します。</p>
+<p>最後に、1歩ごとに6つのどれかが起きると書きます。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/quint-todo/todo.qnt">quint-todo/todo.qnt</a></figcaption><pre><code class="lang-quint">  // id は「いまある id」だけでなく範囲全体から選ぶ（無い id への操作が無害かも確かめる）
+  action step = {
+    nondet raw = INPUTS.keys().oneOf()
+    nondet id = 0.to(MAX_ID - 1).oneOf()
+    any {
+      add(raw),
+      toggle(id),
+      remove(id),
+      edit(id, raw),
+      toggleAll,
+      clearCompleted,
+    }
+  }</code></pre></figure>
+<p><dfn>nondet</dfn> は「この中のどれでもよい」、<code>any { … }</code> は「どれか1つが起きる」です。</p>
+<aside class="note"><b>ポイント</b>仕様は「この順に呼ぶ」手続きではなく、「どの状態からでも6つのどれかが起こりうる」という可能性の全体です。</aside>
+</li>
+
+<li>
+<h4>ステップ3: 不変条件を書く</h4>
+<p><dfn>不変条件</dfn>は、どの操作の後でも成り立ってほしい性質です。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/quint-todo/todo.qnt">quint-todo/todo.qnt</a></figcaption><pre><code class="lang-quint">  // ---- 形の性質（1つの状態で言えること） ----
+  val idsUnique = idsOf(todos).size() == todos.length()
+  // id は並び順に増えていく（追加は末尾・他の操作は順番を変えない）
+  val idsAscending = todos.indices().forall(i =&gt; i == 0 or todos[i - 1].id &lt; todos[i].id)
+  // 振った id は nextId 未満（次に振る id がすでに使われていない）
+  val idsFresh = todos.indices().forall(i =&gt; todos[i].id &lt; nextId)
+  val noEmptyTitles = todos.indices().forall(i =&gt; todos[i].title != "")
+  // 保存される題名は必ず「空白を取った後」の形（生の入力のまま入っていない）
+  val titlesNormalized = todos.indices().forall(i =&gt; INPUTS.keys().map(k =&gt; INPUTS.get(k)).contains(todos[i].title))
+  val shapeOk = idsUnique and idsAscending and idsFresh and noEmptyTitles and titlesNormalized</code></pre></figure>
+<p>1つの状態を見れば言えるので、<dfn>形の性質</dfn>と呼びます。</p>
+</li>
+
+<li>
+<h4>ステップ4: 具体例で動かす（quint test）</h4>
+<p>まず具体的な操作の列で動きを確かめます。単体テストと同じ感覚です。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/quint-todo/todo.qnt">quint-todo/todo.qnt</a></figcaption><pre><code class="lang-quint">  run addTwoThenToggleAllTest =
+    initState.then(add("milk")).then(add(" milk ")).then(toggleAll)
+      .expect(todos.length() == 2 and allDone(todos) and todos[1].title == "milk")
+  run emptyTitleRejectedTest =
+    initState.then(add("")).then(add(" ")).then(add("　")).expect(todos.length() == 0 and nextId == 0)</code></pre></figure>
+<p><code>.then(…)</code> は「続けてこの操作」、<code>.expect(…)</code> は「最後にこれが成り立つ」です。2つ目は空白だけの題名が弾かれることを見ます。具体例は4本です。</p>
+<p>動かすときは、上限などの定数を埋めた版を選びます。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/quint-todo/todo.qnt">quint-todo/todo.qnt</a></figcaption><pre><code class="lang-quint">// TLC で全網羅する版: id は 0〜3 まで（4件まで追加できる）
+module todo4 {
+  import inputs.*
+  import todo(MAX_ID = 4, INPUTS = INPUTS_STD, BUG = "none").*
+}
+
+// MBT のトレースを作る版: 範囲を広げる（4 で区切ると「5件目で壊れる」実装を見逃した）
+module todo7 {
+  import inputs.*
+  import todo(MAX_ID = 7, INPUTS = INPUTS_STD, BUG = "none").*
+}</code></pre></figure>
+<aside class="try"><b>やってみよう</b>具体例4本を流します。
+<pre><code class="lang-bash">cd quint-todo
+quint test todo.qnt --main=todo4</code></pre>
+</aside>
+</li>
+
+<li>
+<h4>ステップ5: ランダムに歩かせる（quint run）と、全部見る（TLC）</h4>
+<p><code>quint run</code> は最大30歩の列をランダムに1万本試し、不変条件が破れたらそこまでの列（<dfn>反例</dfn>）を見せます。</p>
+<p>ランダムでは通らない道が残るので、到達できる状態を1つ残らず調べる <dfn>TLC</dfn> も使います（この手法を<dfn>モデル検査</dfn>と呼びます）。</p>
+<aside class="try"><b>やってみよう</b>
+<code>safety</code> は <code>shapeOk</code> にステップ7の性質を足した不変条件です。
+<pre><code class="lang-bash">cd quint-todo
+quint run todo.qnt --main=todo7 --invariant=safety --max-steps=30 --max-samples=10000
+quint verify todo.qnt --main=todo4 --backend=tlc --invariant=safety</code></pre>
+</aside>
+<p>TLC は id 0〜3 で <strong>225,531 状態</strong>を調べ、違反なしでした。id を件数で振る間違いを入れた <code>todo4_idFromLength</code> では違反が出ます。</p>
+<aside class="note"><b>ポイント</b>全部調べられるのは範囲を小さく区切ったからです。「id 0〜3 で違反なし」は「何件でも大丈夫」ではありません。</aside>
+</li>
+
+<li>
+<h4>ステップ6: わざと壊した仕様で検査を試す（変異テスト）</h4>
+<p>緑でも、検査が甘いだけかもしれません。わざと書き間違えた仕様を検査が見つけるかを数えるのが <dfn>変異テスト</dfn> です。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/quint-todo/mutate-spec.mjs">quint-todo/mutate-spec.mjs</a></figcaption><pre><code class="lang-js">const M = [
+  ["toggle が何もしない", "todos' = mapTodos(todos, t =&gt; if (t.id == id) { ...t, done: not(t.done) } else t),", "todos' = todos,"],
+  ["toggle が2件変える", "if (t.id == id) { ...t, done: not(t.done) }", "if (t.id == id or t.id == id + 1) { ...t, done: not(t.done) }"],
+  // …
+  ["remove が全件消す", "todos' = todos.select(t =&gt; t.id != id),\n    nextId' = nextId,\n    record(\"remove\"", "todos' = List(),\n    nextId' = nextId,\n    record(\"remove\""],
+  // …
+];</code></pre></figure>
+<p>各行は「名前・元・書き換え後」です。いまの仕様は <strong>20本中20本</strong>を検出します。</p>
+<aside class="try"><b>やってみよう</b>
+<pre><code class="lang-bash">cd quint-todo
+node mutate-spec.mjs</code></pre>
+</aside>
+</li>
+
+<li>
+<h4>ステップ7: 前後の性質を足す</h4>
+<p>形の性質だけの最初の版は、<strong>17本中16本を見逃しました</strong>。「全部消す」「何もしない」も形は保つからです。</p>
+<p>そこで操作の前後を比べる <dfn>前後の性質</dfn>を足しました。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/quint-todo/todo.qnt">quint-todo/todo.qnt</a></figcaption><pre><code class="lang-quint">  val toggleOk = lastAction == "toggle" implies all {
+    sameIds(todos, prevTodos),
+    todos.indices().forall(i =&gt; todos[i].title == prevTodos[i].title),
+    todos.indices().forall(i =&gt;
+      todos[i].done == (if (prevTodos[i].id == lastId) not(prevTodos[i].done) else prevTodos[i].done)),
+  }
+  // …（addOk, removeOk, editOk, toggleAllOk, clearOk も同じ形）
+  val stepOk = nextIdOk and addOk and toggleOk and removeOk and editOk and toggleAllOk and clearOk
+
+  val safety = shapeOk and stepOk</code></pre></figure>
+<p>「直前が toggle なら、対象の1件の done だけが反転する」と読みます。これで 20/20 になりました。</p>
+<aside class="note"><b>ポイント</b>操作ごとに「決まったところだけ変え、他には触らない」まで書いて、初めて操作の意味を書いたことになります。</aside>
+</li>
+
+<li>
+<h4>ステップ8: 仕様から作った列をアプリに流す（MBT）</h4>
+<p>アプリの中身は画面から切り離した状態遷移の関数で、action 1つが <code>case</code> 1つに対応します。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/quint-todo/app/todo-core.mjs">quint-todo/app/todo-core.mjs</a></figcaption><pre><code class="lang-js">export function reduce(state, action) {
+  switch (action.type) {
+    case "add": {
+      const title = (action.title ?? "").trim();
+      if (title === "") return state; // 空欄は弾く
+      return {
+        todos: [...state.todos, { id: state.nextId, title, done: false }],
+        nextId: state.nextId + 1,
+      };
+    }
+    // …</code></pre></figure>
+<p><dfn>MBT</dfn>（モデルベーステスト）は、仕様が出した操作の列をアプリに1歩ずつ流し、毎歩状態を比べるテストです。列は <dfn>ITF トレース</dfn>という JSON に書き出します。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/quint-todo/mbt.mjs">quint-todo/mbt.mjs</a></figcaption><pre><code class="lang-js">  for (let i = 1; i &lt; states.length; i++) {
+    const s = states[i];
+    const type = s["mbt::actionTaken"];
+    const picks = fromItf(s["mbt::nondetPicks"]);
+    const arg = (n) =&gt; (picks[n]?.tag === "Some" ? picks[n].value : undefined);
+    // Quint の action の引数と同じものを渡す（使わない引数はアプリ側が無視する）
+    const action = { type, id: arg("id"), title: arg("raw") };
+    // …
+    impl = reduce(impl, action);
+    // …
+    const model = { todos: pick(s, "todos"), nextId: pick(s, "nextId") };
+    // …
+    if (implView(impl) !== modelView(model)) {</code></pre></figure>
+<p>比べるのは todos・nextId と「残り N 件」です。トレースは seed を固定して200本作るので、毎回同じ列になります。</p>
+<pre class="mermaid">
+sequenceDiagram
+  participant Q as "Quint（todo7）"
+  participant F as "ITF トレース"
+  participant B as "mbt.mjs"
+  participant A as "todo-core.mjs"
+  Q-&gt;&gt;F: "200本×30歩を書き出す"
+  B-&gt;&gt;F: "1歩読む（操作と引数）"
+  B-&gt;&gt;A: "reduce(state, action)"
+  A--&gt;&gt;B: "アプリの次の状態"
+  B-&gt;&gt;B: "仕様の状態と比べる"
+</pre>
+<p>6,000歩が全歩一致し、壊したアプリ（<code>mutate.mjs</code>）は <strong>19本中19本</strong>を検出しました。</p>
+<aside class="try"><b>やってみよう</b>
+<pre><code class="lang-bash">cd quint-todo
+./gen-traces.sh
+node mbt.mjs
+node mutate.mjs</code></pre>
+全部まとめて流すなら <code>./check.sh</code> です（約2分）。</aside>
+<aside class="warn"><b>落とし穴</b>MBT は「アプリが仕様どおりか」しか見ないので、仕様とアプリが同じ間違いをしていれば全部緑です。</aside>
+</li>
+
+<li>
+<h4>ステップ9: 独立レビューで見つかった穴を塞ぐ</h4>
+<p>全部緑だった最初の版にも、別の目のレビューで穴が9件見つかりました。主な型は4つです。</p>
+<ul>
+<li><b>形だけの不変条件</b>: 壊した仕様17本中16本を通した（ステップ7）。</li>
+<li><b>前後の性質の不足</b>: 「他には触らない」を操作ごとに書いて塞いだ。</li>
+<li><b>範囲</b>: MBT も id 0〜3 だったため、「5件目以降を弾く」アプリを見逃した。いまは MBT を7件まで広げた。</li>
+<li><b>入力</b>: 題名の候補が "milk" "eggs" "" だけで、「trim を外す」「小文字にする」がすり抜けた。いまは次の表を使う。</li>
+</ul>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/quint-todo/todo.qnt">quint-todo/todo.qnt</a></figcaption><pre><code class="lang-quint">// 入力の候補: 空欄・空白だけ・全角空白だけ・前後に空白・大文字・日本語（全角空白で囲む）・長い題名
+module inputs {
+  pure val INPUTS_STD = Map(
+    "" -&gt; "",
+    " " -&gt; "",
+    "　" -&gt; "",
+    "milk" -&gt; "milk",
+    " milk " -&gt; "milk",
+    "Milk" -&gt; "Milk",
+    "　牛乳を買う　" -&gt; "牛乳を買う",
+    "a very long title that keeps going and going" -&gt; "a very long title that keeps going and going",
+  )
+}</code></pre></figure>
+<p>MBT が「残り N 件」を比べていなかった穴も塞ぎました。</p>
+<p>1 から n までの和で上限判定の <code>&gt; MAX</code> を <code>&gt;= MAX</code> に間違えても、上限 255 では<strong>見逃します</strong>。和がちょうど 255 になる n が無いからで、253（＝1+…+22）なら反例が出ます。</p>
+<p>検査は網で、網の目（範囲と入力）を決めるのは人です。</p>
+<aside class="warn"><b>落とし穴</b>TLC が保証するのは「書いた性質が、選んだ範囲と入力の中で成り立つ」ことだけです。画面の操作やタブ間の同期は対象外で、「IME 確定の Enter で編集まで確定する」「2タブで互いの追加を消す」などは MBT の外で見つかりました（同期は第4章）。</aside>
+</li>
+
+</ol>
+
+<div class="recap">
+<h3 id="ch-1-s3">まとめ</h3>
+<ul>
+<li>Quint では、アプリを「状態（var）」と「操作（action）」で書き、nondet で「どれでも起こりうる」を表す</li>
+<li><code>quint test</code> は具体例、<code>quint run</code> はランダム、TLC は小さな範囲の全状態（225,531 状態）を調べる</li>
+<li>「形の性質」だけでは弱い。「前後の性質」を足すと、壊した仕様 20/20 を検出できた</li>
+<li>MBT で 6,000 歩をアプリに流して全歩一致。壊したアプリ 19/19 を検出</li>
+<li>通ったことより、何を見逃すかを数えるほうが大事。範囲・入力・比べる対象の選び方で見逃しが生まれる</li>
+<li>Quint の結論は「選んだ範囲の中」の話。すべての件数で言うには、次の章の証明が要る</li>
+</ul>
+</div>
+<nav class="pager"><a class="prev" href="#ch-0"><small>← 前の章</small>第0章 はじめに：形式検証ってなに？</a><a class="next" href="#ch-2"><small>次の章 →</small>第2章 Lean と Rust で「実装が仕様どおり」を証明する</a></nav>
+</section>
+<section class="chapter" id="ch-2"><div class="chapter-bar"><a href="#home">← 表紙</a><span class="meter"><i style="width:50%"></i></span><span>3 / 6</span><a class="code-link" href="https://github.com/muraikenta/formal-todo/tree/main/todo-aeneas">コードを見る ↗</a></div>
+<h2>第2章 Lean と Rust で「実装が仕様どおり」を証明する</h2>
+
+<p class="lead">この章では、Rust のコードが仕様どおりに動くことを<b>証明</b>します。</p>
+
+<div class="goals">
+<h3 id="ch-2-s1">この章のゴール</h3>
+<ul>
+<li>定理・証明・<code>sorry</code> を説明できる</li>
+<li>仕様を実装より先に書く理由が分かる</li>
+<li>Rust が Charon と Aeneas で Lean に翻訳される流れが分かる</li>
+<li>「実装＝仕様」の定理の主張を読める</li>
+<li>証明が見つけるバグと、見逃すバグを知る</li>
+</ul>
+</div>
+
+<p>題材は第1章と同じ todo で、操作は4つです。</p>
+<ul>
+<li>足す（<code>add</code>）: 未完了の todo を末尾に足し、id を振る</li>
+<li>切り替える（<code>toggle</code>）: 完了と未完了を反転する</li>
+<li>消す（<code>remove</code>）: 指定した id の todo を除く</li>
+<li>未完了の件数（<code>openCount</code>）</li>
+</ul>
+
+<aside class="note"><b>ポイント</b>コードにある <code>user</code>（操作した人）と <code>owner</code>（持ち主）は第3章「認可」で使います。この章では読み飛ばしてかまいません。</aside>
+
+<pre class="mermaid">
+flowchart LR
+  S["仕様 Spec.lean（人が書く）"]
+  R["Rust の中核 kernel/src/lib.rs"]
+  C["Charon（Rust を読み取る）"]
+  A["Aeneas（Lean に翻訳）"]
+  K["翻訳結果 TodoKernel.lean"]
+  P["証明 Proofs.lean"]
+  R --> C --> A --> K
+  S --> P
+  K --> P
+</pre>
+
+<ol class="steps">
+
+<li>
+<h4>Lean とは何か・定理と証明・sorry</h4>
+<p><dfn>Lean</dfn> はプログラミング言語であり、<dfn>定理証明支援系</dfn>（書いた証明が正しいかを機械が確かめる道具）でもあります。</p>
+<p><dfn>定理</dfn>は「いつでも成り立つ」と主張する文です。例:「2回切り替えると元に戻る」。<dfn>証明</dfn>はその理由を書いたもので、足りないとビルドが通りません。テストと違い、すべての入力について言えます。</p>
+<p><dfn>sorry</dfn> は「証明はあとで書く」という仮置きです。Lean は警告だけ出して定理を正しいと扱うので、完成前に 0 件を確かめます。</p>
+<aside class="try"><b>やってみよう</b>何も出なければ 0 件です。
+<pre><code class="lang-bash">cd todo-aeneas
+grep -n sorry lean/*.lean</code></pre></aside>
+</li>
+
+<li>
+<h4>仕様 Spec.lean を先に書く（実装を見ない）</h4>
+<p>最初に書くのは仕様です。実装を見てから書くと、実装のバグまで仕様に写してしまいます。</p>
+<p>todo 1件は id・持ち主・題名・完了の4つ。状態は todo のリストと「次に振る id」です。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/todo-aeneas/lean/Spec.lean">todo-aeneas/lean/Spec.lean</a></figcaption><pre><code class="lang-lean">structure Todo where
+  id : Nat
+  owner : Nat
+  title : String
+  done : Bool
+deriving DecidableEq, Repr
+
+structure State where
+  items : List Todo
+  nextId : Nat
+deriving DecidableEq, Repr</code></pre></figure>
+<p><code>Nat</code> は上限の無い自然数です。仕様は数学の数で書きます。</p>
+<p>操作は「状態を受け取り、新しい状態を返す関数」です。<code>MaxId</code> は id の上限（2<sup>32</sup>−1）、<code>empty</code> は空の状態、<code>Option Nat</code> は「数がある（<code>some</code>）か無い（<code>none</code>）か」です。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/todo-aeneas/lean/Spec.lean">todo-aeneas/lean/Spec.lean</a></figcaption><pre><code class="lang-lean">/-- t は「u が持ち主の、id 番の todo」か。切り替え・削除が効く相手。 -/
+def mine (u id : Nat) (t : Todo) : Bool := t.id == id &amp;&amp; t.owner == u
+
+/-- 足す: u が持ち主の未完了の todo を末尾に足し、振った id を返す。id を使い切っていたら何も変えずに none。 -/
+def add (s : State) (u : Nat) (title : String) : Option Nat × State :=
+  if s.nextId = MaxId then (none, s)
+  else (some s.nextId, ⟨s.items ++ [⟨s.nextId, u, title, false⟩], s.nextId + 1⟩)
+
+/-- 完了の切り替え: u が持ち主の id 番の todo の done を反転する。効いたか（そういう todo があったか）を返す。 -/
+def toggle (s : State) (u id : Nat) : Bool × State :=
+  (s.items.any (mine u id),
+   { s with items := s.items.map fun t =&gt; if mine u id t then { t with done := !t.done } else t })
+
+/-- 消す: u が持ち主の id 番の todo を除く。効いたかを返す。 -/
+def remove (s : State) (u id : Nat) : Bool × State :=
+  (s.items.any (mine u id), { s with items := s.items.filter (fun t =&gt; !mine u id t) })
+
+/-- u の未完了の件数。 -/
+def openCount (s : State) (u : Nat) : Nat := (s.items.filter (fun t =&gt; !t.done &amp;&amp; t.owner == u)).length</code></pre></figure>
+<p><code>toggle</code> は「当てはまる todo を<b>全部</b>反転する」と読みます。ループを書かず、<code>map</code>（全部を変換）と <code>filter</code>（条件で残す）で結果だけを言います。</p>
+<p>次に<dfn>不変条件</dfn>（どの操作のあとも状態が満たすべき約束）を書きます。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/todo-aeneas/lean/Spec.lean">todo-aeneas/lean/Spec.lean</a></figcaption><pre><code class="lang-lean">/-- 状態がいつも満たすべきこと（不変条件）:
+  ① id が重複しない ② どの id も nextId より小さい ③ nextId は上限を超えない -/
+def Inv (s : State) : Prop :=
+  (s.items.map (·.id)).Nodup ∧ (∀ t ∈ s.items, t.id &lt; s.nextId) ∧ s.nextId ≤ MaxId</code></pre></figure>
+<p><code>∧</code> は「かつ」、<code>∀ t ∈ s.items</code> は「どの todo t についても」、<code>Nodup</code> は「重複が無い」です。</p>
+<p>仕様の誤りは小さい例で確かめます。<code>example</code> は名前の無い定理、<code>by decide</code> は「計算して確かめて」です。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/todo-aeneas/lean/Spec.lean">todo-aeneas/lean/Spec.lean</a></figcaption><pre><code class="lang-lean">private def s1 := (add empty 1 "牛乳").2
+private def s2 := (add s1 1 "卵").2
+private def s3 := (add s2 2 "ボブの用事").2
+example : (add empty 1 "牛乳").1 = some 0 := by decide
+-- …
+example : openCount (toggle s3 1 0).2 1 = 1 := by decide</code></pre></figure>
+<p>使う人から見た性質も定理にします。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/todo-aeneas/lean/Spec.lean">todo-aeneas/lean/Spec.lean</a></figcaption><pre><code class="lang-lean">/-- 足すと、自分の未完了が1件増える。 -/
+theorem add_openCount (s : State) (u : Nat) (title : String) (h : s.nextId ≠ MaxId) :
+    openCount (add s u title).2 u = openCount s u + 1 := by
+  simp [add, h, openCount, List.filter_append]
+
+/-- 2回切り替えると元に戻る。 -/
+theorem toggle_toggle (s : State) (u id : Nat) : (toggle (toggle s u id).2 u id).2 = s := by
+  -- …</code></pre></figure>
+<p>読み方は「<code>theorem 名前 (前提…) : 主張 := by 証明</code>」です。<code>(h : s.nextId ≠ MaxId)</code> は「id を使い切っていないなら」という前提です。</p>
+<aside class="note"><b>ポイント</b>人が丁寧にレビューするのは Spec.lean だけです。仕様が間違っていれば、証明も間違ったことを保証します。</aside>
+</li>
+
+<li>
+<h4>Rust で中核を書く</h4>
+<p>証明するのは状態を変える中核（kernel）だけで、画面と保存（CLI）は別のクレートに分けました。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/todo-aeneas/kernel/src/lib.rs">todo-aeneas/kernel/src/lib.rs</a></figcaption><pre><code class="lang-rust">/// user が持ち主の未完了の todo を末尾に足し、振った id を返す。id を使い切ったら何もせず None。
+pub fn add(t: &amp;mut Todos, user: u32, title: String) -&gt; Option&lt;u32&gt; {
+    if t.next_id == u32::MAX {
+        return None;
+    }
+    let id = t.next_id;
+    t.items.push(Todo { id, owner: user, title, done: false });
+    t.next_id = id + 1;
+    Some(id)
+}
+
+/// id の todo の完了／未完了を切り替える。user が持ち主のときだけ効き、効いたら true。
+pub fn toggle(t: &amp;mut Todos, user: u32, id: u32) -&gt; bool {
+    let mut i = 0;
+    while i &lt; t.items.len() &amp;&amp; t.items[i].id != id {
+        i += 1;
+    }
+    if i &lt; t.items.len() &amp;&amp; t.items[i].owner == user {
+        t.items[i].done = !t.items[i].done;
+        true
+    } else {
+        false
+    }
+}</code></pre></figure>
+<p>仕様は<b>全部</b>、Rust は<b>最初の1件</b>だけ反転します。一致するのは id が重複しないとき、つまり <code>Inv</code> の①が要ります。</p>
+</li>
+
+<li>
+<h4>Aeneas で Rust を Lean に翻訳する（Charon → Aeneas）</h4>
+<p>Lean は Rust を直接読めないので、2つの道具で翻訳します。</p>
+<ul>
+<li><dfn>Charon</dfn>: Rust のコンパイラの途中結果を読み、中間形式（<code>.llbc</code>）に書き出す</li>
+<li><dfn>Aeneas</dfn>: 中間形式を、意味を保って Lean の関数に翻訳する（翻訳の正しさは信頼する前提）</li>
+</ul>
+<p><code>build.sh</code> が <code>cargo test</code> → <code>charon</code> → <code>aeneas</code> → <code>lake build</code> を順に流します。翻訳された <code>add</code> は次のとおりです。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/todo-aeneas/lean/TodoKernel.lean">todo-aeneas/lean/TodoKernel.lean</a></figcaption><pre><code class="lang-lean">def add
+  (t : Todos) (user : Std.U32) (title : String) :
+  Result ((Option Std.U32) × Todos)
+  := do
+  if t.next_id = core.num.U32.MAX
+  then ok (none, t)
+  else
+    let v ←
+      alloc.vec.Vec.push t.items
+        ({ id := t.next_id, owner := user, title, done := false } : Todo)
+    let i ← t.next_id + 1#u32
+    ok (some t.next_id, { items := v, next_id := i })</code></pre></figure>
+<p><code>&amp;mut Todos</code> は「新しい <code>Todos</code> を返す」に変わり、戻り値は <code>Result</code>（<code>ok</code> か <dfn>panic</dfn>＝実行時エラーか）で包まれます。<code>1#u32</code> の前の <code>←</code> は「あふれたらここで失敗」で、panic が見える形になります。</p>
+<aside class="warn"><b>落とし穴</b>Aeneas は標準ライブラリを全部は知りません。<code>std::mem::take</code> は中身の無い宣言（<dfn>axiom</dfn>。定義なしに「ある」とみなす宣言）になり、何も証明できませんでした。<code>std::mem::replace(&amp;mut v, Vec::new())</code> に替え、翻訳後は <code>grep axiom lean/TodoKernel.lean</code> で 0 件を確かめます。</aside>
+</li>
+
+<li>
+<h4>「実装＝仕様」を証明する（読み方を覚える）</h4>
+<p>Rust の <code>Todos</code> を仕様の状態に<b>読み替える</b>関数 <code>abs</code> を決めます。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/todo-aeneas/lean/Proofs.lean">todo-aeneas/lean/Proofs.lean</a></figcaption><pre><code class="lang-lean">/-- Rust の todo 1件を仕様の todo に読み替える（u32 の id・持ち主は自然数に）。 -/
+def absTodo (t : Todo) : Spec.Todo := ⟨t.id.val, t.owner.val, t.title, t.done⟩
+
+/-- Rust の状態を仕様の状態に読み替える。 -/
+def abs (t : Todos) : Spec.State := ⟨t.items.val.map absTodo, t.next_id.val⟩</code></pre></figure>
+<p>示したいのは「どちら回りでも同じ」です。</p>
+<pre class="mermaid">
+flowchart LR
+  T["Rust の状態 t"] -- "Rust の add" --> T2["Rust の状態 t'"]
+  T -- "abs で読み替え" --> S["仕様の状態"]
+  T2 -- "abs で読み替え" --> X["同じになるはず"]
+  S -- "Spec.add" --> X
+</pre>
+<p>Lean で書くと <code>add_correct</code> です。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/todo-aeneas/lean/Proofs.lean">todo-aeneas/lean/Proofs.lean</a></figcaption><pre><code class="lang-lean">記法: `f x ⦃ y =&gt; P y ⦄` は「f x は失敗（panic）せずに値 y を返し、y は P を満たす」。
+-- …
+theorem add_correct (t : Todos) (user : U32) (title : String) (hinv : Spec.Inv (abs t)) :
+    add t user title ⦃ r t' =&gt; r.map (·.val) = (Spec.add (abs t) user.val title).1 ∧
+                         abs t' = (Spec.add (abs t) user.val title).2 ⦄ := by
+  unfold add
+  split
+  -- …</code></pre></figure>
+<ul>
+<li>前提 <code>hinv</code>: 今の状態が不変条件を満たすなら</li>
+<li>Rust の <code>add</code> は panic せず、返り値 <code>r</code> と新しい状態 <code>t'</code> を返す</li>
+<li>返り値は仕様の <code>add</code> と同じ</li>
+<li>新しい状態を読み替えると、仕様の <code>add</code> の結果と同じ</li>
+</ul>
+<p>「panic しない」は、<code>Inv</code> から「件数は next_id 以下」（<code>length_le_nextId</code>）を導いて示しました。</p>
+<p>同じ形の定理を4操作に作りました（<code>add_correct</code>・<code>toggle_correct</code>・<code>remove_correct</code>・<code>open_count_correct</code>）。<code>Inv</code> を前提に取るのは、panic しないことを言う <code>add</code> と、id の重複が無いことが要る <code>toggle</code> です。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/todo-aeneas/lean/Proofs.lean">todo-aeneas/lean/Proofs.lean</a></figcaption><pre><code class="lang-lean">theorem toggle_correct (t : Todos) (user id : U32) (hinv : Spec.Inv (abs t)) :
+    toggle t user id ⦃ b t' =&gt; b = (Spec.toggle (abs t) user.val id.val).1 ∧
+                         abs t' = (Spec.toggle (abs t) user.val id.val).2 ⦄ := by
+  -- …</code></pre></figure>
+<p>証明本体は <code>unfold</code>・<code>split</code>・<code>step</code>・<code>simp</code> の組み合わせです。いまは<b>主張（<code>:</code> と <code>:= by</code> の間）だけ読めれば十分</b>です。</p>
+<p><code>while</code> のある関数では、<dfn>ループ不変条件</dfn>（1周ごとに保たれる約束。例:「i より前に探している id は無い」）を人が書きます。証明の手間の多くはここです。</p>
+<aside class="note"><b>ポイント</b>仕様の上で証明した性質（2回切り替えると元に戻る、など）は、「実装＝仕様」を通してそのまま Rust の性質になります。</aside>
+<aside class="try"><b>やってみよう</b>最後の <code>lake build</code>（Lean のビルド）がエラー無しで終われば、4操作の「実装＝仕様」が確かめられています。
+<pre><code class="lang-bash">cd todo-aeneas
+./build.sh</code></pre></aside>
+</li>
+
+<li>
+<h4>わざと壊すと、証明が止まる</h4>
+<p>証明がバグを捕まえるかは、Rust をわざと壊して確かめます。4通り試しました（認可を足す前の版）。</p>
+<div class="table-wrap"><table>
+<thead><tr><th>壊し方（Rust）</th><th>単体テスト</th><th>証明</th></tr></thead>
+<tbody>
+<tr><td>toggle が反転でなく常に「完了」にする</td><td>通る</td><td>止まる（toggle_correct）</td></tr>
+<tr><td>remove が id = 40億 のときだけ消さない</td><td>通る</td><td>止まる（remove_correct）</td></tr>
+<tr><td>add が次の id を進めない</td><td>落ちる</td><td>止まる（add_correct）</td></tr>
+<tr><td>件数が完了済みも数える</td><td>落ちる</td><td>止まる（open_count_correct）</td></tr>
+</tbody>
+</table></div>
+<p>上の2つは単体テストを素通りしました。テストは思いついた場面しか見ませんが、証明は全状態・全 id について言います。</p>
+<aside class="try"><b>やってみよう</b><code>kernel/src/lib.rs</code> の <code>toggle</code> にある <code>t.items[i].done = !t.items[i].done;</code> の右辺を <code>true</code> に変えて流します。<code>cargo test</code> は通り、<code>toggle_correct</code> で止まるはずです。確かめたら元に戻します。
+<pre><code class="lang-bash">cd todo-aeneas
+./build.sh</code></pre></aside>
+</li>
+
+<li>
+<h4>証明していない層（保存・CLI）に穴があった</h4>
+<p>証明が通ったあと、別の目で穴を探させると本物の穴が5件見つかりました。<b>すべて「証明していない層」と「前提の出どころ」にあり、中核には無し</b>でした。</p>
+<div class="table-wrap"><table>
+<thead><tr><th>見つかった穴</th><th>直し方</th></tr></thead>
+<tbody>
+<tr><td>題名に改行・タブを入れると保存ファイルが壊れ、消した todo が復活する</td><td>題名の改行・タブを拒否。保存する前に「読み戻すと同じ状態になるか」を確かめる</td></tr>
+<tr><td>読めないファイルを空とみなし、<code>list</code> を1回打つだけで全件が消える</td><td>ファイルが無いときだけ空から始め、それ以外は止める</td></tr>
+<tr><td>完了の列が 0/1 以外でも黙って未完了と読む</td><td>0/1 以外は止める</td></tr>
+<tr><td>コマンド名が <code>done</code> なのに中身は切り替えで、2回打つと未完了に戻る</td><td>コマンド名を <code>toggle</code> に</td></tr>
+<tr><td><code>add_correct</code> の前提（Vec の長さが上限未満）を誰が満たすのか示していない</td><td>前提を <code>Inv</code> に替え、そこから導いた</td></tr>
+</tbody>
+</table></div>
+<p>4つ目のように、名前と中身のずれは仕様に無いので定理は何も言いません。</p>
+<p><code>toggle_correct</code> の<b>前提</b> <code>Inv</code> は、ファイルから読んだ状態では保証されないので、CLI が読むたびに検査します。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/todo-aeneas/cli/src/main.rs">todo-aeneas/cli/src/main.rs</a></figcaption><pre><code class="lang-rust">/// 証明の前提（Spec.Inv）: id が重複しない・どの id も next_id より小さい。
+/// toggle の証明はこれを仮定しているので、外から来た状態は必ずここを通す。
+/// （③ next_id ≤ u32 の最大値 は型で成り立つ）
+fn check_inv(t: &amp;Todos) -&gt; Result&lt;(), String&gt; {
+    let mut seen = HashSet::new();
+    for x in &amp;t.items {
+        if !seen.insert(x.id) { return Err(format!("id {} が重複している", x.id)) }
+        if x.id &gt;= t.next_id { return Err(format!("id {} が next_id 以上", x.id)) }
+    }
+    Ok(())
+}</code></pre></figure>
+<aside class="warn"><b>落とし穴</b>証明は仕様に書いたことしか守りません。外の層は境界で検査します。「Aeneas の Vec のモデルが本物と同じ」（メモリ不足は扱わない）も残る前提です。<code>lake build</code> は Rust との対応を見ないので、Rust を直したら <code>build.sh</code> を流し直します。</aside>
+</li>
+
+</ol>
+
+<p>手間の目安（認可を足したあと）は、中核 約120行・仕様 約250行・証明 約450行です。だから証明は小さな中核に絞ります。</p>
+
+<div class="recap">
+<h3 id="ch-2-s2">まとめ</h3>
+<ul>
+<li>Lean は証明を機械が確かめる道具。<code>sorry</code> 0 件でビルドが通って初めて「証明できた」</li>
+<li>仕様は実装を見ずに先に書き、小さい例と性質の証明で確かめる</li>
+<li>Rust は Charon → Aeneas で Lean に翻訳され、panic の可能性は <code>Result</code> で見える</li>
+<li>「Rust で操作して読み替え ＝ 読み替えて仕様で操作」を4操作で証明。<code>add</code> と <code>toggle</code> は <code>Inv</code> が前提</li>
+<li>わざと壊した4通りはすべて証明が止まり、うち2つは単体テストを素通りした</li>
+<li>本物の穴5件は、すべて証明していない層と前提の出どころにあった</li>
+</ul>
+</div>
+<nav class="pager"><a class="prev" href="#ch-1"><small>← 前の章</small>第1章 Quint で todo の仕様を書いて、全部の状態を調べる</a><a class="next" href="#ch-3"><small>次の章 →</small>第3章 認可を証明する：他人の todo には触れない</a></nav>
+</section>
+<section class="chapter" id="ch-3"><div class="chapter-bar"><a href="#home">← 表紙</a><span class="meter"><i style="width:67%"></i></span><span>4 / 6</span><a class="code-link" href="https://github.com/muraikenta/formal-todo/tree/main/h5i-todo">コードを見る ↗</a></div>
+<h2>第3章 認可を証明する：他人の todo には触れない</h2>
+
+<p class="lead">「アリスの todo はボブには変えられない・見えない」を、全ユーザー・全 id・全状態について証明します。道具は Aeneas・h5i・Nyxis の3つです。</p>
+
+<div class="goals">
+<h3 id="ch-3-s1">この章のゴール</h3>
+<ul>
+<li>認可を「変わらない・見えない・触れない」の3文で書ける</li>
+<li>仕様の上の認可を Rust に持ち上げる流れが分かる</li>
+<li>「悪いことが起きない」だけでは足りない理由が分かる</li>
+<li>Nyxis で人が承認するものが分かる</li>
+<li>本人確認が証明の外に残ることを説明できる</li>
+</ul>
+</div>
+
+<h3 id="ch-3-s2">認可とは</h3>
+<p><dfn>認可</dfn>は「この人はこの操作をしてよいか」を決めることです。<dfn>本人確認</dfn>（認証・ログイン）は「本当にアリスか」を確かめることで、別物です。</p>
+<p>よくある事故が <dfn>IDOR</dfn>（id を書き換えると他人のデータに届く不具合）です。<code>/todos/42</code> を 43 に変えたら他人の todo が消えた、という種類で、これが認可の判断で起きないことを示します。</p>
+<p>第2章の todo には、すでに<dfn>持ち主</dfn>（owner。作った人）が入っています。</p>
+
+<ol class="steps">
+
+<li>
+<h4>ステップ1: 認可の性質を言葉にする</h4>
+<p>まず守りたいことを日本語で書きます。</p>
+<ol>
+<li><b>変わらない</b>: A が足す・切り替える・消すのどれをしても、B の持ち物は1件も変わらない</li>
+<li><b>見えない</b>: A に見せる id は、ちょうど「A が持ち主の todo の id」</li>
+<li><b>触れない</b>: 他人の id を指定すると、失敗を返し、状態はそのまま</li>
+</ol>
+<p>「変わらない」だけでは<em>読む</em>穴を、「見えない」だけでは<em>消す</em>穴を見逃すので、3つに分けます。</p>
+<aside class="note"><b>ポイント</b>証明は仕様に書いたことしか守りません。性質を1つ書き忘れたら、その穴はどの定理にも引っかかりません。</aside>
+</li>
+
+<li>
+<h4>ステップ2: 仕様に持ち主を入れる（Aeneas 版）</h4>
+<p>第2章の <code>Spec.lean</code> で読み飛ばした持ち主の部分です。<code>u</code> は操作した人です。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/todo-aeneas/lean/Spec.lean">todo-aeneas/lean/Spec.lean</a></figcaption><pre><code class="lang-lean">/-- t は「u が持ち主の、id 番の todo」か。切り替え・削除が効く相手。 -/
+def mine (u id : Nat) (t : Todo) : Bool := t.id == id &amp;&amp; t.owner == u
+
+-- …（add は省略）
+
+/-- 完了の切り替え: u が持ち主の id 番の todo の done を反転する。効いたか（そういう todo があったか）を返す。 -/
+def toggle (s : State) (u id : Nat) : Bool × State :=
+  (s.items.any (mine u id),
+   { s with items := s.items.map fun t =&gt; if mine u id t then { t with done := !t.done } else t })
+
+/-- 消す: u が持ち主の id 番の todo を除く。効いたかを返す。 -/
+def remove (s : State) (u id : Nat) : Bool × State :=
+  (s.items.any (mine u id), { s with items := s.items.filter (fun t =&gt; !mine u id t) })</code></pre></figure>
+<p>さらに <code>ownedBy</code>（u の todo だけのリスト）と、その id の一覧 <code>visible</code> を定義します。</p>
+</li>
+
+<li>
+<h4>ステップ3: 3つの性質を定理として書く</h4>
+<p>ステップ1の3文を定理にします。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/todo-aeneas/lean/Spec.lean">todo-aeneas/lean/Spec.lean</a></figcaption><pre><code class="lang-lean">theorem add_others (s : State) (u v : Nat) (title : String) (huv : u ≠ v) :
+    ownedBy (add s u title).2 v = ownedBy s v := by
+  -- …（証明は省略）
+
+theorem visible_iff (s : State) (u x : Nat) :
+    x ∈ visible s u ↔ ∃ t ∈ s.items, t.id = x ∧ t.owner = u := by
+  -- …（証明は省略）
+
+theorem toggle_foreign (s : State) (u id : Nat) (h : Inv s) (t : Todo) (ht : t ∈ s.items)
+    (hid : t.id = id) (ho : t.owner ≠ u) : toggle s u id = (false, s) := by
+  -- …（証明は省略）</code></pre></figure>
+<ul>
+<li><code>add_others</code>: u ≠ v なら、u が足しても v の持ち物は同じ（変わらない）。<code>toggle_others</code>・<code>remove_others</code> も同じ形</li>
+<li><code>visible_iff</code>: x が u に見える ⇔ x は u の todo の id（見えない）。「⇔」なので過不足がない</li>
+<li><code>toggle_foreign</code>: id 番の todo の持ち主が u でなければ「失敗・状態そのまま」（触れない）</li>
+</ul>
+<p><code>(h : Inv s)</code> は第2章の不変条件（id が重複しない など）です。id が重複すると、同じ id の自分の todo と他人の todo が並びうるからです。</p>
+</li>
+
+<li>
+<h4>ステップ4: Rust の実装に持ち上げる</h4>
+<p>第2章で「実装＝仕様」（<code>toggle_correct</code> など）を証明済みなので、仕様の定理をそのまま Rust の定理に言い換えられます。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/todo-aeneas/lean/Proofs.lean">todo-aeneas/lean/Proofs.lean</a></figcaption><pre><code class="lang-lean">theorem toggle_others_rust (t : Todos) (user other id : U32) (hne : user ≠ other)
+    (hinv : Spec.Inv (abs t)) :
+    toggle t user id ⦃ _ t' =&gt; Spec.ownedBy (abs t') other.val = Spec.ownedBy (abs t) other.val ⦄ := by
+  apply WP.spec_mono (toggle_correct t user id hinv)
+  rintro ⟨b, t'⟩ ⟨-, h⟩
+  show Spec.ownedBy (abs t') other.val = _
+  rw [h]; exact Spec.toggle_others _ _ _ _ ((u32_ne_iff _ _).mp hne)</code></pre></figure>
+<p>最後の行で仕様の定理 <code>Spec.toggle_others</code> を使っています。Rust のループ相手に証明し直す必要はありません。</p>
+<div class="table-wrap"><table>
+<caption>表1: 持ち主の確認をわざと外したとき（todo-aeneas/README.md より。<code>*_loop_spec</code> は各操作のループ部分の証明）</caption>
+<thead><tr><th>壊し方（Rust 側）</th><th>単体テスト</th><th>証明</th></tr></thead>
+<tbody>
+<tr><td>remove が持ち主を確かめない</td><td>通る</td><td>止まる（remove_loop_spec）</td></tr>
+<tr><td>remove でユーザー 0 だけは他人の todo も消せる（裏口）</td><td>通る</td><td>止まる（remove_loop_spec）</td></tr>
+<tr><td>一覧に id 1000 以上の他人の todo も混ざる</td><td>通る</td><td>止まる（visible_ids_loop_spec）</td></tr>
+<tr><td>toggle が持ち主を確かめない</td><td>落ちる</td><td>止まる（toggle_correct）</td></tr>
+</tbody>
+</table></div>
+<p>単体テストは「ボブはアリスの todo を切り替えられない」場面しか見ないので、残りの穴を素通りします。</p>
+<aside class="try"><b>やってみよう</b>
+<p><code>kernel/src/lib.rs</code> の remove の条件 <code>item.id == id &amp;&amp; item.owner == user</code> から <code>&amp;&amp; item.owner == user</code> を消して流し直し、証明が止まるのを見たら戻します。</p>
+<pre><code class="lang-bash">cd todo-aeneas
+./build.sh</code></pre>
+</aside>
+</li>
+
+<li>
+<h4>ステップ5: 「悪いことが起きない」だけでは足りない</h4>
+<p>ステップ3の定理は「起きてはいけないことが起きない」という<dfn>安全性</dfn>です。何でも断るカーネルでも、安全性の定理はすべて通ってしまいます。</p>
+<p>ここからのコードは h5i 版（ステップ6）です。<code>Principal</code> は操作した人、<code>Snapshot</code> は状態、<code>transition</code> はコマンドを処理する関数です。</p>
+<aside class="warn"><b>落とし穴</b>「改名で新しいタイトルを無視する」「完了フラグを勝手に戻す」カーネルも通ります。h5i 版の最初の版はこの状態で、レビューで指摘されました。</aside>
+<p>そこで2種類の定理を足します。</p>
+<ul>
+<li><b>やったことの中身</b>（<code>*_effect</code>）: 成功したコマンドが何を残し、何を返すか</li>
+<li><b>成功する</b>（<code>*_ok</code>）: 持ち主の正しい操作は必ず成功する</li>
+</ul>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/h5i-todo/proofs/Effects.lean">h5i-todo/proofs/Effects.lean</a></figcaption><pre><code class="lang-lean">/-- 持ち主は、存在する todo をいつでも完了（または未完了）にできる。 -/
+theorem set_done_ok (a : Principal) (s : Snapshot) (id : U64) (d : Bool) {q : Todo}
+    (hq : findTodo (Snapshot.toSt s) id.val = some q) (ho : q.owner = a.user) :
+    ∃ ws, transition a s (.SetDone id d) = ok (.Ok (ws, .Done)) := by
+  -- …（証明は省略）</code></pre></figure>
+<p>「持ち主で（<code>ho</code>）、todo があれば（<code>hq</code>）、SetDone は成功する」と読みます。</p>
+<p>確かめ方は第1章の<dfn>変異テスト</dfn>（わざと壊したカーネルを検査が落とせるかを見る）です。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/h5i-todo/h5i-app.toml">h5i-todo/h5i-app.toml</a></figcaption><pre><code class="lang-toml">[[mutant]]
+name = "rename_keeps_old_title"
+old = "title: title.clone(), completed: t.completed"
+new = "title: t.title.clone(), completed: t.completed"</code></pre></figure>
+<p>改名が古いタイトルを残す壊し方で、「中身」の定理で初めて捕まります。</p>
+</li>
+
+<li>
+<h4>ステップ6: h5i で DB と HTTP まで付ける</h4>
+<p><dfn>h5i</dfn> は Rust の web フレームワークです。判断を<dfn>カーネル</dfn>（DB・時計・通信に触らない純粋な関数）に集め、Aeneas で証明します。サーバは受け渡しだけです。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/h5i-todo/kernel/src/lib.rs">h5i-todo/kernel/src/lib.rs</a></figcaption><pre><code class="lang-rust">/// アプリの判断のすべて: コマンドに対する「書き込みの一覧と返事」か、
+/// 何も書かない「拒否」を返す。
+pub fn transition(actor: &amp;Principal, s: &amp;Snapshot, cmd: &amp;Command) -&gt; Outcome {
+    match cmd {
+        Command::Add { title } =&gt; add(actor.user, s, title),
+        Command::Rename { id, title } =&gt; rename(actor.user, s, *id, title),
+        Command::SetDone { id, completed } =&gt; set_done(actor.user, s, *id, *completed),
+        Command::Delete { id } =&gt; delete(actor.user, s, *id),
+        Command::List =&gt; Ok((Vec::new(), Reply::Todos(todos_of(&amp;s.todos, actor.user)))),
+    }
+}</code></pre></figure>
+<p>返す書き込み1つ1つが許されるかは、仕様の <code>allowed</code> で定めます。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/h5i-todo/proofs/Spec.lean">h5i-todo/proofs/Spec.lean</a></figcaption><pre><code class="lang-lean">/-- 権限のルール: 状態 `s` で、ユーザー `u` は書き込み `w` をしてよいか。 -/
+def allowed (s : St) (u : Nat) : Write → Prop
+  | .PutTodo t =&gt;
+    -- `u` の新しい todo か、`u` 自身の todo の変更。持ち主は変わらない。
+    t.owner.val = u ∧ titleOk t.title.val ∧
+      (t.id.val = s.next ∨ ∃ q, findTodo s t.id.val = some q ∧ q.owner.val = u)
+  | .DelTodo id =&gt;
+    -- 持ち主が、存在する todo を消す。
+    ∃ q, findTodo s id.val = some q ∧ q.owner.val = u
+  | .SetCounter c =&gt; c.next_id.val = s.next + 1</code></pre></figure>
+<p>主な定理です（<code>h5i app check</code> で 108 定理、sorry なし。公理は Lean 標準の3つだけで、第5章で触れます）。</p>
+<ul>
+<li><code>authorized_reachable</code>: 成功したコマンドの書き込みは本人の todo だけ</li>
+<li><code>others_unchanged</code>: 他人の todo は1件も変わらない</li>
+<li><code>list_own</code>: 一覧は本人の todo ちょうど</li>
+<li><code>Effects.*_effect</code>・<code>Effects.*_ok</code>: ステップ5の「中身」と「成功する」</li>
+<li><code>Storage.db_inv</code>: DB に書いて読み戻しても不変条件が保たれる</li>
+</ul>
+<aside class="warn"><b>落とし穴</b>変異テストは 15/15 で検出しましたが、これは「どこかで止まった」数です。15 件とも止まったのは途中の補題（<code>Commands.lean</code>）で、主張が偽になったとは限りません。</aside>
+<aside class="try"><b>やってみよう</b>
+<p>証明と変異テストを流してサーバを起動し、「他人の todo を id 指定で触ってみる」欄で bob からアリスの todo を消してみます（Docker が要ります）。</p>
+<pre><code class="lang-bash">cd h5i-todo
+h5i app prove . &amp;&amp; h5i app mutate .
+./run.sh</code></pre>
+</aside>
+</li>
+
+<li>
+<h4>ステップ7: Nyxis で「ポリシーとスキーマだけを人が承認する」</h4>
+<p><dfn>Nyxis</dfn> は Lean 製のバックエンドフレームワークです。人が承認するのは <dfn>Cedar</dfn>（認可のルールを書く言語）の2ファイルだけです。</p>
+<ul>
+<li><dfn>スキーマ</dfn>: データとアクションの定義。テーブル定義も兼ねる</li>
+<li><dfn>ポリシー</dfn>: 誰がどのアクションをしてよいか。書いていない操作はすべて拒否</li>
+</ul>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/nyxis-todo/backend/policies.cedar">backend/policies.cedar（Nyxis 版）</a></figcaption><pre><code class="lang-cedar">// Todo の読み取り・一覧・名前変更・完了切り替え・削除は、持ち主だけ。
+@id("own-todo")
+permit (
+  principal is User,
+  action in [Action::"listTodos", Action::"readTodo", Action::"renameTodo", Action::"setDone", Action::"deleteTodo"],
+  resource is Todo
+) when { resource.owner == principal };
+
+// Todo は自分を持ち主にしてしか作れない。
+@id("create-own-todo")
+permit (
+  principal is User,
+  action == Action::"createTodo",
+  resource is Todo
+) when { resource.owner == principal };
+
+// …（User 行のポリシー「self-user」は省略）</code></pre></figure>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/nyxis-todo/backend/schema.cedarschema">backend/schema.cedarschema（Nyxis 版）</a></figcaption><pre><code class="lang-cedar">// Todo。owner は作った人で、ハンドラではなく JWT の主体から決まる。
+entity Todo = {
+  "owner": User,
+  "title": String,
+  "done": Bool
+};
+// …（ほかのエンティティとアクションは省略）
+// Todo を消す。
+@effect("delete Todo")
+action "deleteTodo" appliesTo {
+  principal: [User],
+  resource: [Todo]
+};</code></pre></figure>
+<p>リクエストを処理する<dfn>ハンドラ</dfn>は AI に書かせてよい部分です。型の上で認可層にしか頼めず、DB に直接届きません。主体（操作している人）は <dfn>JWT</dfn>（ログインが発行する署名つきの札）から決まります。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/nyxis-todo/backend/Todo/Handlers.lean">backend/Todo/Handlers.lean（Nyxis 版）</a></figcaption><pre><code class="lang-lean">/-- `POST /todos` — 持ち主は主体。ID は Nyxis が決めた一意 ID。 -/
+def createTodo : Principal → Generated → Http.Request → Handler Http.Response := fun principal gen req =&gt; do
+  let parsed : Except String Row := do
+    let json ← parseObject req.body
+    let title ← nonEmptyTitle json
+    pure (rowOf
+      [ ("owner", some (.prim (.entityUID principal.uid)))
+      , ("title", some title)
+      , ("done", some (.prim (.bool false))) ])
+  -- …（結果の返し方は省略）</code></pre></figure>
+<p>持ち主は <code>principal</code> から入るので、本文で偽っても効きません。</p>
+<p><code>lake build</code> のたびに、「出された操作はすべて主体と一致し、ポリシーの範囲内」という定理が検査されます。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/nyxis-todo/backend/Todo/Approved.lean">backend/Todo/Approved.lean（Nyxis 版）</a></figcaption><pre><code class="lang-lean">theorem authorization_safety (router : Http.Router) (store : Db.Store)
+    (requests : List Runtime.AuthenticatedRequest) :
+    (∀ r i, (r, i) ∈ (Runtime.trace (app router) store requests).issued →
+      i.principal = r.principal ∧ i.generated = r.generated ∧ Authz.Authorized schema policies i)
+    -- …（残りの連言は省略）</code></pre></figure>
+<p>本物のログイン（Supabase Auth）と DB を通す <code>run.py check</code> は 38 件通過しました。他人・匿名・偽や壊れた JWT での操作はすべて 403 で、DB は変わりません。</p>
+<p>認可層を迂回する試み2通りも、Lean のカーネル（証明を検査する部分。h5i のカーネルとは別物）とビルド時の監査（<code>nyxis_check_app</code>）が拒否しました。試したのはこの2通りだけです。</p>
+<aside class="warn"><b>落とし穴</b>ポリシーを <code>when { true }</code>（誰でも何でもできる）にしても定理は通り、止めたのは <code>#guard</code>（具体例のテスト）10 本だけでした。ポリシーの中身は人とテストが見ます。</aside>
+</li>
+
+<li>
+<h4>ステップ8: 本人確認は証明の外</h4>
+<p>どの道具も「本当にアリスか」は証明していません。</p>
+<ul>
+<li>todo-aeneas: 環境変数 <code>TODO_USER</code> を信じるだけ</li>
+<li>h5i 版: HMAC トークン（サーバが署名した札）と JSON の変換</li>
+<li>Nyxis 版: HTTP・JWT・SQL への変換</li>
+</ul>
+<p>証明は「渡されたユーザーが正しいなら」までです。この境目を<dfn>信頼の境界</dfn>と呼びます。</p>
+<pre class="mermaid">flowchart LR
+  A["ブラウザ"] --> B["ログイン（本人確認）"]
+  B --> C["トークン・JWT の検証"]
+  C --> D["認可の判断（カーネル・ポリシー）"]
+  D --> E["DB"]
+  subgraph 証明の外
+    B
+    C
+  end
+  subgraph 証明した範囲
+    D
+  end</pre>
+<aside class="note"><b>ポイント</b>定理の名前と一緒に「何を信じたか」を書き出します。証明は金庫で、鍵を誰に渡すかは金庫の外です。</aside>
+</li>
+</ol>
+
+<h3 id="ch-3-s3">3つの道具を比べる</h3>
+<div class="table-wrap"><table>
+<caption>表2: 認可の3つの性質が、どの定理に当たるか</caption>
+<thead><tr><th>性質</th><th>todo-aeneas</th><th>h5i-todo</th><th>Nyxis</th></tr></thead>
+<tbody>
+<tr><td>変わらない</td><td><code>add_others_rust</code> など3本</td><td><code>others_unchanged</code></td><td><code>authorization_safety</code>（操作はポリシーの範囲内）＋ポリシー「own-todo」</td></tr>
+<tr><td>見えない</td><td><code>visible_ids_only_own</code></td><td><code>list_own</code></td><td>同上（一覧は主体に許された行だけ）</td></tr>
+<tr><td>触れない</td><td><code>toggle_foreign</code>・<code>remove_foreign</code>（仕様の上）</td><td><code>authorized_reachable</code></td><td>同上（範囲外は 403。<code>run.py check</code> で確認）</td></tr>
+<tr><td>頼んだことをやる</td><td><code>toggle_correct</code> など（実装＝仕様）</td><td><code>Effects.*_effect</code>・<code>*_ok</code></td><td>定理の外（テストの領分）</td></tr>
+</tbody>
+</table></div>
+
+<div class="table-wrap"><table>
+<caption>表3: 人が読むもの・証明の外に残るもの</caption>
+<thead><tr><th></th><th>todo-aeneas</th><th>h5i-todo</th><th>Nyxis</th></tr></thead>
+<tbody>
+<tr><td>人が読むもの</td><td>仕様 <code>Spec.lean</code></td><td>仕様 <code>Spec.lean</code> と、合格の条件にする定理の一覧（<code>h5i-app.toml</code>）</td><td>スキーマとポリシーの2ファイル</td></tr>
+<tr><td>証明する範囲</td><td>Rust の中核（CLI は証明しない）</td><td>カーネル＋DB に書いて読み戻すところ</td><td>ハンドラがポリシーを超えないこと</td></tr>
+<tr><td>証明の外</td><td>本人確認（<code>TODO_USER</code>）・画面と保存</td><td>JSON の変換・HMAC トークン・組織（テナント）ごとのデータの切り分け</td><td>HTTP・JWT・SQL への変換・ポリシーが意図どおりか</td></tr>
+<tr><td>わざと壊して確かめたこと</td><td>持ち主の確認外し4通り（表1）</td><td>変異テスト 15/15</td><td><code>when { true }</code> でも定理は通る</td></tr>
+</tbody>
+</table></div>
+
+<div class="recap">
+<h3 id="ch-3-s4">まとめ</h3>
+<ul>
+<li>認可は「変わらない・見えない・触れない」の3文に分けて定理にする</li>
+<li>「実装＝仕様」があれば、仕様の定理を Rust に持ち上げられる</li>
+<li>単体テストは思いついた場面しか見ない。証明は全ユーザー・全 id・全状態について言う</li>
+<li>安全性だけだと「何もしないカーネル」でも通る。「中身」と「成功する」を足す</li>
+<li>Nyxis は人の承認をポリシーとスキーマに絞る。ポリシーが意図どおりかは定理の外</li>
+<li>本人確認はどの道具でも証明の外</li>
+</ul>
+</div>
+<nav class="pager"><a class="prev" href="#ch-2"><small>← 前の章</small>第2章 Lean と Rust で「実装が仕様どおり」を証明する</a><a class="next" href="#ch-4"><small>次の章 →</small>第4章 TLA+ で同期を検査する：複数タブで操作が消える</a></nav>
+</section>
+<section class="chapter" id="ch-4"><div class="chapter-bar"><a href="#home">← 表紙</a><span class="meter"><i style="width:83%"></i></span><span>5 / 6</span><a class="code-link" href="https://github.com/muraikenta/formal-todo/tree/main/todo/verification">コードを見る ↗</a></div>
+<h2>第4章 TLA+ で同期を検査する：複数タブで操作が消える</h2>
+<p class="lead">オフラインでも動く todo アプリを2つのタブとサーバのモデルにして、送信・失敗・遅れた応答がどの順に起きても約束が守られるかを全部調べます。テストが全部緑のアプリから、操作が黙って消える不具合を3つ見つけます。</p>
+
+<div class="goals">
+<h3 id="ch-4-s1">この章のゴール</h3>
+<ul>
+<li>楽観的更新・送信待ち・再送・opId・version・seq の役割を説明できる</li>
+<li>同期の不具合がテストで見つかりにくい理由を「タイミングの組み合わせ」で説明できる</li>
+<li>TLA+ で「状態」と「遷移」を書き、性質を不変条件として書ける</li>
+<li>TLC の反例を、画面の操作の手順として読める</li>
+<li>「範囲」と「モデルに入れていない操作」が見逃しを生むことを、実例で知る</li>
+</ul>
+</div>
+
+<h3 id="ch-4-s2">題材：同期つきの小さな todo アプリ</h3>
+<p>題材は <code>todo/</code> フォルダの、Bun・TypeScript・SQLite で書いた web アプリです。追加・名前の変更・完了の切り替え・削除ができ、複数のタブや端末から同じ一覧を使えます。</p>
+<p>回線が切れていても画面は動き、変更はつながったら送られます。この「あとで送る」部分を検査します。</p>
+
+<ol class="steps">
+
+<li>
+<h4>ステップ1：同期の仕組みを部品に分ける</h4>
+<p>README の「同期の設計」にある部品は次の6つです。</p>
+<ul>
+<li><dfn>楽観的更新</dfn>：サーバの返事を待たずに画面を変えること。画面には、サーバから最後に聞いた行（<code>confirmed</code>）に未確認の操作を当て直したものを出します。</li>
+<li><dfn>送信待ち（outbox）</dfn>：サーバの確認がまだ来ていない操作の列。操作した順に並び、先頭から送ります。</li>
+<li><dfn>再送</dfn>：失敗・タイムアウト（5秒）・応答の消失を区別せず、同じ操作をもう一度送ること。間隔は 0.5 秒から倍々、上限 10 秒です。</li>
+<li><dfn>opId</dfn>：操作ごとの名札で、形は <code>クライアントID:連番</code>。サーバは反映した opId を記録し、同じ opId は二度反映しません。</li>
+<li><dfn>version</dfn>：todo ごとの版の番号。変わるたびに 1 増え、手元より大きい行が届いたときだけ置き換えます。</li>
+<li><dfn>seq</dfn>：サーバ全体の通し番号。各行に最後に変わったときの seq が付きます。クライアントは取り込んだ位置（<code>lastSeq</code>）を覚え、2秒ごとにそれより新しい変更を取り込みます（<dfn>pull</dfn>）。</li>
+</ul>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/todo/src/sync.ts">todo/src/sync.ts</a></figcaption><pre><code class="lang-js">function newOpId(state: ClientState): [string, ClientState] {
+  const opId = `${state.clientId}:${state.nextOpNo}`;
+  return [opId, { ...state, nextOpNo: state.nextOpNo + 1 }];
+}
+// …
+/** Record a user action: give it an op id and append it to the outbox. */
+export function enqueue(state: ClientState, action: LocalAction): ClientState {
+  const [opId, s] = newOpId(state);
+  const op = { ...action, opId } as Op;
+  return { ...s, outbox: [...s.outbox, op] };
+}</code></pre></figure>
+<p>クライアント ID はタブごとの保存場所 <dfn>sessionStorage</dfn> に置きます。送信待ちを含む状態全体は、ブラウザ全体で共有される <dfn>localStorage</dfn> に、クライアント ID ごとのキーで保存します。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/todo/src/app.ts">todo/src/app.ts</a></figcaption><pre><code class="lang-js">// One client per tab: the id lives in sessionStorage (survives reload, not shared between tabs).
+function loadClientId(): string {
+  try {
+    const existing = sessionStorage.getItem("todo-client-id");
+    if (existing) return existing;
+    const id = crypto.randomUUID();
+    sessionStorage.setItem("todo-client-id", id);
+    return id;
+  } catch {
+    return crypto.randomUUID();
+  }
+}
+
+const clientId = loadClientId();
+const storageKey = `todo-state:${clientId}`;</code></pre></figure>
+<pre class="mermaid">
+sequenceDiagram
+  participant U as "ユーザー"
+  participant T as "タブ"
+  participant S as "サーバ"
+  U->>T: "完了にする"
+  T->>T: "opId c1:2 を送信待ちに積む・画面をすぐ変える"
+  T->>S: "push（送信待ちの先頭から）"
+  S-->>T: "応答が消える"
+  T->>S: "同じ c1:2 を再送"
+  S->>S: "c1:2 は反映済みなので二重にしない"
+  S-->>T: "results に c1:2"
+  T->>T: "送信待ちから c1:2 を外す"
+  T->>S: "pull（lastSeq より新しい変更）"
+  S-->>T: "変更された行と seq"
+</pre>
+<aside class="note"><b>ポイント</b>この設計の要は「opId が同じなら同じ操作」という約束です。サーバは opId だけで再送か新しい操作かを決めます。</aside>
+</li>
+
+<li>
+<h4>ステップ2：なぜテストでは見つかりにくいのか</h4>
+<p>このアプリのテスト 18 件は全部緑です。再送、2台の同時編集、削除と編集の競合、オフラインからの復帰まで試しています。</p>
+<p>それでも、テストは書いた順番しか試しません。同期では次の出来事がどの順にも起きます。</p>
+<ul>
+<li>タブ1で操作する・タブ2で操作する</li>
+<li>送る・送る前に失敗する・サーバに届く・応答が届く・タイムアウトで諦める</li>
+<li>pull する・pull の応答が届く</li>
+<li>リロードする・タブを複製する・タブを閉じる</li>
+</ul>
+<p>タブ2つでも、並べ方は人が書き切れない数になります。テストが鍵を数本試すことなら、これから使う道具はありうる鍵を全部試すことです。</p>
+</li>
+
+<li>
+<h4>ステップ3：TLA+ で「状態」を書く</h4>
+<p><dfn>TLA+</dfn> は、システムを「状態」と「遷移」で書く仕様の言語です。第1章の Quint は、TLA+ の考え方を読みやすい文法にしたものです。第1章で使った <dfn>TLC</dfn> は TLA+ のモデル検査器で、遷移を全部の順番でたどります。</p>
+<p>モデル <code>todo/verification/SyncTodo.tla</code> では、まず状態を変数で書きます。タブごとの値は「タブ → 値」の対応で持ちます。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/todo/verification/SyncTodo.tla">todo/verification/SyncTodo.tla</a></figcaption><pre><code class="lang-tla">  \* ---- クライアント: src/sync.ts の ClientState と src/app.ts のフラグ ----
+  open,        \* タブが開いているか
+  closed,      \* タブを閉じたか（閉じたタブは二度と開かない）
+  cid,         \* ClientState.clientId（sessionStorage の todo-client-id）
+  nextNo,      \* ClientState.nextOpNo
+  outbox,      \* ClientState.outbox
+  conf,        \* ClientState.confirmed: id -&gt; 行 or None
+  lastSeq,     \* ClientState.lastSeq
+  pushing,     \* app.ts の pushing。0 = 送っていない、n = n 回目の push の応答待ち
+  pushN,       \* そのタブが始めた push の回数（要求を見分ける番号）
+  pullSt,      \* app.ts の pulling。Idle か、届く途中の pull の応答（busy = TRUE）
+  \* ---- ブラウザの保存先 ----
+  store,       \* localStorage の todo-state:&lt;clientId&gt;。クライアント ID -&gt; 最後に setState で保存した
+               \* [nextNo, outbox, conf, lastSeq]。複製したタブ同士は同じキーに上書きし合う
+  \* ---- ネットワーク ----
+  reqs,        \* 送ったがサーバがまだ処理していない push 要求 [tab, n, ops]
+  resps,       \* サーバが処理し、届く途中の push 応答 [tab, n, results]
+  \* …（ゴースト変数が続く）</code></pre></figure>
+<p>コメントに対応するコードの名前があります。モデルはコードを読まないので、この対応は人が付けています。</p>
+<p>コードに無い変数は<dfn>ゴースト変数</dfn>で、性質を書くためだけの記録です。<code>made</code> はユーザーが積んだ操作の全部、<code>acked</code> は確認が来て送信待ちから外した操作です。</p>
+</li>
+
+<li>
+<h4>ステップ4：TLA+ で「遷移」を書く</h4>
+<p>遷移1つを<dfn>アクション</dfn>と呼びます。<code>x'</code> は次の状態での x、<code>/\</code> は「かつ」、<code>UNCHANGED</code> は変わらない変数です。<code>[pushing EXCEPT ![t] = n]</code> は「タブ <code>t</code> の値だけを <code>n</code> に替えたもの」です。</p>
+<p>区切り方は「<code>await</code> を挟まない1区間を1アクションにする」です。JavaScript は1スレッドなので、その区間には何も割り込みません。<code>await</code> の前後は分け、間に何が起きてもよいようにします。</p>
+<p>送信の始まりでは、送信中でなく送信待ちが空でなければ、先頭から最大 50 件を送ります。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/todo/verification/SyncTodo.tla">todo/verification/SyncTodo.tla</a></figcaption><pre><code class="lang-tla">\* push() の await の前まで: pushing でなく outbox が空でなければ先頭から送る
+PushStart(t) ==
+  /\ open[t] /\ pushing[t] = 0 /\ outbox[t] # &lt;&lt;&gt;&gt; /\ pushN[1] + pushN[2] &lt; MaxPush
+  /\ LET n == pushN[t] + 1 IN
+       /\ reqs' = reqs \cup {[tab |-&gt; t, n |-&gt; n, ops |-&gt; SubSeq(outbox[t], 1, Min(50, Len(outbox[t])))]}
+       /\ pushing' = [pushing EXCEPT ![t] = n]
+       /\ pushN' = [pushN EXCEPT ![t] = n]
+  /\ ServerUnchanged
+  /\ UNCHANGED &lt;&lt;open, closed, cid, nextNo, outbox, conf, lastSeq, pullSt, store, resps, usedIds, made, acked&gt;&gt;</code></pre></figure>
+<p>失敗やタイムアウトは「諦める」アクションです。送信中の印を外すだけで送信待ちは残るので、次の送信で同じ opId のまま再送されます。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/todo/verification/SyncTodo.tla">todo/verification/SyncTodo.tla</a></figcaption><pre><code class="lang-tla">\* catch: 失敗・タイムアウト（AbortSignal.timeout）・応答の消失。区別せず諦めて、あとで同じ op を再送
+\* fetch を中断したので、この要求の応答はもう届かない。catch は render だけで setState しない
+PushGivesUp(t) ==
+  /\ pushing[t] # 0
+  /\ pushing' = [pushing EXCEPT ![t] = 0]
+  /\ resps' = {x \in resps : ~(x.tab = t /\ x.n = pushing[t])}
+  /\ ServerUnchanged
+  /\ UNCHANGED &lt;&lt;open, closed, cid, nextNo, outbox, conf, lastSeq, pushN, pullSt, store, reqs,
+                 usedIds, made, acked&gt;&gt;</code></pre></figure>
+<p>タブの複製もアクションです。ブラウザの仕様で sessionStorage が写るので、複製したタブは同じクライアント ID になり、localStorage の同じキーから状態を読みます。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/todo/verification/SyncTodo.tla">todo/verification/SyncTodo.tla</a></figcaption><pre><code class="lang-tla">\* タブを複製する: sessionStorage が写るので同じ ID。状態は localStorage の todo-state:&lt;ID&gt;
+\* （タブ 1 が setState のたびに保存したもの）から読む
+DuplicateTab ==
+  /\ SecondTab = "duplicate" /\ ~open[2] /\ ~closed[2] /\ open[1]
+  /\ open' = [open EXCEPT ![2] = TRUE]
+  /\ cid' = [cid EXCEPT ![2] = cid[1]]
+  /\ nextNo' = [nextNo EXCEPT ![2] = store[cid[1]].nextNo]
+  /\ outbox' = [outbox EXCEPT ![2] = store[cid[1]].outbox]
+  /\ conf' = [conf EXCEPT ![2] = store[cid[1]].conf]
+  /\ lastSeq' = [lastSeq EXCEPT ![2] = store[cid[1]].lastSeq]
+  /\ UNCHANGED &lt;&lt;rows, srvSeq, applied, closed, pushing, pushN, pullSt,
+                 store, reqs, resps, usedIds, made, acked, lastExec, orderOk&gt;&gt;</code></pre></figure>
+<p>最後に、ありうる遷移を「または（<code>\/</code>）」でつなぎます。<code>\E t \in Tabs : …</code> は「どれかのタブ t で」（第1章の <code>nondet</code> にあたる）、<code>Spec</code> は「<code>Init</code> から始めて毎歩 <code>Next</code> のどれかが起きる」という決まり文句です。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/todo/verification/SyncTodo.tla">todo/verification/SyncTodo.tla</a></figcaption><pre><code class="lang-tla">Next ==
+  \/ \E t \in Tabs : YouCreate(t) \/ YouRename(t) \/ YouToggle(t) \/ YouDelete(t)
+  \/ OpenNewTab \/ DuplicateTab
+  \/ \E t \in Tabs : Reload(t) \/ CloseTab(t)
+  \/ \E t \in Tabs : PushStart(t) \/ PushGivesUp(t)
+  \/ RequestLost \/ ServerPush \/ PushOk
+  \/ \E t \in Tabs : PullRead(t) \/ PullOk(t)
+
+Spec == Init /\ [][Next]_vars</code></pre></figure>
+</li>
+
+<li>
+<h4>ステップ5：守ってほしい4つの性質を書く</h4>
+<p>性質は<dfn>不変条件</dfn>（どの状態でも成り立ってほしい条件）で書き、TLC がたどった全状態で確かめます。</p>
+<ul>
+<li><code>AckedMeansApplied</code>：送信待ちから外した操作は、その操作としてサーバに反映されている。破れると、変更が黙って消えたまま「同期済み」と出ます。</li>
+<li><code>ClientOrderKept</code>：同じクライアント ID の操作は、サーバで連番の順に1回ずつ処理される。破れると、遅れた古い再送が新しい値を巻き戻します。</li>
+<li><code>Converged</code>：送信待ちも途中の要求も無く全タブが pull し終えたら、全タブの一覧がサーバと同じ。破れると、タブごとに違う一覧が直りません。</li>
+<li><code>NoOpLost</code>：積んだ操作は、サーバに反映済みか、開いているタブの送信待ちか、途中の要求にある。破れると、操作がどこからも送られなくなります。</li>
+</ul>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/todo/verification/SyncTodo.tla">todo/verification/SyncTodo.tla</a></figcaption><pre><code class="lang-tla">\* 1. 確認が来たとして送信待ちから外した操作は、その操作としてサーバに反映されている
+\*    （別の操作と取り違えて「もう反映済み」と捨てられていない）
+AckedMeansApplied == \A o \in acked : o \in applied
+
+\* 2. 同じクライアントの操作は、サーバで操作した順に 1 回ずつ反映される
+\*    （再送が二重に反映されたり、古い再送が新しい値を巻き戻したりしない）
+ClientOrderKept == orderOk
+
+\* 3. 送信待ちも届く途中の要求も無く、全タブが最後まで pull したら、全タブの一覧がサーバと同じ
+Settled ==
+  /\ reqs = {} /\ resps = {}
+  /\ \A t \in Tabs : open[t] =&gt;
+       (outbox[t] = &lt;&lt;&gt;&gt; /\ pushing[t] = 0 /\ pullSt[t] = Idle /\ lastSeq[t] = srvSeq)
+Converged == Settled =&gt; \A t \in Tabs : open[t] =&gt; View(t) = ServerView
+
+\* 4. ユーザーが積んだ操作は、サーバに反映済みか、開いているタブの送信待ちにあるか、
+\*    サーバに向かう途中の要求に入っている（どこからも送られなくなって消えていない）
+NoOpLost ==
+  \A o \in made :
+     \/ o \in applied
+     \/ \E t \in Tabs : open[t] /\ o \in Range(outbox[t])
+     \/ \E r \in reqs : o \in Range(r.ops)</code></pre></figure>
+<aside class="note"><b>ポイント</b>4つとも「どう守るか」ではなく「何が守られていればよいか」を書いています。仕様を実装の都合から切り離すためです。</aside>
+</li>
+
+<li>
+<h4>ステップ6：範囲を決めて TLC で全部たどる</h4>
+<p>全部たどるには世界を有限にします。設定ファイル（<code>.cfg</code>）で、todo 1件・名前2種類・各タブの操作2回・push 合計3回までに絞ります。2枚目のタブを「同じ URL を別タブで開く」か「複製する」かもここで選びます。</p>
+<figure class="code"><figcaption><a href="https://github.com/muraikenta/formal-todo/blob/main/todo/verification/SyncTodo.cfg">todo/verification/SyncTodo.cfg</a></figcaption><pre><code class="lang-tla">\* 別のタブで同じ URL を開く場合（クライアント ID がタブごとに違う）・リロードあり。4 つの性質がすべて成り立つはず。todo 1 件
+CONSTANTS
+  Ids = {1}
+  Titles = {"A", "B"}
+  MaxOpNo = 2
+  MaxPush = 3
+  SecondTab = "new"
+  CanReload = TRUE
+  CanClose = FALSE
+  StaleUI = FALSE
+SPECIFICATION Spec
+INVARIANTS AckedMeansApplied ClientOrderKept Converged NoOpLost
+CHECK_DEADLOCK FALSE
+</code></pre></figure>
+<p>この設定では4つとも成り立ちます（1,499,907 状態・1ワーカーで約 90 秒）。設定は6つあり、入れる操作が違います。</p>
+<ul>
+<li><code>SyncTodo.cfg</code>：別タブで同じ URL を開く・リロードあり・todo 1件。4つとも成り立つ</li>
+<li><code>SyncTodoTwoTodos.cfg</code>：同じで todo 2件・push 2回まで。4つとも成り立つ（651,021 状態・約 40 秒）</li>
+<li><code>SyncTodoDuplicateTab.cfg</code>：タブの複製。<code>AckedMeansApplied</code> と <code>NoOpLost</code> が破れる</li>
+<li><code>SyncTodoDuplicateReload.cfg</code>：複製＋リロード。<code>NoOpLost</code> と <code>AckedMeansApplied</code> が破れる</li>
+<li><code>SyncTodoCloseTab.cfg</code>：タブを閉じる。<code>NoOpLost</code> が破れる</li>
+<li><code>SyncTodoStaleUI.cfg</code>：編集中で描き直しが止まった古い画面からの操作も加えた版。4つとも成り立つ（16,004,587 状態。重いので任意）</li>
+</ul>
+<aside class="try"><b>やってみよう</b>TLC は、pstack（AI エージェント向けのスキル集）の statechart スクリプトから呼びます。反例を「タブ1・タブ2・サーバ」の言葉の手順に直してくれます（<code>view.mjs</code>）。<code>todo/</code> フォルダで、<code>S</code> にスクリプトのパスを入れて5つの設定を回します。初回は TLC と Java を入れるのでネットワークが要ります。
+<pre><code class="lang-bash">S=&lt;pstack の skills/statechart/scripts/statechart のパス&gt;
+V=verification; O=$(mktemp -d)
+for c in SyncTodo SyncTodoTwoTodos SyncTodoDuplicateTab SyncTodoDuplicateReload SyncTodoCloseTab; do
+  echo "=== $c"; "$S" "$V/SyncTodo.tla" --config "$V/$c.cfg" --view "$V/view.mjs" --out "$O/$c"
+done</code></pre>
+<code>SyncTodo</code> と <code>SyncTodoTwoTodos</code> の報告の「Rules that hold」に4つ並べば正常です。残り3つは破れるのが今の正常です。</aside>
+</li>
+
+<li>
+<h4>ステップ7：反例を手順として読む（発見1 タブの複製）</h4>
+<p>性質が破れると、TLC はそこに至る最短の手順、つまり<dfn>反例</dfn>を出します。反例はそのまま再現手順です。</p>
+<p><code>SyncTodoDuplicateTab.cfg</code> では <code>AckedMeansApplied</code> が 9 ステップで破れます。画面の言葉にすると次のとおりです。</p>
+<ol>
+<li>タブ1で todo「A」を追加する（op <code>c1:1</code>）</li>
+<li>タブを複製する。sessionStorage が写るので同じ ID <code>c1</code>、同じ状態（次の連番は 2）になる</li>
+<li>タブ1で名前を「B」に変える → op <code>c1:2</code></li>
+<li>タブ2で完了にする → これも op <code>c1:2</code></li>
+<li>両方が送る。サーバは先に届いたタブ1の <code>c1:2</code> を反映し、あとのタブ2の <code>c1:2</code> を「再送」と見なして反映しない</li>
+<li>タブ2は応答に <code>c1:2</code> があるので送信待ちから外し、「同期済み」と出る。サーバの todo は「B」未完了のまま</li>
+</ol>
+<pre class="mermaid">
+flowchart LR
+  A["タブ1 c1:2 名前をBに"] --> S["サーバ c1:2 を反映"]
+  B["タブ2 c1:2 完了にする"] --> R["サーバ 反映済みの c1:2 と見なす"]
+  R --> X["タブ2 送信待ちから外す・同期済みと表示"]
+  X --> L["完了の操作が消える"]
+</pre>
+<p>「opId が同じなら同じ操作」という約束が、複製で崩れました。重なったのが追加なら、その todo は作られず画面からも消えます。</p>
+</li>
+
+<li>
+<h4>ステップ8：反例を読む（発見2 保存の上書き・発見3 タブを閉じる）</h4>
+<p><b>発見2：複製したタブ同士が保存を上書きし合う。</b>2つのタブは同じキー <code>todo-state:c1</code> に保存するので、リロードすると最後に保存した<em>もう一方のタブ</em>の状態を読みます。<code>SyncTodoDuplicateReload.cfg</code> で <code>NoOpLost</code> が 5 ステップで破れます。</p>
+<ol>
+<li>タブ1で追加する</li>
+<li>タブを複製する</li>
+<li>タブ1で名前を変える（<code>c1:2</code> 名前）</li>
+<li>タブ2で完了にする（<code>c1:2</code> 完了。保存が上書きされる）</li>
+<li>タブ1をリロードする → タブ1の送信待ちが「1:追加・2:完了」になり、名前の変更が消える</li>
+</ol>
+<p><b>発見3：送信待ちが残ったタブを閉じると、二度と送られない。</b>ID はそのタブの sessionStorage にしか無く、開き直すと新しい ID になり、古いキーは誰も読みません。<code>SyncTodoCloseTab.cfg</code> で <code>NoOpLost</code> が 2 ステップで破れます。</p>
+<ol>
+<li>タブ1で追加する</li>
+<li>タブ1を閉じる</li>
+</ol>
+<p>反例はモデルの上の話なので、モデルの書き間違いもありえます。3つとも本物のコードで手順を流して再現し、本物の不具合と確かめました。</p>
+<aside class="note"><b>ポイント</b>README の「同じ URL を別タブで開くと別のクライアントになる」は複製で、「変更は送信待ちに残り、つながったら送られる」はタブを閉じると成り立ちません。検査は、設計書の言葉が破れる場面を手順で示しました。</aside>
+<aside class="warn"><b>落とし穴</b>「クライアント ID を起動ごとに作り直す」直し方は誤りです。リロードのたびに新しいキーを読み、発見3と同じ消失が毎回起きます。直したらモデルも同じ意味に直して回し直します。</aside>
+</li>
+
+<li>
+<h4>ステップ9：見逃しの形を知る</h4>
+<p>最初の検証では <code>SyncTodo.cfg</code> が全部緑でも、不具合は残っていました。理由は2つです。</p>
+<p><b>1つ目：範囲が小さすぎると出ない不具合がある。</b>todo 1件では push の応答の行がいつも最新版なので、「push の応答で lastSeq を進める」誤りは原理的に出ません。わざと入れて試すと、todo 1件では素通りし、<code>SyncTodoTwoTodos.cfg</code> で 11 ステップの反例が出ました。2件の設定はこのために足したものです。</p>
+<p><b>2つ目：モデルに無い操作は調べようがない。</b>最初のモデルにはリロードとタブを閉じる操作が無く、監査で指摘されて足したら発見2と3が出ました。TLC は書かなかった遷移を一度もたどりません。</p>
+<aside class="warn"><b>落とし穴</b>今のモデルにも無いもの：3枚目のタブや複製の複製、50 件を超える分割、pull のページ送り、localStorage への保存の失敗、「いつかは同期が済む」こと（活性）。コードを変えてもモデルは変わらないので、モデルを直さずに回した緑は何も示しません。</aside>
+<aside class="try"><b>やってみよう</b>検査が働くかは、わざと壊して確かめます。<code>SyncTodo.tla</code> の <code>SameOpId</code>（いまは <code>a.cid = b.cid /\ a.no = b.no</code>）を <code>a.no = b.no</code> だけにして <code>SyncTodo.cfg</code> で回すと、別タブの連番 2 を取り違える 10 ステップの反例が出るはずです。確かめたら元に戻します。</aside>
+</li>
+
+</ol>
+
+<div class="recap">
+<h3 id="ch-4-s3">まとめ</h3>
+<ul>
+<li>同期は楽観的更新・送信待ち・再送・opId・version・seq の組み合わせで、要は「opId が同じなら同じ操作」</li>
+<li>テストは書いた順番しか試さない。TLC は書いた遷移を全部の順番でたどる</li>
+<li>1アクションは「await を挟まない1区間」。性質は「何が守られていればよいか」を不変条件で書く</li>
+<li>テスト 18 件が緑のアプリから、タブの複製・保存の上書き・タブを閉じる、で操作が消える不具合を3つ見つけ、本物のコードで再現した</li>
+<li>見逃しは「範囲が小さい」と「モデルに無い操作」から出る。検査はモデルに書いたことしか守らない</li>
+</ul>
+</div>
+<nav class="pager"><a class="prev" href="#ch-3"><small>← 前の章</small>第3章 認可を証明する：他人の todo には触れない</a><a class="next" href="#ch-5"><small>次の章 →</small>第5章 まとめ：どの道具をいつ使うか</a></nav>
+</section>
+<section class="chapter" id="ch-5"><div class="chapter-bar"><a href="#home">← 表紙</a><span class="meter"><i style="width:100%"></i></span><span>6 / 6</span></div>
+<h2>第5章 まとめ：どの道具をいつ使うか</h2>
+<p class="lead">第1〜4章の道具を比べ、場面ごとの選び方を決めます。最後に、「全部緑」でも残る見逃しの数え方をまとめます。</p>
+
+<div class="goals">
+<h3 id="ch-5-s1">この章のゴール</h3>
+<ul>
+<li>各道具が何を保証し、何を保証しないかを言える</li>
+<li>「検査が何を見逃すか」を先に数える理由を説明できる</li>
+<li>自分のアプリで最初に使う道具を決められる</li>
+</ul>
+</div>
+
+<h3 id="ch-5-s2">道具の比較表</h3>
+<p>同じ todo アプリに当てた道具を並べます。数字は各章で測った値です。</p>
+
+<div class="table-wrap"><table>
+<thead>
+<tr><th>道具（章）</th><th>保証すること</th><th>保証しないこと</th><th>書く量</th><th>反例が出るまで</th><th>導入の重さ</th></tr>
+</thead>
+<tbody>
+<tr>
+<td>Quint ＋ TLC ＋ MBT（第1章）</td>
+<td>決めた小さな範囲（id 0〜3）の状態をすべて調べ、不変条件が破れない。MBT で、流した実行列（200本×30歩）の上ではアプリが仕様と同じ動きをする</td>
+<td>範囲の外。仕様そのものの誤り（アプリに同じ誤りを入れれば MBT は緑）</td>
+<td>仕様1ファイル＋突き合わせのスクリプト</td>
+<td>数秒。バグ版は1歩目で破れる例もある。全網羅は 225,531 状態</td>
+<td>軽い。TLC は <code>quint verify --backend=tlc</code> が自動で入れる</td>
+</tr>
+<tr>
+<td>Lean ＋ Aeneas（第2〜3章）</td>
+<td>Rust の中核が、不変条件（id が重複しない など）を満たすすべての状態・すべての入力で仕様どおりに動く。他人の todo は変わらない</td>
+<td>証明していない層（保存・コマンド名・画面）。本人確認</td>
+<td>多い。Rust の中核 約120行に対し、仕様 約250行・証明 約450行</td>
+<td>反例は出ない。証明が「止まる」だけ</td>
+<td>重い。Rust・OCaml の道具・Aeneas のビルド。初回の <code>lake build</code> は Mathlib 込みで約2分</td>
+</tr>
+<tr>
+<td>h5i（第3章）</td>
+<td>web アプリのカーネルの認可・他人不変・やったことの中身・panic しないこと。PostgreSQL の往復で不変条件が保たれる（108 定理）</td>
+<td>JSON の変換・トークン・テナントの切り分けなど、信頼している境界</td>
+<td>カーネル1関数＋定理。手本のチュートリアルを真似る</td>
+<td>反例は出ない。わざと壊したカーネル 15/15 を検出</td>
+<td>中くらい。道具の版を h5i の指定に揃える（macOS 版リリースなら数分）。Docker の PostgreSQL</td>
+</tr>
+<tr>
+<td>Nyxis（第3章）</td>
+<td>どんなリクエスト列でも、ハンドラはポリシーの権限を超えない</td>
+<td>ポリシーが意図どおりか（「誰でも何でも」にしても定理は通る）。入力の検証・業務ロジック</td>
+<td>人が承認するのはスキーマとポリシーの2ファイル。ハンドラ（175 行）は AI に書かせてよい</td>
+<td>反例は出ない。ポリシーの意図は <code>#guard</code> 37 本で確かめる</td>
+<td>重い。初回ビルド約10分。依存が多い（libpq・Python 3.12・Supabase CLI・Docker）</td>
+</tr>
+<tr>
+<td>TLA+ ＋ TLC（第4章）</td>
+<td>タブ2枚・決めた回数までの範囲で、出来事がどの順に起きても同期の4つの性質が守られる</td>
+<td>範囲の外。モデルに書いていない出来事（最初はタブを閉じる・リロードが無かった）。モデルとコードのずれ</td>
+<td>モデル1ファイル＋設定ファイル（範囲ごとに1つ）</td>
+<td>全網羅で約90秒（150万状態）。破れたら手順つきの反例が出る</td>
+<td>中くらい。モデルはコードを読まないので、コードを変えたら人がモデルを直す</td>
+</tr>
+</tbody>
+</table></div>
+
+<aside class="note"><b>ポイント</b><dfn>モデル検査</dfn>（Quint・TLA+）は小さな範囲を全部見る道具で、速く、反例を手順で見せます。<dfn>定理証明</dfn>（Lean・h5i・Nyxis）はすべての入力について言えますが、書く量が多く、失敗しても「証明が止まった」としか分かりません。</aside>
+
+<p>実務では全部を証明せず、権限や暗号など<b>壊れると致命的な小さい核</b>に絞ります。モデルと本番は<dfn>差分テスト</dfn>（同じ入力を両方に入れて答えを比べる）でつなぐこともあります。</p>
+
+<pre class="mermaid">
+flowchart TD
+  A["何を確かめたい？"] --> B{"出来事の順番が<br/>問題になる？<br/>（同期・再送・複数タブ）"}
+  B -- "はい" --> C["TLA+ / Quint で<br/>小さな範囲を全網羅"]
+  B -- "いいえ" --> D{"壊れると致命的な<br/>小さい核？<br/>（認可・お金）"}
+  D -- "いいえ" --> E["Quint で仕様を書き<br/>MBT でアプリと突き合わせる"]
+  D -- "はい" --> F{"新しく作る？"}
+  F -- "はい・認可が中心" --> G["Nyxis / h5i の枠に乗る"]
+  F -- "既存の Rust の核" --> H["Lean ＋ Aeneas で<br/>実装＝仕様を証明"]
+</pre>
+
+<h3 id="ch-5-s3">共通の教訓</h3>
+<p>道具は違っても、4つの章で同じ失敗が出ました。</p>
+
+<h4>1. 全部緑でも、見逃しを数える（わざと壊す）</h4>
+<p>第1章の最初の版は検査が全部緑でしたが、操作を間違えた仕様17本のうち16本を TLC が通しました。前後の性質を足すと 20/20 を検出しました。</p>
+<p>h5i でも、何もしないカーネルが通りました。「持ち主の操作は必ず成功する」などを足して塞ぎました。</p>
+<aside class="note"><b>ポイント</b><dfn>変異テスト</dfn>（わざと壊した版を検査が落とせるかを見る）を仕様とアプリの両方に置きます。落とせなかった数が見逃しです。</aside>
+
+<h4>2. 範囲の選び方で見逃す</h4>
+<ul>
+<li><code>&gt; MAX</code> を <code>&gt;= MAX</code> に間違えても、MAX=255 では見逃しました。1+2+…+n が 255 になる n が無いからです</li>
+<li>第1章の MBT は id 0〜3 で「5件目で壊れる」を見逃しました</li>
+<li>第4章は todo 1件だと、todo をまたぐ不具合を素通りしました</li>
+</ul>
+<aside class="warn"><b>落とし穴</b>「1つの入力のときだけ 0 を返す」バグは、差分テスト 100万件 × 3 seed で見つかりませんでした。全網羅は小さく、ランダムは広く、致命的な核だけ証明します。</aside>
+
+<h4>3. 証明していない層に穴が集まる</h4>
+<p>第2章の本物の穴5件は、すべて証明していない層と前提の出どころにありました（題名の改行で保存ファイルが壊れる、など）。第4章の不具合3つのうち2つも、モデルに「タブを閉じる」などを足して初めて出ました。</p>
+<p>だから信頼している境界を書き出します。</p>
+
+<h4>4. 仕様に書いたことしか守らない</h4>
+<p>Nyxis でポリシーを「誰でも何でも」にしても定理は通り、止めたのは自分で書いた <code>#guard</code> でした。</p>
+<aside class="warn"><b>落とし穴</b>人がレビューするのは証明ではなく<b>仕様と定理の文</b>です。</aside>
+
+<h3 id="ch-5-s4">初心者の次の一歩</h3>
+<ol>
+<li><b>Quint から始める。</b>数秒で反例が出ます</li>
+<li><b>わざと壊す。</b>1行変えて検査が落ちなければ、それが見逃しです</li>
+<li><b>同期や再送があるなら TLA+。</b>順番の組み合わせはテストで書き切れません</li>
+<li><b>認可やお金の核だけ Lean で証明する。</b>新しく作るなら Nyxis や h5i に乗ります</li>
+</ol>
+
+<aside class="try"><b>やってみよう</b>
+<p>検査を一式流し、1行壊してもう一度流します。</p>
+<pre><code class="lang-bash">./quint-todo/check.sh
+./todo-aeneas/build.sh
+(cd h5i-todo &amp;&amp; h5i app prove . &amp;&amp; h5i app mutate .)</code></pre>
+<p>元に戻して緑に戻ることも確かめます。</p>
+</aside>
+
+<h3 id="ch-5-s5">用語集</h3>
+<dl class="glossary">
+<dt>形式検証</dt><dd>プログラムや設計が決まりを守ることを、テストではなく数学的な方法で確かめること</dd>
+<dt>仕様</dt><dd>プログラムが「何をすべきか」を書いたもの。人が先に書き、人がレビューする</dd>
+<dt>実装</dt><dd>実際に動くプログラム。この book では JS・Rust・TypeScript（Nyxis のハンドラは Lean）</dd>
+<dt>証明</dt><dd>実装が仕様を満たすことを、すべての入力について示す手順。正しいかは Lean のカーネル（証明を確かめる小さな検査器）が確かめる</dd>
+<dt>定理</dt><dd>証明した主張。「他人の todo は変わらない」など</dd>
+<dt>状態</dt><dd>ある瞬間のデータ全体（todo の一覧と次の id など）</dd>
+<dt>遷移</dt><dd>操作によって状態が次の状態に変わること</dd>
+<dt>不変条件</dt><dd>どの操作のあとも必ず成り立つ性質。「id が重複しない」など</dd>
+<dt>前後の性質</dt><dd>操作の前と後を比べた性質。「対象の1件だけ決まったとおりに変わり、他は変わらない」</dd>
+<dt>ループ不変条件</dt><dd>ループを何周しても成り立つ性質。ループのある関数の証明で人が書く</dd>
+<dt>モデル検査</dt><dd>決めた範囲の状態をすべて調べ、性質が破れないかを機械が確かめること</dd>
+<dt>反例</dt><dd>性質が破れる具体的な手順。モデル検査が見つけて見せてくれる</dd>
+<dt>Quint</dt><dd>仕様を書く言語。ランダム実行と TLC での全網羅ができる</dd>
+<dt>TLA+</dt><dd>並行や分散の設計を書く仕様の言語</dd>
+<dt>TLC</dt><dd>TLA+ のモデル検査器。Quint からも使える</dd>
+<dt>ITF トレース</dt><dd>Quint が出す実行の記録（状態の列）。JSON で書かれる</dd>
+<dt>MBT（モデルベーステスト）</dt><dd>仕様から作った実行列をアプリに流し、1歩ずつ結果を突き合わせるテスト</dd>
+<dt>変異テスト（ミューテーション）</dt><dd>わざと壊した版を作り、検査がそれを落とせるかを見るテスト</dd>
+<dt>差分テスト</dt><dd>同じ入力をモデルと本番実装に入れ、答えが同じかを大量に比べるテスト</dd>
+<dt>Lean</dt><dd>定理証明支援系。証明が正しいかをカーネルが検査する（h5i のカーネルとは別物）</dd>
+<dt>sorry</dt><dd>Lean で証明を省略した印。0 件であることを確かめる</dd>
+<dt>公理（axiom）</dt><dd>証明せずに正しいと置く前提。標準の3つ以外が無いかを確かめる</dd>
+<dt>Charon / Aeneas</dt><dd>Rust のコードを読み取り（Charon）、Lean の関数に自動翻訳する（Aeneas）道具</dd>
+<dt>h5i</dt><dd>判断をカーネルという純粋関数に集め、Aeneas で翻訳して証明する Rust の web フレームワーク</dd>
+<dt>Nyxis</dt><dd>認可の安全性をビルドのたびに Lean が検査するバックエンドフレームワーク</dd>
+<dt>Cedar</dt><dd>権限（誰が何をできるか）を書くポリシー言語。Nyxis はこれで権限を書く</dd>
+<dt>認可</dt><dd>その人がその操作をしてよいかの判断。本人確認（認証）とは別</dd>
+<dt>信頼している境界</dt><dd>証明の外にあり、正しいと信じて使っている部分（翻訳ツール・DB・JSON の変換など）</dd>
+</dl>
+
+<div class="recap">
+<h3 id="ch-5-s6">まとめ</h3>
+<ul>
+<li>モデル検査は小さな範囲を速く全部見る。定理証明はすべての入力で言えるが重い</li>
+<li>全部緑でも、わざと壊して見逃しを数える</li>
+<li>全網羅は小さく、ランダムは広く、致命的な核だけ証明する</li>
+<li>穴は証明していない層に集まる。信頼している境界を書き出す</li>
+<li>人がレビューするのは仕様と定理の文</li>
+<li>次の一歩は Quint から</li>
+</ul>
+</div>
+<nav class="pager"><a class="prev" href="#ch-4"><small>← 前の章</small>第4章 TLA+ で同期を検査する：複数タブで操作が消える</a></nav>
+</section>
+    <footer class="colophon">この本のコード・数字は、筆者が実際に作って検証した todo アプリから取りました（2026年11月時点。Quint 0.34.0・Lean 4・Aeneas・h5i・Nyxis v0.1.11・TLA+/TLC）。コード抜粋の見出しはリポジトリ <a href="https://github.com/muraikenta/formal-todo">muraikenta/formal-todo</a> の中のファイルへのリンクです。</footer>
+  </main>
+</div>
+<script>
+/* 小さな色付け: コメント・文字列・キーワード・数字だけ */
+(function () {
+  var KW = {
+    lean: 'def theorem lemma structure inductive where match with fun let in if then else do by simp intro intros cases induction rfl exact apply have show calc open namespace end import variable instance deriving abbrev private noncomputable sorry decide omega unfold rw constructor obtain rcases List Nat Option some none true false',
+    quint: 'module var val def action pure temporal import const assume nondet all any if else and or not iff implies Set Map List Int Nat Bool str true false',
+    rust: 'fn let mut pub struct enum impl for in while loop if else match return use mod self Self Some None Ok Err Vec u32 u64 usize bool true false as',
+    tla: 'MODULE EXTENDS CONSTANT CONSTANTS VARIABLE VARIABLES ASSUME LET IN IF THEN ELSE CASE OTHER EXCEPT UNCHANGED ENABLED CHOOSE LAMBDA INSTANCE WITH Init Next Spec TRUE FALSE SUBSET UNION DOMAIN',
+    js: 'const let var function return if else for of in while import export from new class async await true false null undefined',
+    cedar: 'permit forbid when unless principal action resource in has like is if then else true false'
+  };
+  var CM = { lean: '--[^\\n]*|/-[\\s\\S]*?-/', quint: '//[^\\n]*|/\\*[\\s\\S]*?\\*/', rust: '//[^\\n]*', tla: '\\\\\\*[^\\n]*|\\(\\*[\\s\\S]*?\\*\\)', js: '//[^\\n]*|/\\*[\\s\\S]*?\\*/', bash: '(?:^|\\s)#[^\\n]*', toml: '#[^\\n]*', cedar: '//[^\\n]*' };
+  function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  document.querySelectorAll('pre code[class*="lang-"]').forEach(function (el) {
+    var lang = (el.className.match(/lang-(\w+)/) || [])[1];
+    if (!lang || !CM[lang]) return;
+    var kw = KW[lang] ? KW[lang].split(' ') : [];
+    var re = new RegExp('(' + CM[lang] + ')|("(?:[^"\\\\\\n]|\\\\.)*")|\\b(\\d+)\\b|([A-Za-z_][A-Za-z0-9_\']*)', 'g');
+    var src = el.textContent, out = '', last = 0, m;
+    while ((m = re.exec(src))) {
+      out += esc(src.slice(last, m.index));
+      if (m[1]) out += '<span class="tok-c">' + esc(m[1]) + '</span>';
+      else if (m[2]) out += '<span class="tok-s">' + esc(m[2]) + '</span>';
+      else if (m[3]) out += '<span class="tok-n">' + m[3] + '</span>';
+      else if (m[4] && kw.indexOf(m[4]) >= 0) out += '<span class="tok-k">' + m[4] + '</span>';
+      else out += esc(m[0]);
+      last = re.lastIndex;
+    }
+    el.innerHTML = out + esc(src.slice(last));
+  });
+})();
+(function () {
+  var d = document.getElementById('toc-details');
+  var mq = window.matchMedia('(min-width: 961px)');
+  function sync() { if (mq.matches) d.open = true; }
+  sync(); if (mq.addEventListener) mq.addEventListener('change', sync);
+  var home = document.getElementById('home-view');
+  var items = Array.prototype.slice.call(document.querySelectorAll('.toc nav > ol > li'));
+  var chapters = Array.prototype.slice.call(document.querySelectorAll('section.chapter'));
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a[href^="#"]');
+    if (!a) return;
+    e.preventDefault();
+    var h = a.getAttribute('href').slice(1);
+    try { if (location.hash.slice(1) !== h) location.hash = h; } catch (err) {}
+    show(h);
+  });
+  function show(forced) {
+    var h = typeof forced === 'string' ? forced : decodeURIComponent((location.hash || '').slice(1));
+    var m = h.match(/^(ch-\d+)/);
+    var cur = m && document.getElementById(m[1]) ? m[1] : null;
+    home.hidden = !!cur;
+    chapters.forEach(function (c) { c.hidden = c.id !== cur; });
+    items.forEach(function (li) { li.classList.toggle('active', li.dataset.ch === cur); });
+    if (!mq.matches) d.open = false;
+    var target = cur && h !== cur ? document.getElementById(h) : null;
+    if (target) target.scrollIntoView(); else window.scrollTo(0, 0);
+    var t = cur ? document.querySelector('#' + cur + ' h2') : null;
+    document.title = (t ? t.textContent + ' | ' : '') + '形式検証 todo 入門';
+  }
+  window.addEventListener('hashchange', show);
+  show();
+})();
+</script>

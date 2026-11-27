@@ -1,0 +1,5 @@
+name = "jiyuu"
+defaultTargets = ["Jiyuu"]
+
+[[lean_lib]]
+name = "Jiyuu"

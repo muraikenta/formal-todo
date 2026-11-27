@@ -1,0 +1,294 @@
+<title>形式検証 todo 入門</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700;900&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: 本のように左に目次（章とステップ）、右に 68 字幅の本文。スマホでは目次を折りたたみ1段に。 */
+:root {
+  --paper: #f6f8f7;
+  --sheet: #ffffff;
+  --ink: #16201d;
+  --ink-soft: #4b5a55;
+  --rule: #d9e1de;
+  --accent: #0f6b55;        /* 証明が閉じた色（∎） */
+  --accent-soft: #e3f1ec;
+  --warn: #9a4a12;
+  --warn-soft: #fbeee4;
+  --try: #2d4f9e;
+  --try-soft: #e8eefb;
+  --code-bg: #eef2f0;
+  --code-ink: #1b2a26;
+  --font-display: "Zen Kaku Gothic New", "Hiragino Sans", "Noto Sans JP", sans-serif;
+  --font-body: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0f1513; --sheet: #141c19; --ink: #e3ebe8; --ink-soft: #a3b2ad; --rule: #2a3632;
+    --accent: #5fcfac; --accent-soft: #173229; --warn: #f0a46c; --warn-soft: #33231a;
+    --try: #8fb0f5; --try-soft: #1b2440; --code-bg: #0b100e; --code-ink: #d5e3de; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0f1513; --sheet: #141c19; --ink: #e3ebe8; --ink-soft: #a3b2ad; --rule: #2a3632;
+  --accent: #5fcfac; --accent-soft: #173229; --warn: #f0a46c; --warn-soft: #33231a;
+  --try: #8fb0f5; --try-soft: #1b2440; --code-bg: #0b100e; --code-ink: #d5e3de; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 16px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body {
+  background: var(--paper); color: var(--ink);
+  font-family: var(--font-body); font-size: 16px; line-height: 1.9;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0;
+}
+a { color: var(--accent); text-underline-offset: 3px; }
+a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+.book { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 48px; }
+@media (max-width: 960px) { .book { grid-template-columns: minmax(0, 1fr); gap: 0; } }
+
+/* 目次 */
+.toc { position: sticky; top: env(safe-area-inset-top, 0px); align-self: start; max-height: 100vh; overflow-y: auto; padding-block: 40px 24px; font-size: 13.5px; line-height: 1.6; }
+.toc .brand { font-family: var(--font-display); font-weight: 900; font-size: 17px; letter-spacing: .02em; margin: 0 0 4px; }
+.toc .brand span { color: var(--accent); }
+.toc .sub { color: var(--ink-soft); font-size: 12px; margin: 0 0 20px; }
+.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.toc nav > ol > li > a { display: grid; grid-template-columns: 2.2em 1fr; padding: 6px 8px; border-radius: 6px; color: var(--ink); text-decoration: none; font-weight: 500; }
+.toc nav > ol > li > a .no { color: var(--ink-soft); font-family: var(--font-mono); font-size: 12px; padding-top: 1px; }
+.toc nav > ol > li > a:hover { background: var(--accent-soft); }
+.toc nav > ol > li.active > a { background: var(--accent-soft); color: var(--accent); }
+.toc li ol { display: none; margin: 2px 0 8px 2.7em; border-left: 1px solid var(--rule); }
+.toc li.active ol { display: grid; }
+.toc li ol a { display: block; padding: 3px 10px; color: var(--ink-soft); text-decoration: none; font-size: 12.5px; }
+.toc li ol a:hover { color: var(--accent); }
+.toc details summary { cursor: pointer; list-style: none; }
+.toc details summary::-webkit-details-marker { display: none; }
+@media (min-width: 961px) { .toc details > summary { display: none; } }
+@media (max-width: 960px) {
+  .toc { position: static; max-height: none; padding-block: 20px 0; }
+  .toc details { border: 1px solid var(--rule); border-radius: 10px; background: var(--sheet); padding: 12px 14px; }
+  .toc details summary { font-weight: 700; font-family: var(--font-display); }
+  .toc details summary::after { content: " ▾"; color: var(--ink-soft); }
+  .toc details[open] summary { margin-bottom: 10px; }
+}
+
+/* 本文 */
+main { padding-block: 40px 96px; min-width: 0; }
+.cover { padding-block: 24px 40px; border-bottom: 1px solid var(--rule); margin-bottom: 8px; }
+.cover .eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: .12em; color: var(--accent); text-transform: uppercase; margin: 0 0 12px; }
+.cover h1 { font-family: var(--font-display); font-weight: 900; font-size: clamp(30px, 5vw, 46px); line-height: 1.3; margin: 0 0 16px; text-wrap: balance; }
+.cover p { max-width: 40em; color: var(--ink-soft); margin: 0; }
+.cover .path { margin-top: 24px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; }
+.cover .path a { border: 1px solid var(--rule); background: var(--sheet); padding: 4px 12px; border-radius: 999px; color: var(--ink); text-decoration: none; }
+.cover .path a:hover { border-color: var(--accent); color: var(--accent); }
+.cover .path i { color: var(--ink-soft); font-style: normal; }
+
+figure.map { margin: 32px 0 0; padding: 20px 16px 8px; border: 1px solid var(--rule); border-radius: 14px; background: var(--sheet); overflow-x: auto; }
+figure.map svg { display: block; width: 100%; min-width: 560px; height: auto; font-family: var(--font-body); }
+figure.map .axis { stroke: var(--ink-soft); stroke-width: 1.5; }
+figure.map .axis-head { fill: var(--ink-soft); }
+figure.map .ax { fill: var(--ink); font-size: 14px; font-weight: 700; }
+figure.map .ax-sub { fill: var(--ink-soft); font-size: 12px; }
+figure.map .dot circle { fill: var(--sheet); stroke: var(--accent); stroke-width: 3; }
+figure.map .dot.solid circle { fill: var(--accent); }
+figure.map .dot text { fill: var(--ink); font-size: 14px; font-weight: 700; font-family: var(--font-display); }
+figure.map .dot text.ch { fill: var(--accent); font-size: 11px; font-family: var(--font-mono); font-weight: 600; }
+figure.map .qed { fill: var(--accent); font-size: 13px; font-weight: 700; }
+.tok-c { color: var(--ink-soft); font-style: italic; }
+.tok-s { color: var(--warn); }
+.tok-k { color: var(--accent); font-weight: 600; }
+.tok-n { color: var(--try); }
+.chapter { max-width: 46em; padding-block: 56px 24px; border-bottom: 1px solid var(--rule); }
+.chapter > * { max-width: 100%; }
+.chapter h2 { font-family: var(--font-display); font-weight: 900; font-size: clamp(24px, 3.4vw, 32px); line-height: 1.4; margin: 0 0 12px; text-wrap: balance; }
+.chapter h3 { font-family: var(--font-display); font-weight: 700; font-size: 21px; line-height: 1.5; margin: 44px 0 10px; text-wrap: balance; }
+.chapter h4 { font-family: var(--font-display); font-weight: 700; font-size: 17.5px; line-height: 1.5; margin: 0 0 6px; }
+.chapter p { margin: 0 0 14px; }
+.chapter .lead { font-size: 17.5px; color: var(--ink-soft); }
+.chapter ul, .chapter ol { padding-left: 1.4em; margin: 0 0 14px; }
+.chapter li { margin-bottom: 4px; }
+dfn { font-style: normal; font-weight: 700; background: linear-gradient(transparent 62%, var(--accent-soft) 62%); }
+code { font-family: var(--font-mono); font-size: .88em; background: var(--code-bg); color: var(--code-ink); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+strong, b { font-weight: 700; }
+
+.goals, .recap { border: 1px solid var(--rule); background: var(--sheet); border-radius: 10px; padding: 16px 20px 6px; margin: 20px 0 28px; }
+.goals h3, .recap h3 { margin: 0 0 8px; font-size: 14px; letter-spacing: .08em; color: var(--accent); }
+.recap { margin-top: 40px; position: relative; }
+.recap::after { content: "∎"; position: absolute; right: 18px; bottom: 10px; color: var(--accent); font-size: 18px; }
+
+/* ステップ */
+ol.steps { list-style: none; padding: 0; margin: 20px 0 24px; counter-reset: step; display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
+ol.steps > li { min-width: 0; counter-increment: step; position: relative; padding: 0 0 24px 52px; margin: 0; }
+ol.steps > li::before { content: counter(step); position: absolute; left: 0; top: 0; width: 34px; height: 34px; border-radius: 50%; background: var(--accent); color: var(--sheet); font-family: var(--font-mono); font-weight: 600; font-size: 15px; display: grid; place-items: center; }
+ol.steps > li::after { content: ""; position: absolute; left: 16.5px; top: 40px; bottom: 6px; width: 1px; background: var(--rule); }
+ol.steps > li:last-child::after { display: none; }
+ol.steps > li > h4 { padding-top: 3px; }
+
+/* コード */
+figure.code { min-width: 0; max-width: 100%; margin: 16px 0 20px; border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; background: var(--code-bg); }
+figure.code figcaption { font-family: var(--font-mono); font-size: 12px; color: var(--ink-soft); padding: 7px 14px; border-bottom: 1px solid var(--rule); background: var(--sheet); overflow-wrap: anywhere; }
+pre { margin: 0; overflow-x: auto; }
+pre code { display: block; background: none; padding: 14px 16px; font-size: 13px; line-height: 1.65; overflow-wrap: normal; white-space: pre; border-radius: 0; }
+aside pre, .chapter > pre:not(.mermaid) { background: var(--code-bg); border-radius: 8px; border: 1px solid var(--rule); margin: 10px 0; }
+pre.mermaid { background: var(--sheet); border: 1px solid var(--rule); border-radius: 10px; padding: 16px; margin: 16px 0 20px; text-align: center; }
+
+/* 囲み */
+aside { border-radius: 10px; padding: 14px 18px 4px; margin: 18px 0 22px; border: 1px solid var(--rule); }
+aside > b:first-child { display: block; font-family: var(--font-display); font-size: 13px; letter-spacing: .08em; margin-bottom: 4px; }
+aside.note { background: var(--accent-soft); border-color: transparent; }
+aside.note > b:first-child { color: var(--accent); }
+aside.warn { background: var(--warn-soft); border-color: transparent; }
+aside.warn > b:first-child { color: var(--warn); }
+aside.try { background: var(--try-soft); border-color: transparent; }
+aside.try > b:first-child { color: var(--try); }
+aside p:last-child { margin-bottom: 10px; }
+
+/* 表 */
+.table-wrap { overflow-x: auto; margin: 16px 0 22px; border: 1px solid var(--rule); border-radius: 10px; background: var(--sheet); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; line-height: 1.6; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; vertical-align: top; padding: 9px 12px; border-bottom: 1px solid var(--rule); }
+th { font-family: var(--font-display); font-weight: 700; background: var(--accent-soft); white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+
+dl.glossary { display: grid; grid-template-columns: minmax(7em, max-content) minmax(0, 1fr); gap: 8px 20px; margin: 16px 0 24px; }
+dl.glossary dt { font-weight: 700; }
+dl.glossary dd { margin: 0; color: var(--ink-soft); }
+@media (max-width: 560px) { dl.glossary { grid-template-columns: minmax(0, 1fr); gap: 2px; } dl.glossary dd { margin-bottom: 10px; } }
+
+.pager { display: flex; justify-content: space-between; gap: 12px; margin-top: 28px; font-size: 14px; flex-wrap: wrap; }
+.pager a { text-decoration: none; border: 1px solid var(--rule); border-radius: 8px; padding: 8px 14px; background: var(--sheet); color: var(--ink); }
+.pager a:hover { border-color: var(--accent); color: var(--accent); }
+.pager .next { margin-left: auto; }
+.cards-title { font-family: var(--font-display); font-size: 14px; letter-spacing: .08em; color: var(--accent); margin: 40px 0 12px; }
+.cards { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 12px; }
+.cards li { min-width: 0; }
+.cards a { display: grid; grid-template-rows: auto auto 1fr; gap: 6px; height: 100%; padding: 16px 18px; border: 1px solid var(--rule); border-radius: 12px; background: var(--sheet); color: var(--ink); text-decoration: none; transition: border-color .15s, transform .15s; }
+.cards a:hover { border-color: var(--accent); transform: translateY(-1px); }
+@media (prefers-reduced-motion: reduce) { .cards a { transition: none; } .cards a:hover { transform: none; } }
+.cards .no { font-family: var(--font-mono); font-size: 12px; color: var(--accent); font-weight: 600; }
+.cards .t { font-family: var(--font-display); font-weight: 700; font-size: 16.5px; line-height: 1.5; }
+.cards .d { font-size: 13.5px; line-height: 1.7; color: var(--ink-soft); }
+.chapter-bar { display: flex; align-items: center; gap: 12px; font-size: 12.5px; color: var(--ink-soft); font-family: var(--font-mono); margin-bottom: 18px; }
+.chapter-bar a { color: var(--ink-soft); text-decoration: none; font-family: var(--font-body); }
+.chapter-bar a:hover { color: var(--accent); }
+.chapter-bar .meter { flex: 1; height: 3px; background: var(--rule); border-radius: 2px; overflow: hidden; }
+.chapter-bar .meter i { display: block; height: 100%; background: var(--accent); }
+.chapter { border-bottom: 0; padding-top: 32px; }
+.pager a { padding: 12px 16px; }
+.pager small { display: block; font-size: 11.5px; color: var(--ink-soft); }
+.cover-links { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 20px 0 0 !important; font-size: 13px; }
+.cover-links .gh { display: inline-block; padding: 8px 16px; border-radius: 8px; background: var(--ink); color: var(--paper); text-decoration: none; font-weight: 700; }
+.cover-links .gh:hover { background: var(--accent); }
+.chapter-bar .code-link { white-space: nowrap; }
+figcaption a { color: inherit; text-decoration: none; }
+figcaption a:hover { color: var(--accent); text-decoration: underline; }
+footer.colophon { color: var(--ink-soft); font-size: 12.5px; padding-top: 32px; max-width: 46em; }
+</style>
+
+<div class="book">
+  <aside class="toc" aria-label="目次">
+    <p class="brand">形式検証 <span>todo</span> 入門</p>
+    <p class="sub">4 つの todo アプリで学ぶ、仕様・検査・証明</p>
+    <details id="toc-details">
+      <summary>目次</summary>
+      <nav>{{TOC}}</nav>
+    </details>
+  </aside>
+  <main>
+    <header class="cover" id="home-view">
+      <p class="eyebrow">A step-by-step book · 初心者向け</p>
+      <h1>todo アプリで学ぶ<br>形式検証のはじめかた</h1>
+      <p>同じ「todo アプリ」を、Quint・Lean（Aeneas）・h5i と Nyxis・TLA+ の4通りで検証しました。テストが全部通っていたアプリから、検査でどんな不具合が見つかったのか。どの道具が何を保証して、何を保証しないのか。1章ずつ手を動かしながら追っていきます。</p>
+      <p class="cover-links"><a class="gh" href="https://github.com/muraikenta/formal-todo">GitHub でコードを見る ↗</a><span>MIT License</span></p>
+      <figure class="map" aria-label="この本で使う道具の地図">
+        <svg viewBox="0 0 720 230" role="img">
+          <title>道具の地図：左は小さな範囲を全部調べるモデル検査、右はすべての入力で成り立つことを示す定理証明</title>
+          <line class="axis" x1="40" y1="120" x2="680" y2="120"/>
+          <polygon class="axis-head" points="680,114 692,120 680,126"/>
+          <polygon class="axis-head" points="40,114 28,120 40,126"/>
+          <text class="ax" x="40" y="150">小さな範囲を全部調べる</text>
+          <text class="ax-sub" x="40" y="170">書いて数秒で反例が出る・範囲の外は言えない</text>
+          <text class="ax" x="680" y="150" text-anchor="end">すべての入力で証明する</text>
+          <text class="ax-sub" x="680" y="170" text-anchor="end">見逃しが無い・書くのに手間がかかる</text>
+          <g class="dot" transform="translate(130,120)"><circle r="9"/><text y="-22" text-anchor="middle">Quint</text><text class="ch" y="-42" text-anchor="middle">1章</text></g>
+          <g class="dot" transform="translate(250,120)"><circle r="9"/><text y="-22" text-anchor="middle">TLA+</text><text class="ch" y="-42" text-anchor="middle">4章</text></g>
+          <g class="dot solid" transform="translate(470,120)"><circle r="9"/><text y="-22" text-anchor="middle">Lean + Aeneas</text><text class="ch" y="-42" text-anchor="middle">2章</text></g>
+          <g class="dot solid" transform="translate(600,120)"><circle r="9"/><text y="-22" text-anchor="middle">h5i / Nyxis</text><text class="ch" y="-42" text-anchor="middle">3章</text></g>
+          <text class="qed" x="360" y="215" text-anchor="middle">どちらも「仕様に書いたこと」しか守らない ∎</text>
+        </svg>
+      </figure>
+      <h2 class="cards-title">章の一覧</h2>
+      <ol class="cards">{{CARDS}}</ol>
+    </header>
+{{CHAPTERS}}
+    <footer class="colophon">この本のコード・数字は、筆者が実際に作って検証した todo アプリから取りました（2026年11月時点。Quint 0.34.0・Lean 4・Aeneas・h5i・Nyxis v0.1.11・TLA+/TLC）。コード抜粋の見出しはリポジトリ <a href="https://github.com/muraikenta/formal-todo">muraikenta/formal-todo</a> の中のファイルへのリンクです。</footer>
+  </main>
+</div>
+<script>
+/* 小さな色付け: コメント・文字列・キーワード・数字だけ */
+(function () {
+  var KW = {
+    lean: 'def theorem lemma structure inductive where match with fun let in if then else do by simp intro intros cases induction rfl exact apply have show calc open namespace end import variable instance deriving abbrev private noncomputable sorry decide omega unfold rw constructor obtain rcases List Nat Option some none true false',
+    quint: 'module var val def action pure temporal import const assume nondet all any if else and or not iff implies Set Map List Int Nat Bool str true false',
+    rust: 'fn let mut pub struct enum impl for in while loop if else match return use mod self Self Some None Ok Err Vec u32 u64 usize bool true false as',
+    tla: 'MODULE EXTENDS CONSTANT CONSTANTS VARIABLE VARIABLES ASSUME LET IN IF THEN ELSE CASE OTHER EXCEPT UNCHANGED ENABLED CHOOSE LAMBDA INSTANCE WITH Init Next Spec TRUE FALSE SUBSET UNION DOMAIN',
+    js: 'const let var function return if else for of in while import export from new class async await true false null undefined',
+    cedar: 'permit forbid when unless principal action resource in has like is if then else true false'
+  };
+  var CM = { lean: '--[^\\n]*|/-[\\s\\S]*?-/', quint: '//[^\\n]*|/\\*[\\s\\S]*?\\*/', rust: '//[^\\n]*', tla: '\\\\\\*[^\\n]*|\\(\\*[\\s\\S]*?\\*\\)', js: '//[^\\n]*|/\\*[\\s\\S]*?\\*/', bash: '(?:^|\\s)#[^\\n]*', toml: '#[^\\n]*', cedar: '//[^\\n]*' };
+  function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  document.querySelectorAll('pre code[class*="lang-"]').forEach(function (el) {
+    var lang = (el.className.match(/lang-(\w+)/) || [])[1];
+    if (!lang || !CM[lang]) return;
+    var kw = KW[lang] ? KW[lang].split(' ') : [];
+    var re = new RegExp('(' + CM[lang] + ')|("(?:[^"\\\\\\n]|\\\\.)*")|\\b(\\d+)\\b|([A-Za-z_][A-Za-z0-9_\']*)', 'g');
+    var src = el.textContent, out = '', last = 0, m;
+    while ((m = re.exec(src))) {
+      out += esc(src.slice(last, m.index));
+      if (m[1]) out += '<span class="tok-c">' + esc(m[1]) + '</span>';
+      else if (m[2]) out += '<span class="tok-s">' + esc(m[2]) + '</span>';
+      else if (m[3]) out += '<span class="tok-n">' + m[3] + '</span>';
+      else if (m[4] && kw.indexOf(m[4]) >= 0) out += '<span class="tok-k">' + m[4] + '</span>';
+      else out += esc(m[0]);
+      last = re.lastIndex;
+    }
+    el.innerHTML = out + esc(src.slice(last));
+  });
+})();
+(function () {
+  var d = document.getElementById('toc-details');
+  var mq = window.matchMedia('(min-width: 961px)');
+  function sync() { if (mq.matches) d.open = true; }
+  sync(); if (mq.addEventListener) mq.addEventListener('change', sync);
+  var home = document.getElementById('home-view');
+  var items = Array.prototype.slice.call(document.querySelectorAll('.toc nav > ol > li'));
+  var chapters = Array.prototype.slice.call(document.querySelectorAll('section.chapter'));
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a[href^="#"]');
+    if (!a) return;
+    e.preventDefault();
+    var h = a.getAttribute('href').slice(1);
+    try { if (location.hash.slice(1) !== h) location.hash = h; } catch (err) {}
+    show(h);
+  });
+  function show(forced) {
+    var h = typeof forced === 'string' ? forced : decodeURIComponent((location.hash || '').slice(1));
+    var m = h.match(/^(ch-\d+)/);
+    var cur = m && document.getElementById(m[1]) ? m[1] : null;
+    home.hidden = !!cur;
+    chapters.forEach(function (c) { c.hidden = c.id !== cur; });
+    items.forEach(function (li) { li.classList.toggle('active', li.dataset.ch === cur); });
+    if (!mq.matches) d.open = false;
+    var target = cur && h !== cur ? document.getElementById(h) : null;
+    if (target) target.scrollIntoView(); else window.scrollTo(0, 0);
+    var t = cur ? document.querySelector('#' + cur + ' h2') : null;
+    document.title = (t ? t.textContent + ' | ' : '') + '形式検証 todo 入門';
+  }
+  window.addEventListener('hashchange', show);
+  show();
+})();
+</script>

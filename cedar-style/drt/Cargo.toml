@@ -1,0 +1,12 @@
+[package]
+name = "drt"
+version = "0.1.0"
+edition = "2021"
+
+# 本番実装（Aeneas 方式と同じ Rust コード）をそのまま使う
+[dependencies]
+jiyuu = { path = "../../rust" }
+
+# release でもあふれを panic にする（本番の debug ビルドと同じ振る舞いで比べる）
+[profile.release]
+overflow-checks = true

@@ -1,0 +1,9 @@
+name = "jiyuu_model"
+defaultTargets = ["model"]
+
+[[lean_lib]]
+name = "Model"
+
+[[lean_exe]]
+name = "model"
+root = "Main"

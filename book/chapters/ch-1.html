@@ -1,0 +1,274 @@
+<section class="chapter" id="ch-1">
+<h2>第1章 Quint で todo の仕様を書いて、全部の状態を調べる</h2>
+
+<p class="lead">todo アプリの決まりを Quint で仕様に書き、起こりうる状態を機械に全部調べさせます。最後に、仕様から作った操作の列を JavaScript アプリに流して突き合わせます。</p>
+
+<div class="goals">
+<h3>この章のゴール</h3>
+<ul>
+<li>todo アプリを「状態」と「操作」で書ける</li>
+<li>不変条件を書き、<code>quint test</code> / <code>quint run</code> / TLC で調べられる</li>
+<li>わざと壊した仕様で、検査の強さを測れる（変異テスト）</li>
+<li>仕様から作った操作の列でアプリをテストする（MBT）流れが分かる</li>
+<li>検査が緑でも残る見逃しを4つ言える</li>
+</ul>
+</div>
+
+<h3>題材と道具</h3>
+<p>題材は todo アプリで、操作は追加・完了の切り替え・削除・題名の編集・全部切り替え・完了済みを消すの6つです。</p>
+<p>道具は <dfn>Quint</dfn>（クイント）です。システムの決まりを書く言語で、見た目は TypeScript に似ており、書いた仕様を実行も全状態の検査もできます。版は 0.34.0 です。</p>
+<p>Quint で書くのは<strong>アプリではなく、アプリの決まり</strong>です。アプリは JavaScript で書き、後半の MBT でつなぎます。</p>
+
+<pre class="mermaid">
+flowchart LR
+  S["仕様 todo.qnt"] --&gt; T["quint test（具体例）"]
+  S --&gt; R["quint run（ランダム）"]
+  S --&gt; V["TLC（全状態）"]
+  S --&gt; G["トレース200本"]
+  G --&gt; M["mbt.mjs"]
+  A["アプリ todo-core.mjs"] --&gt; M
+</pre>
+
+<ol class="steps">
+
+<li>
+<h4>ステップ1: 状態を書く</h4>
+<p>アプリが覚えていることを <dfn>状態</dfn> と呼びます。todo の一覧と、次に振る id の2つです。Quint では <code>var</code> で宣言します。</p>
+<figure class="code"><figcaption>quint-todo/todo.qnt</figcaption><pre><code class="lang-quint">  type Todo = { id: int, title: str, done: bool }
+
+  var todos: List[Todo]    // 画面に並ぶ順
+  var nextId: int          // 次に振る id
+  // 以下は「前後の性質」を書くための記録（アプリには無い）
+  var lastAction: str
+  var lastId: int          // 直前の操作の対象 id
+  var lastTitle: str       // 直前の操作の題名（空白を取った後）
+  var prevTodos: List[Todo]
+  var prevNextId: int</code></pre></figure>
+<p><code>last…</code> と <code>prev…</code> は検査用の記録で、ステップ7で使います。アプリの状態は todos と nextId だけです。</p>
+</li>
+
+<li>
+<h4>ステップ2: 操作を書く</h4>
+<p>状態を変える操作を <dfn>action</dfn>（アクション）と呼びます。<code>todos'</code> のように <code>'</code>（プライム）を付けた名前が操作後の値です。</p>
+<figure class="code"><figcaption>quint-todo/todo.qnt</figcaption><pre><code class="lang-quint">  // 追加: 空白を取って空になるものは弾く（何も変わらない）
+  action add(raw: str): bool = {
+    val title = INPUTS.get(raw)
+    all {
+      nextId &lt; MAX_ID,
+      record("add", -1, title),
+      if (title == "")
+        all { todos' = todos, nextId' = nextId }
+      else {
+        val newId = if (BUG == "idFromLength") todos.length() else nextId
+        all {
+          todos' = todos.append({ id: newId, title: title, done: false }),
+          nextId' = nextId + 1,
+        }
+      },
+    }
+  }</code></pre></figure>
+<p><code>all { … }</code> は「中の条件が全部成り立つ」です。<code>nextId &lt; MAX_ID</code> は、調べる範囲を有限にするための上限です。</p>
+<p><code>record</code> は直前の操作の記録、<code>BUG</code> はわざと間違えた版への切り替えです。<code>INPUTS.get(raw)</code> は生の入力を空白を取った題名に変える表で、Quint に <code>trim</code> が無いので表で渡します。</p>
+<p>最後に、1歩ごとに6つのどれかが起きると書きます。</p>
+<figure class="code"><figcaption>quint-todo/todo.qnt</figcaption><pre><code class="lang-quint">  // id は「いまある id」だけでなく範囲全体から選ぶ（無い id への操作が無害かも確かめる）
+  action step = {
+    nondet raw = INPUTS.keys().oneOf()
+    nondet id = 0.to(MAX_ID - 1).oneOf()
+    any {
+      add(raw),
+      toggle(id),
+      remove(id),
+      edit(id, raw),
+      toggleAll,
+      clearCompleted,
+    }
+  }</code></pre></figure>
+<p><dfn>nondet</dfn> は「この中のどれでもよい」、<code>any { … }</code> は「どれか1つが起きる」です。</p>
+<aside class="note"><b>ポイント</b>仕様は「この順に呼ぶ」手続きではなく、「どの状態からでも6つのどれかが起こりうる」という可能性の全体です。</aside>
+</li>
+
+<li>
+<h4>ステップ3: 不変条件を書く</h4>
+<p><dfn>不変条件</dfn>は、どの操作の後でも成り立ってほしい性質です。</p>
+<figure class="code"><figcaption>quint-todo/todo.qnt</figcaption><pre><code class="lang-quint">  // ---- 形の性質（1つの状態で言えること） ----
+  val idsUnique = idsOf(todos).size() == todos.length()
+  // id は並び順に増えていく（追加は末尾・他の操作は順番を変えない）
+  val idsAscending = todos.indices().forall(i =&gt; i == 0 or todos[i - 1].id &lt; todos[i].id)
+  // 振った id は nextId 未満（次に振る id がすでに使われていない）
+  val idsFresh = todos.indices().forall(i =&gt; todos[i].id &lt; nextId)
+  val noEmptyTitles = todos.indices().forall(i =&gt; todos[i].title != "")
+  // 保存される題名は必ず「空白を取った後」の形（生の入力のまま入っていない）
+  val titlesNormalized = todos.indices().forall(i =&gt; INPUTS.keys().map(k =&gt; INPUTS.get(k)).contains(todos[i].title))
+  val shapeOk = idsUnique and idsAscending and idsFresh and noEmptyTitles and titlesNormalized</code></pre></figure>
+<p>1つの状態を見れば言えるので、<dfn>形の性質</dfn>と呼びます。</p>
+</li>
+
+<li>
+<h4>ステップ4: 具体例で動かす（quint test）</h4>
+<p>まず具体的な操作の列で動きを確かめます。単体テストと同じ感覚です。</p>
+<figure class="code"><figcaption>quint-todo/todo.qnt</figcaption><pre><code class="lang-quint">  run addTwoThenToggleAllTest =
+    initState.then(add("milk")).then(add(" milk ")).then(toggleAll)
+      .expect(todos.length() == 2 and allDone(todos) and todos[1].title == "milk")
+  run emptyTitleRejectedTest =
+    initState.then(add("")).then(add(" ")).then(add("　")).expect(todos.length() == 0 and nextId == 0)</code></pre></figure>
+<p><code>.then(…)</code> は「続けてこの操作」、<code>.expect(…)</code> は「最後にこれが成り立つ」です。2つ目は空白だけの題名が弾かれることを見ます。具体例は4本です。</p>
+<p>動かすときは、上限などの定数を埋めた版を選びます。</p>
+<figure class="code"><figcaption>quint-todo/todo.qnt</figcaption><pre><code class="lang-quint">// TLC で全網羅する版: id は 0〜3 まで（4件まで追加できる）
+module todo4 {
+  import inputs.*
+  import todo(MAX_ID = 4, INPUTS = INPUTS_STD, BUG = "none").*
+}
+
+// MBT のトレースを作る版: 範囲を広げる（4 で区切ると「5件目で壊れる」実装を見逃した）
+module todo7 {
+  import inputs.*
+  import todo(MAX_ID = 7, INPUTS = INPUTS_STD, BUG = "none").*
+}</code></pre></figure>
+<aside class="try"><b>やってみよう</b>具体例4本を流します。
+<pre><code class="lang-bash">cd quint-todo
+quint test todo.qnt --main=todo4</code></pre>
+</aside>
+</li>
+
+<li>
+<h4>ステップ5: ランダムに歩かせる（quint run）と、全部見る（TLC）</h4>
+<p><code>quint run</code> は最大30歩の列をランダムに1万本試し、不変条件が破れたらそこまでの列（<dfn>反例</dfn>）を見せます。</p>
+<p>ランダムでは通らない道が残るので、到達できる状態を1つ残らず調べる <dfn>TLC</dfn> も使います（この手法を<dfn>モデル検査</dfn>と呼びます）。</p>
+<aside class="try"><b>やってみよう</b>
+<code>safety</code> は <code>shapeOk</code> にステップ7の性質を足した不変条件です。
+<pre><code class="lang-bash">cd quint-todo
+quint run todo.qnt --main=todo7 --invariant=safety --max-steps=30 --max-samples=10000
+quint verify todo.qnt --main=todo4 --backend=tlc --invariant=safety</code></pre>
+</aside>
+<p>TLC は id 0〜3 で <strong>225,531 状態</strong>を調べ、違反なしでした。id を件数で振る間違いを入れた <code>todo4_idFromLength</code> では違反が出ます。</p>
+<aside class="note"><b>ポイント</b>全部調べられるのは範囲を小さく区切ったからです。「id 0〜3 で違反なし」は「何件でも大丈夫」ではありません。</aside>
+</li>
+
+<li>
+<h4>ステップ6: わざと壊した仕様で検査を試す（変異テスト）</h4>
+<p>緑でも、検査が甘いだけかもしれません。わざと書き間違えた仕様を検査が見つけるかを数えるのが <dfn>変異テスト</dfn> です。</p>
+<figure class="code"><figcaption>quint-todo/mutate-spec.mjs</figcaption><pre><code class="lang-js">const M = [
+  ["toggle が何もしない", "todos' = mapTodos(todos, t =&gt; if (t.id == id) { ...t, done: not(t.done) } else t),", "todos' = todos,"],
+  ["toggle が2件変える", "if (t.id == id) { ...t, done: not(t.done) }", "if (t.id == id or t.id == id + 1) { ...t, done: not(t.done) }"],
+  // …
+  ["remove が全件消す", "todos' = todos.select(t =&gt; t.id != id),\n    nextId' = nextId,\n    record(\"remove\"", "todos' = List(),\n    nextId' = nextId,\n    record(\"remove\""],
+  // …
+];</code></pre></figure>
+<p>各行は「名前・元・書き換え後」です。いまの仕様は <strong>20本中20本</strong>を検出します。</p>
+<aside class="try"><b>やってみよう</b>
+<pre><code class="lang-bash">cd quint-todo
+node mutate-spec.mjs</code></pre>
+</aside>
+</li>
+
+<li>
+<h4>ステップ7: 前後の性質を足す</h4>
+<p>形の性質だけの最初の版は、<strong>17本中16本を見逃しました</strong>。「全部消す」「何もしない」も形は保つからです。</p>
+<p>そこで操作の前後を比べる <dfn>前後の性質</dfn>を足しました。</p>
+<figure class="code"><figcaption>quint-todo/todo.qnt</figcaption><pre><code class="lang-quint">  val toggleOk = lastAction == "toggle" implies all {
+    sameIds(todos, prevTodos),
+    todos.indices().forall(i =&gt; todos[i].title == prevTodos[i].title),
+    todos.indices().forall(i =&gt;
+      todos[i].done == (if (prevTodos[i].id == lastId) not(prevTodos[i].done) else prevTodos[i].done)),
+  }
+  // …（addOk, removeOk, editOk, toggleAllOk, clearOk も同じ形）
+  val stepOk = nextIdOk and addOk and toggleOk and removeOk and editOk and toggleAllOk and clearOk
+
+  val safety = shapeOk and stepOk</code></pre></figure>
+<p>「直前が toggle なら、対象の1件の done だけが反転する」と読みます。これで 20/20 になりました。</p>
+<aside class="note"><b>ポイント</b>操作ごとに「決まったところだけ変え、他には触らない」まで書いて、初めて操作の意味を書いたことになります。</aside>
+</li>
+
+<li>
+<h4>ステップ8: 仕様から作った列をアプリに流す（MBT）</h4>
+<p>アプリの中身は画面から切り離した状態遷移の関数で、action 1つが <code>case</code> 1つに対応します。</p>
+<figure class="code"><figcaption>quint-todo/app/todo-core.mjs</figcaption><pre><code class="lang-js">export function reduce(state, action) {
+  switch (action.type) {
+    case "add": {
+      const title = (action.title ?? "").trim();
+      if (title === "") return state; // 空欄は弾く
+      return {
+        todos: [...state.todos, { id: state.nextId, title, done: false }],
+        nextId: state.nextId + 1,
+      };
+    }
+    // …</code></pre></figure>
+<p><dfn>MBT</dfn>（モデルベーステスト）は、仕様が出した操作の列をアプリに1歩ずつ流し、毎歩状態を比べるテストです。列は <dfn>ITF トレース</dfn>という JSON に書き出します。</p>
+<figure class="code"><figcaption>quint-todo/mbt.mjs</figcaption><pre><code class="lang-js">  for (let i = 1; i &lt; states.length; i++) {
+    const s = states[i];
+    const type = s["mbt::actionTaken"];
+    const picks = fromItf(s["mbt::nondetPicks"]);
+    const arg = (n) =&gt; (picks[n]?.tag === "Some" ? picks[n].value : undefined);
+    // Quint の action の引数と同じものを渡す（使わない引数はアプリ側が無視する）
+    const action = { type, id: arg("id"), title: arg("raw") };
+    // …
+    impl = reduce(impl, action);
+    // …
+    const model = { todos: pick(s, "todos"), nextId: pick(s, "nextId") };
+    // …
+    if (implView(impl) !== modelView(model)) {</code></pre></figure>
+<p>比べるのは todos・nextId と「残り N 件」です。トレースは seed を固定して200本作るので、毎回同じ列になります。</p>
+<pre class="mermaid">
+sequenceDiagram
+  participant Q as "Quint（todo7）"
+  participant F as "ITF トレース"
+  participant B as "mbt.mjs"
+  participant A as "todo-core.mjs"
+  Q-&gt;&gt;F: "200本×30歩を書き出す"
+  B-&gt;&gt;F: "1歩読む（操作と引数）"
+  B-&gt;&gt;A: "reduce(state, action)"
+  A--&gt;&gt;B: "アプリの次の状態"
+  B-&gt;&gt;B: "仕様の状態と比べる"
+</pre>
+<p>6,000歩が全歩一致し、壊したアプリ（<code>mutate.mjs</code>）は <strong>19本中19本</strong>を検出しました。</p>
+<aside class="try"><b>やってみよう</b>
+<pre><code class="lang-bash">cd quint-todo
+./gen-traces.sh
+node mbt.mjs
+node mutate.mjs</code></pre>
+全部まとめて流すなら <code>./check.sh</code> です（約2分）。</aside>
+<aside class="warn"><b>落とし穴</b>MBT は「アプリが仕様どおりか」しか見ないので、仕様とアプリが同じ間違いをしていれば全部緑です。</aside>
+</li>
+
+<li>
+<h4>ステップ9: 独立レビューで見つかった穴を塞ぐ</h4>
+<p>全部緑だった最初の版にも、別の目のレビューで穴が9件見つかりました。主な型は4つです。</p>
+<ul>
+<li><b>形だけの不変条件</b>: 壊した仕様17本中16本を通した（ステップ7）。</li>
+<li><b>前後の性質の不足</b>: 「他には触らない」を操作ごとに書いて塞いだ。</li>
+<li><b>範囲</b>: MBT も id 0〜3 だったため、「5件目以降を弾く」アプリを見逃した。いまは MBT を7件まで広げた。</li>
+<li><b>入力</b>: 題名の候補が "milk" "eggs" "" だけで、「trim を外す」「小文字にする」がすり抜けた。いまは次の表を使う。</li>
+</ul>
+<figure class="code"><figcaption>quint-todo/todo.qnt</figcaption><pre><code class="lang-quint">// 入力の候補: 空欄・空白だけ・全角空白だけ・前後に空白・大文字・日本語（全角空白で囲む）・長い題名
+module inputs {
+  pure val INPUTS_STD = Map(
+    "" -&gt; "",
+    " " -&gt; "",
+    "　" -&gt; "",
+    "milk" -&gt; "milk",
+    " milk " -&gt; "milk",
+    "Milk" -&gt; "Milk",
+    "　牛乳を買う　" -&gt; "牛乳を買う",
+    "a very long title that keeps going and going" -&gt; "a very long title that keeps going and going",
+  )
+}</code></pre></figure>
+<p>MBT が「残り N 件」を比べていなかった穴も塞ぎました。</p>
+<p>1 から n までの和で上限判定の <code>&gt; MAX</code> を <code>&gt;= MAX</code> に間違えても、上限 255 では<strong>見逃します</strong>。和がちょうど 255 になる n が無いからで、253（＝1+…+22）なら反例が出ます。</p>
+<p>検査は網で、網の目（範囲と入力）を決めるのは人です。</p>
+<aside class="warn"><b>落とし穴</b>TLC が保証するのは「書いた性質が、選んだ範囲と入力の中で成り立つ」ことだけです。画面の操作やタブ間の同期は対象外で、「IME 確定の Enter で編集まで確定する」「2タブで互いの追加を消す」などは MBT の外で見つかりました（同期は第4章）。</aside>
+</li>
+
+</ol>
+
+<div class="recap">
+<h3>まとめ</h3>
+<ul>
+<li>Quint では、アプリを「状態（var）」と「操作（action）」で書き、nondet で「どれでも起こりうる」を表す</li>
+<li><code>quint test</code> は具体例、<code>quint run</code> はランダム、TLC は小さな範囲の全状態（225,531 状態）を調べる</li>
+<li>「形の性質」だけでは弱い。「前後の性質」を足すと、壊した仕様 20/20 を検出できた</li>
+<li>MBT で 6,000 歩をアプリに流して全歩一致。壊したアプリ 19/19 を検出</li>
+<li>通ったことより、何を見逃すかを数えるほうが大事。範囲・入力・比べる対象の選び方で見逃しが生まれる</li>
+<li>Quint の結論は「選んだ範囲の中」の話。すべての件数で言うには、次の章の証明が要る</li>
+</ul>
+</div>
+</section>

@@ -1,0 +1,7 @@
+target/
+proofs/.lake/
+*.llbc
+mutate.log
+server.log
+lake-setup.log
+.h5i/

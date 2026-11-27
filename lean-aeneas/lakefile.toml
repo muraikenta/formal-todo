@@ -1,0 +1,16 @@
+name = "jiyuu_aeneas"
+defaultTargets = ["Spec", "Proofs"]
+
+# Aeneas の Lean ライブラリ（~/src/aeneas を clone してビルドしたもの）を使う
+[[require]]
+name = "aeneas"
+path = "../../../../src/aeneas/backends/lean"
+
+[[lean_lib]]
+name = "Jiyuu"
+
+[[lean_lib]]
+name = "Spec"
+
+[[lean_lib]]
+name = "Proofs"

@@ -1,0 +1,106 @@
+# `h5i app`（extract・check・prove・mutate・doctor）が読む設定。
+
+[extract]
+start-from = ["transition"]
+schema = true
+include = ["h5i_app_sql"]
+
+[check]
+# 必ず存在し、標準の3公理だけに依存すべき定理（＝このアプリが約束すること）。
+theorems = [
+    "todo_kernel.Theorems.reachable_inv",        # 不変条件: id は重複も再利用もしない、タイトルは正しい長さ
+    "todo_kernel.Theorems.authorized_reachable", # 権限: 書き込みはすべて本人の todo
+    "todo_kernel.Theorems.owner_kept",           # 持ち主はどのコマンドでも変わらない
+    "todo_kernel.Theorems.others_unchanged",     # 他人の todo は変わらない
+    "todo_kernel.Theorems.list_own",             # 一覧は本人の todo ちょうど
+    "todo_kernel.Effects.add_effect",            # 追加: 新しい id を返し、未完了で保存し、何も上書きしない
+    "todo_kernel.Effects.rename_effect",         # 名前変更: 新しいタイトル、完了フラグはそのまま
+    "todo_kernel.Effects.set_done_effect",       # 完了切り替え: 指定どおりの値、タイトルはそのまま
+    "todo_kernel.Effects.delete_effect",         # 削除: その id の todo は残らない
+    "todo_kernel.Effects.add_ok",                # 成功する: 正しい追加
+    "todo_kernel.Effects.rename_ok",             # 成功する: 持ち主の正しい名前変更
+    "todo_kernel.Effects.set_done_ok",           # 成功する: 持ち主の完了切り替え
+    "todo_kernel.Effects.delete_ok",             # 成功する: 持ち主の削除
+    "todo_kernel.Scenario.bob_lists_nothing",    # 具体例: Bob の一覧の返事は空
+    "todo_kernel.Storage.db_inv",
+]
+
+[obligations]
+panic-free = "todo_kernel.Theorems.panic_free"
+
+# ミューテーション: わざと壊したカーネル。old を new に置き換えると、どれかの証明が通らなくなるはず。
+[[mutant]]
+name = "auth_rename_any"
+old = "if t.owner != user {\n                Err(Error::Forbidden)\n            } else if"
+new = "if false {\n                Err(Error::Forbidden)\n            } else if"
+
+[[mutant]]
+name = "auth_set_done_any"
+old = "if t.owner != user {\n                Err(Error::Forbidden)\n            } else {"
+new = "if false {\n                Err(Error::Forbidden)\n            } else {"
+
+[[mutant]]
+name = "auth_delete_any"
+old = "if t.owner == user {"
+new = "if true {"
+
+[[mutant]]
+name = "list_leaks_all"
+old = "if ts[i].owner == user {"
+new = "if true {"
+
+[[mutant]]
+name = "inv_empty_title"
+old = "t.len() > 0 && t.len() <= MAX_TITLE"
+new = "t.len() <= MAX_TITLE"
+
+[[mutant]]
+name = "inv_add_over_todo_0"
+old = "let id = s.counter.next_id;"
+new = "let id = 0;"
+
+[[mutant]]
+name = "inv_counter_not_advanced"
+old = "Counter { next_id: id + 1 }"
+new = "Counter { next_id: id }"
+
+[[mutant]]
+name = "owner_changed_on_rename"
+old = "Todo { id, owner: t.owner, title: title.clone(), completed: t.completed }"
+new = "Todo { id, owner: user + 1, title: title.clone(), completed: t.completed }"
+
+# 独立レビューの後に追加: 「頼んだことをやる」と「成功する」が崩れるパターン。
+[[mutant]]
+name = "rename_keeps_old_title"
+old = "title: title.clone(), completed: t.completed"
+new = "title: t.title.clone(), completed: t.completed"
+
+[[mutant]]
+name = "rename_unchecks"
+old = "title: title.clone(), completed: t.completed"
+new = "title: title.clone(), completed: false"
+
+[[mutant]]
+name = "set_done_ignores_value"
+old = "title: t.title, completed }"
+new = "title: t.title, completed: t.completed }"
+
+[[mutant]]
+name = "add_marks_done"
+old = "title: title.clone(), completed: false }"
+new = "title: title.clone(), completed: true }"
+
+[[mutant]]
+name = "add_wrong_reply_id"
+old = "Ok((ws, Reply::Created(id)))"
+new = "Ok((ws, Reply::Created(0)))"
+
+[[mutant]]
+name = "add_always_refuses"
+old = "if !title_ok(title) {\n        return Err(Error::BadTitle);"
+new = "if true {\n        return Err(Error::BadTitle);"
+
+[[mutant]]
+name = "delete_is_noop"
+old = "Ok((one(Write::DelTodo(id)), Reply::Done))"
+new = "Ok((Vec::new(), Reply::Done))"
