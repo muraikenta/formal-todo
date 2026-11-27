@@ -283,7 +283,7 @@ footer.colophon { color: var(--ink-soft); font-size: 12.5px; padding-top: 32px; 
     var cur = m && document.getElementById(m[1]) ? m[1] : null;
     home.hidden = !!cur;
     chapters.forEach(function (c) { c.hidden = c.id !== cur; });
-    items.forEach(function (li) { li.classList.toggle('active', li.dataset.ch === cur); });
+    items.forEach(function (li) { li.classList.toggle('active', li.dataset.ch === (cur || 'home')); });
     if (!mq.matches) d.open = false;
     var target = cur && h !== cur ? document.getElementById(h) : null;
     if (target) target.scrollIntoView(); else window.scrollTo(0, 0);

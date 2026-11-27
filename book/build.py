@@ -93,6 +93,7 @@ body = "\n".join(out_chapters)
 body = re.sub(r'<div class="table-wrap">\s*(<table.*?</table>)\s*</div>', r"\1", body, flags=re.S)
 body = re.sub(r"<table", '<div class="table-wrap"><table', body).replace("</table>", "</table></div>")
 
+toc.insert(0, '<li data-ch="home"><a href="#home"><span class="no">◇</span><span>表紙・章の一覧</span></a></li>')
 res = (tpl.replace("{{TOC}}", "<ol>" + "".join(toc) + "</ol>")
           .replace("{{CARDS}}", "".join(cards))
           .replace("{{CHAPTERS}}", body))
