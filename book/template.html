@@ -195,23 +195,6 @@ footer.colophon { color: var(--ink-soft); font-size: 12.5px; padding-top: 32px; 
       <h1>形式検証入門ブック</h1>
       <p>本編では、Rust で書いた todo アプリが仕様どおりに動くことを、Lean で証明します。ソートの小さな例から始めて、todo の操作、そして「他人の todo には触れない」という認可まで、1章ずつ手を動かします。付録では、同じ todo を Quint・h5i・Nyxis・TLA+ で検証した結果を紹介します。</p>
       <p class="cover-links"><a class="gh" href="https://github.com/muraikenta/formal-todo">GitHub でコードを見る ↗</a><span>MIT License</span></p>
-      <figure class="map" aria-label="この本で使う道具の地図">
-        <svg viewBox="0 0 720 230" role="img">
-          <title>道具の地図：左は小さな範囲を全部調べるモデル検査、右はすべての入力で成り立つことを示す定理証明</title>
-          <line class="axis" x1="40" y1="120" x2="680" y2="120"/>
-          <polygon class="axis-head" points="680,114 692,120 680,126"/>
-          <polygon class="axis-head" points="40,114 28,120 40,126"/>
-          <text class="ax" x="40" y="150">小さな範囲を全部調べる</text>
-          <text class="ax-sub" x="40" y="170">書いて数秒で反例が出る・範囲の外は言えない</text>
-          <text class="ax" x="680" y="150" text-anchor="end">すべての入力で証明する</text>
-          <text class="ax-sub" x="680" y="170" text-anchor="end">見逃しが無い・書くのに手間がかかる</text>
-          <g class="dot" transform="translate(130,120)"><circle r="9"/><text y="-22" text-anchor="middle">Quint</text><text class="ch" y="-42" text-anchor="middle">付録A</text></g>
-          <g class="dot" transform="translate(250,120)"><circle r="9"/><text y="-22" text-anchor="middle">TLA+</text><text class="ch" y="-42" text-anchor="middle">付録C</text></g>
-          <g class="dot solid" transform="translate(470,120)"><circle r="9"/><text y="-22" text-anchor="middle">Lean + Aeneas</text><text class="ch" y="-42" text-anchor="middle">本編 0〜3章</text></g>
-          <g class="dot solid" transform="translate(600,120)"><circle r="9"/><text y="-22" text-anchor="middle">h5i / Nyxis</text><text class="ch" y="-42" text-anchor="middle">付録B</text></g>
-          <text class="qed" x="360" y="215" text-anchor="middle">どちらも「仕様に書いたこと」しか守らない ∎</text>
-        </svg>
-      </figure>
       <h2 class="cards-title">章の一覧</h2>
       <ol class="cards">{{CARDS}}</ol>
     </header>

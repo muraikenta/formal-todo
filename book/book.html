@@ -195,23 +195,6 @@ footer.colophon { color: var(--ink-soft); font-size: 12.5px; padding-top: 32px; 
       <h1>形式検証入門ブック</h1>
       <p>本編では、Rust で書いた todo アプリが仕様どおりに動くことを、Lean で証明します。ソートの小さな例から始めて、todo の操作、そして「他人の todo には触れない」という認可まで、1章ずつ手を動かします。付録では、同じ todo を Quint・h5i・Nyxis・TLA+ で検証した結果を紹介します。</p>
       <p class="cover-links"><a class="gh" href="https://github.com/muraikenta/formal-todo">GitHub でコードを見る ↗</a><span>MIT License</span></p>
-      <figure class="map" aria-label="この本で使う道具の地図">
-        <svg viewBox="0 0 720 230" role="img">
-          <title>道具の地図：左は小さな範囲を全部調べるモデル検査、右はすべての入力で成り立つことを示す定理証明</title>
-          <line class="axis" x1="40" y1="120" x2="680" y2="120"/>
-          <polygon class="axis-head" points="680,114 692,120 680,126"/>
-          <polygon class="axis-head" points="40,114 28,120 40,126"/>
-          <text class="ax" x="40" y="150">小さな範囲を全部調べる</text>
-          <text class="ax-sub" x="40" y="170">書いて数秒で反例が出る・範囲の外は言えない</text>
-          <text class="ax" x="680" y="150" text-anchor="end">すべての入力で証明する</text>
-          <text class="ax-sub" x="680" y="170" text-anchor="end">見逃しが無い・書くのに手間がかかる</text>
-          <g class="dot" transform="translate(130,120)"><circle r="9"/><text y="-22" text-anchor="middle">Quint</text><text class="ch" y="-42" text-anchor="middle">付録A</text></g>
-          <g class="dot" transform="translate(250,120)"><circle r="9"/><text y="-22" text-anchor="middle">TLA+</text><text class="ch" y="-42" text-anchor="middle">付録C</text></g>
-          <g class="dot solid" transform="translate(470,120)"><circle r="9"/><text y="-22" text-anchor="middle">Lean + Aeneas</text><text class="ch" y="-42" text-anchor="middle">本編 0〜3章</text></g>
-          <g class="dot solid" transform="translate(600,120)"><circle r="9"/><text y="-22" text-anchor="middle">h5i / Nyxis</text><text class="ch" y="-42" text-anchor="middle">付録B</text></g>
-          <text class="qed" x="360" y="215" text-anchor="middle">どちらも「仕様に書いたこと」しか守らない ∎</text>
-        </svg>
-      </figure>
       <h2 class="cards-title">章の一覧</h2>
       <ol class="cards"><li><a href="#ch-0"><span class="no">CHAPTER 0</span><span class="t">はじめに：形式検証ってなに？</span><span class="d">形式検証が「何をしてくれて、何をしてくれないか」を、ソートの関数でつかみます。</span></a></li><li><a href="#ch-1"><span class="no">CHAPTER 1</span><span class="t">Lean と Rust で todo が仕様どおりと証明する</span><span class="d">第0章のソートと同じ「仕様 → 実装 → 証明」の3段を、今度は状態を持つ todo で通します。</span></a></li><li><a href="#ch-2"><span class="no">CHAPTER 2</span><span class="t">認可を証明する：他人の todo には触れない</span><span class="d">「アリスの todo はボブには変えられない・見えない」を、全ユーザー・全 id・全状態について証明します。道具は第1章と同じ Lean と Aeneas です。</span></a></li><li><a href="#ch-3"><span class="no">CHAPTER 3</span><span class="t">まとめ</span><span class="d">本編（ソート・todo・認可）で分かったことを4つにまとめ、自分のコードで試す最初の一歩を決めます。</span></a></li><li class="cards-group">付録（ほかの道具）</li><li><a href="#app-a"><span class="no">APPENDIX A</span><span class="t">Quint で仕様を全部の状態について調べる</span><span class="d">本編では Lean で「どんな件数でも仕様どおり」と証明しました。この付録は別のやり方です。証明はせず、範囲を小さく区切って、起こりうる状態を機械に全部調べさせます。最後に、仕様から作った操作の列を JavaScript アプリに流して突き合わせます。</span></a></li><li><a href="#app-b"><span class="no">APPENDIX B</span><span class="t">h5i と Nyxis：web アプリの枠組みごと認可を証明する</span><span class="d">第2章の認可の証明は Rust の中核までで、保存や本人確認は証明の外でした。この付録では、DB と HTTP まで含めた web アプリの枠組みで同じ認可を証明する2つの道具、h5i と Nyxis を見ます。</span></a></li><li><a href="#app-c"><span class="no">APPENDIX C</span><span class="t">TLA+ と TLC で同期を検査する</span><span class="d">オフラインでも動く todo アプリを2つのタブとサーバのモデルにして、送信・失敗・遅れた応答がどの順に起きても約束が守られるかを全部調べます。テストが全部緑のアプリから、操作が黙って消える不具合を3つ見つけます。</span></a></li><li><a href="#app-d"><span class="no">APPENDIX D</span><span class="t">Lean は Rust と相性がよく、JavaScript とは相性が悪い</span><span class="d">本編では todo の中核を Rust で書き、Lean に翻訳して証明しました。同じ todo でも、JavaScript／TypeScript 版（付録A・C）では証明をせず、MBT（モデルに基づくテスト。仕様から作った操作の列を実装に流して突き合わせる）とモデル検査にしました。この付録では、その分け方の理由を説明します。</span></a></li><li><a href="#app-e"><span class="no">APPENDIX E</span><span class="t">Lean で Web サーバーも作れる</span><span class="d">Lean は証明の道具だと思われがちですが、普通のプログラムも書けます。付録B の Nyxis は、HTTP サーバーそのものが Lean で動いています。この付録では、その仕組みと、どこまでが証明でどこからが信頼かを見ます。</span></a></li><li><a href="#app-f"><span class="no">APPENDIX F</span><span class="t">Lean の基本文法</span><span class="d">本編のコード抜粋を読むときに引く早見です。網羅はせず、本書に出てくるものだけを TypeScript と並べて載せます。例はすべて Lean 4.36 で検査を通しています。</span></a></li></ol>
     </header>
