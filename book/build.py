@@ -17,22 +17,6 @@ MERMAID_INIT = ('%%{init: {"theme": "base", "themeVariables": {'
                 '"signalTextColor": "#16201d", "labelBoxBkgColor": "#e3f1ec", "labelTextColor": "#16201d", '
                 '"fontFamily": "Noto Sans JP, sans-serif"}}}%%\n')
 
-def build_quick():
-    """5分で読むページを、表紙の中に置くスライド列（h3 ごとに1枚）に組み立てる。章の並びには入れない。"""
-    p = ROOT / "chapters" / "quick.html"
-    if not p.exists():
-        return ""
-    src = p.read_text(encoding="utf-8").strip()
-    inner = re.sub(r'^<section[^>]*>', "", src).rsplit("</section>", 1)[0]
-    head, sep, rest = inner.partition("<h3")
-    slides = ["<h3" + x for x in rest.split("<h3") if x.strip()] if sep else []
-    out = [f'<div class="slide slide-title">{head.strip()}</div>']
-    for i, body in enumerate(slides, 1):
-        out.append(f'<div class="slide"><span class="slide-no">{i:02d}</span>{body.strip()}</div>')
-    bar = '<div class="chapter-bar"><a href="#home">← 表紙</a><span class="meter"><i style="width:100%"></i></span><span>5分で読む</span></div>'
-    nav = '<nav class="pager"><a class="prev" href="#home"><small>← 表紙</small>章の一覧</a><a class="next" href="#ch-0"><small>本編へ →</small>第0章 はじめに</a></nav>'
-    return '<section class="chapter quick-page" id="quick">' + bar + '\n<div class="quick-home">\n' + "\n".join(out) + "\n</div>\n" + nav + "\n</section>"
-
 def link_caption(m):
     text = m.group(1)
     path = text.split("（")[0].strip()
@@ -127,6 +111,6 @@ toc.insert(0, '<li data-ch="home"><a href="#home"><span class="no">◇</span><sp
 res = (tpl.replace("{{TOC}}", "<ol>" + "".join(toc) + "</ol>")
           .replace("{{CARDS}}", "".join(cards))
           .replace("{{QUICK}}", "")
-          .replace("{{CHAPTERS}}", build_quick() + "\n" + body))
+          .replace("{{CHAPTERS}}", body))
 (ROOT / "book.html").write_text(res, encoding="utf-8")
 print(f"book.html: {len(chapters)} 章, {len(res):,} bytes")

@@ -181,50 +181,6 @@ figcaption a { color: inherit; text-decoration: none; }
 figcaption a:hover { color: var(--accent); text-decoration: underline; }
 pre.mm:not([data-processed]) { color: transparent; min-height: 160px; }
 pre.mm svg { max-width: 100%; height: auto; }
-/* 5分で読むページ */
-.quick-thesis { font-family: var(--font-display); font-weight: 900; font-size: clamp(22px, 3vw, 28px); line-height: 1.5; margin: 8px 0 24px; text-wrap: balance; }
-.quick-thesis em { font-style: normal; color: var(--accent); }
-.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); gap: 12px; margin: 18px 0 26px; }
-.stat { border: 1px solid var(--rule); border-radius: 12px; background: var(--sheet); padding: 14px 16px; display: grid; gap: 4px; align-content: start; min-width: 0; }
-.stat .n { font-family: var(--font-display); font-weight: 900; font-size: 30px; line-height: 1.2; color: var(--accent); font-variant-numeric: tabular-nums; }
-.stat .l { font-size: 13.5px; line-height: 1.6; color: var(--ink-soft); }
-.flow3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 16px 0 24px; counter-reset: f; }
-@media (max-width: 640px) { .flow3 { grid-template-columns: minmax(0, 1fr); } }
-.flow3 > div { border: 1px solid var(--rule); border-radius: 12px; background: var(--sheet); padding: 14px 16px; min-width: 0; }
-.flow3 b { display: block; font-family: var(--font-display); font-size: 16px; margin-bottom: 4px; }
-.flow3 small { display: block; font-size: 12px; color: var(--accent); font-family: var(--font-mono); letter-spacing: .06em; margin-bottom: 4px; }
-.flow3 p { margin: 0; font-size: 14px; line-height: 1.7; color: var(--ink-soft); }
-.vs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 14px 0 22px; }
-@media (max-width: 640px) { .vs { grid-template-columns: minmax(0, 1fr); } }
-.vs > div { border-radius: 12px; padding: 14px 16px; background: var(--sheet); border: 1px solid var(--rule); min-width: 0; }
-.vs > div:last-child { background: var(--accent-soft); border-color: transparent; }
-.vs h4 { margin: 0 0 6px; font-size: 15px; }
-.vs ul { margin: 0; padding-left: 1.2em; font-size: 14px; }
-/* 表紙の「5分で読む」：スライドを縦に並べる */
-.quick-home { margin: 40px 0 8px; display: grid; gap: 16px; }
-.slide { position: relative; background: var(--sheet); border: 1px solid var(--rule); border-radius: 16px; padding: clamp(22px, 4vw, 40px); min-width: 0; }
-.slide-title { background: var(--ink); color: var(--paper); border-color: var(--ink); }
-.slide-title h2 { font-family: var(--font-display); font-weight: 900; font-size: clamp(24px, 3.4vw, 34px); line-height: 1.4; margin: 0 0 10px; color: var(--paper); }
-.slide-title .slide-kicker { color: #a9c9bd; font-size: 15px; margin: 0 0 6px; }
-.slide-title .quick-thesis { color: var(--paper); margin: 12px 0 0; }
-.slide-title .quick-thesis em { color: #7fd8b6; }
-.slide .slide-no { position: absolute; top: 18px; right: 22px; font-family: var(--font-mono); font-size: 12px; color: var(--ink-soft); letter-spacing: .08em; }
-.slide h3 { font-family: var(--font-display); font-weight: 900; font-size: clamp(21px, 2.8vw, 28px); line-height: 1.45; margin: 0 0 12px; padding-right: 2.5em; text-wrap: balance; }
-.slide .slide-lead { font-size: 17px; line-height: 1.85; margin: 0 0 12px; color: var(--ink); }
-.slide .slide-big { font-family: var(--font-display); font-weight: 900; font-size: clamp(20px, 2.6vw, 26px); line-height: 1.5; color: var(--accent); margin: 8px 0 4px; text-wrap: balance; }
-.slide ul { margin: 6px 0 4px; padding-left: 1.3em; font-size: 16px; line-height: 1.8; }
-.slide p:last-child, .slide ul:last-child { margin-bottom: 0; }
-.slide .flow3, .slide .stats, .slide .vs { margin: 14px 0 4px; }
-.quick-banner { display: grid; gap: 4px; margin: 32px 0 0; padding: 20px 24px; border-radius: 14px; background: var(--ink); color: var(--paper); text-decoration: none; }
-.quick-banner:hover { background: var(--accent); }
-.quick-banner .qb-k { font-size: 12px; letter-spacing: .12em; color: #a9c9bd; font-family: var(--font-mono); }
-.quick-banner .qb-t { font-family: var(--font-display); font-weight: 900; font-size: clamp(19px, 2.4vw, 23px); color: var(--paper); }
-.quick-banner .qb-d { font-size: 14px; color: #d5e3de; }
-.toc-quick { margin: -10px 0 16px; font-size: 13px; }
-.toc-quick a { display: inline-block; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--accent); color: var(--accent); text-decoration: none; font-weight: 700; }
-.toc-quick a:hover { background: var(--accent-soft); }
-.quick-page { max-width: 52em; }
-.quick-page .quick-home { margin-top: 8px; }
 footer.colophon { color: var(--ink-soft); font-size: 12.5px; padding-top: 32px; max-width: 46em; }
 </style>
 
@@ -232,7 +188,6 @@ footer.colophon { color: var(--ink-soft); font-size: 12.5px; padding-top: 32px; 
   <aside class="toc" aria-label="目次">
     <p class="brand">形式検証入門<span>ブック</span></p>
     <p class="sub">Rust と Lean で学ぶ、仕様・実装・証明</p>
-    <p class="toc-quick"><a href="#quick">⏱ 5分で読む</a></p>
     <details id="toc-details">
       <summary>目次</summary>
       <nav><ol><li data-ch="home"><a href="#home"><span class="no">◇</span><span>表紙・章の一覧</span></a></li><li data-ch="ch-0"><a href="#ch-0"><span class="no">0</span><span>はじめに：形式検証ってなに？</span></a><ol><li><a href="#ch-0-s2">テストで困ること</a></li><li><a href="#ch-0-s3">形式検証とは</a></li><li><a href="#ch-0-s4">3つの役割：仕様・実装・証明</a></li><li><a href="#ch-0-s5">ソートで3段を体験する</a></li><li><a href="#ch-0-s6">仕様に書いていないことは守られない</a></li><li><a href="#ch-0-s7">この book の構成</a></li></ol></li><li data-ch="ch-1"><a href="#ch-1"><span class="no">1</span><span>Lean と Rust で todo が仕様どおりと証明する</span></a></li><li data-ch="ch-2"><a href="#ch-2"><span class="no">2</span><span>認可を証明する：他人の todo には触れない</span></a><ol><li><a href="#ch-2-s2">認可とは</a></li></ol></li><li data-ch="ch-3"><a href="#ch-3"><span class="no">3</span><span>まとめ</span></a><ol><li><a href="#ch-3-s2">本編で分かったこと</a></li><li><a href="#ch-3-s3">本編の道具が向く場面</a></li><li><a href="#ch-3-s4">実務への適用についての所感</a></li><li><a href="#ch-3-s5">初心者の次の一歩</a></li><li><a href="#ch-3-s6">用語集</a></li></ol></li><li class="toc-group">付録</li><li data-ch="app-a"><a href="#app-a"><span class="no">A</span><span>Lean の基本文法</span></a><ol><li><a href="#app-a-s2">値と関数</a></li><li><a href="#app-a-s3">型</a></li><li><a href="#app-a-s4">主張の記号</a></li><li><a href="#app-a-s5">定理と証明</a></li><li><a href="#app-a-s6">本書特有の書き方</a></li></ol></li><li data-ch="app-b"><a href="#app-b"><span class="no">B</span><span>Lean で Web サーバーも作れる</span></a><ol><li><a href="#app-b-s2">Lean はプログラミング言語でもある</a></li><li><a href="#app-b-s3">リクエストが DB に届くまで</a></li><li><a href="#app-b-s4">ビルドのたびに定理を検査する</a></li><li><a href="#app-b-s5">h5i との違い</a></li><li><a href="#app-b-s6">実務で使えるか</a></li><li><a href="#app-b-s7">2つの道の比べ方</a></li></ol></li><li data-ch="app-c"><a href="#app-c"><span class="no">C</span><span>Lean は Rust と相性がよく、JavaScript とは相性が悪い</span></a><ol><li><a href="#app-c-s2">Lean の関数は書き換えをしない</a></li><li><a href="#app-c-s3">Rust は別名を型で禁じている</a></li><li><a href="#app-c-s4">翻訳の限界と、信頼している部分</a></li><li><a href="#app-c-s5">JavaScript はどこが難しいか</a></li><li><a href="#app-c-s6">だから付録F は MBT、付録D はモデル検査にした</a></li><li><a href="#app-c-s7">ほかの道具</a></li><li><a href="#app-c-s8">実務での分け方</a></li></ol></li><li data-ch="app-d"><a href="#app-d"><span class="no">D</span><span>TLA+ と TLC で同期を検査する</span></a><ol><li><a href="#app-d-s2">題材：同期つきの小さな todo アプリ</a></li></ol></li><li data-ch="app-e"><a href="#app-e"><span class="no">E</span><span>h5i と Nyxis：web アプリの枠組みごと認可を証明する</span></a><ol><li><a href="#app-e-s2">3つの道具を比べる</a></li></ol></li><li data-ch="app-f"><a href="#app-f"><span class="no">F</span><span>Quint で仕様を全部の状態について調べる</span></a><ol><li><a href="#app-f-s2">題材と道具</a></li></ol></li></ol></nav>
@@ -244,71 +199,9 @@ footer.colophon { color: var(--ink-soft); font-size: 12.5px; padding-top: 32px; 
       <h1>形式検証入門ブック</h1>
       <p>本編では、Rust で書いた todo アプリが仕様どおりに動くことを、Lean で証明します。ソートの小さな例から始めて、todo の操作、そして「他人の todo には触れない」という認可まで、1章ずつ手を動かします。付録では、同じ todo を Quint・h5i・Nyxis・TLA+ で検証した結果を紹介します。</p>
       <p class="cover-links"><a class="gh" href="https://github.com/muraikenta/formal-todo">GitHub でコードを見る ↗</a><span>MIT License</span></p>
-      <a class="quick-banner" href="#quick"><span class="qb-k">時間がない人へ</span><span class="qb-t">5分で読む 形式検証入門ブック</span><span class="qb-d">本の要点をスライド9枚のストーリーで →</span></a>
       <h2 class="cards-title">章の一覧</h2>
       <ol class="cards"><li><a href="#ch-0"><span class="no">CHAPTER 0</span><span class="t">はじめに：形式検証ってなに？</span><span class="d">形式検証が「何をしてくれて、何をしてくれないか」を、ソートの関数でつかみます。</span></a></li><li><a href="#ch-1"><span class="no">CHAPTER 1</span><span class="t">Lean と Rust で todo が仕様どおりと証明する</span><span class="d">第0章のソートと同じ「仕様 → 実装 → 証明」の3段を、今度は状態を持つ todo で通します。</span></a></li><li><a href="#ch-2"><span class="no">CHAPTER 2</span><span class="t">認可を証明する：他人の todo には触れない</span><span class="d">「アリスの todo はボブには変えられない・見えない」を、全ユーザー・全 id・全状態について証明します。道具は第1章と同じ Lean と Aeneas です。</span></a></li><li><a href="#ch-3"><span class="no">CHAPTER 3</span><span class="t">まとめ</span><span class="d">本編（ソート・todo・認可）で分かったことを4つにまとめ、自分のコードで試す最初の一歩を決めます。</span></a></li><li class="cards-group">付録（ほかの道具）</li><li><a href="#app-a"><span class="no">APPENDIX A</span><span class="t">Lean の基本文法</span><span class="d">本編のコード抜粋を読むときに引く早見です。網羅はせず、本書に出てくるものだけを TypeScript と並べて載せます。例はすべて Lean 4.36 で検査を通しています。</span></a></li><li><a href="#app-b"><span class="no">APPENDIX B</span><span class="t">Lean で Web サーバーも作れる</span><span class="d">Lean は証明の道具だと思われがちですが、普通のプログラムも書けます。付録E の Nyxis は、HTTP サーバーそのものが Lean で動いています。この付録では、その仕組みと、どこまでが証明でどこからが信頼かを見ます。</span></a></li><li><a href="#app-c"><span class="no">APPENDIX C</span><span class="t">Lean は Rust と相性がよく、JavaScript とは相性が悪い</span><span class="d">本編では todo の中核を Rust で書き、Lean に翻訳して証明しました。同じ todo でも、JavaScript／TypeScript 版（付録D・F）では証明をせず、MBT（モデルに基づくテスト。仕様から作った操作の列を実装に流して突き合わせる）とモデル検査にしました。この付録では、その分け方の理由を説明します。</span></a></li><li><a href="#app-d"><span class="no">APPENDIX D</span><span class="t">TLA+ と TLC で同期を検査する</span><span class="d">オフラインでも動く todo アプリを2つのタブとサーバのモデルにして、送信・失敗・遅れた応答がどの順に起きても約束が守られるかを全部調べます。テストが全部緑のアプリから、操作が黙って消える不具合を3つ見つけます。</span></a></li><li><a href="#app-e"><span class="no">APPENDIX E</span><span class="t">h5i と Nyxis：web アプリの枠組みごと認可を証明する</span><span class="d">第2章の認可の証明は Rust の中核までで、保存や本人確認は証明の外でした。この付録では、DB と HTTP まで含めた web アプリの枠組みで同じ認可を証明する2つの道具、h5i と Nyxis を見ます。</span></a></li><li><a href="#app-f"><span class="no">APPENDIX F</span><span class="t">Quint で仕様を全部の状態について調べる</span><span class="d">本編では Lean で「どんな件数でも仕様どおり」と証明しました。この付録は別のやり方です。証明はせず、範囲を小さく区切って、起こりうる状態を機械に全部調べさせます。最後に、仕様から作った操作の列を JavaScript アプリに流して突き合わせます。</span></a></li></ol>
     </header>
-<section class="chapter quick-page" id="quick"><div class="chapter-bar"><a href="#home">← 表紙</a><span class="meter"><i style="width:100%"></i></span><span>5分で読む</span></div>
-<div class="quick-home">
-<div class="slide slide-title"><h2>5分で読む 形式検証入門ブック</h2>
-<p class="slide-kicker">形式検証を知らない web エンジニアのための、本1冊ぶんの話を9枚で。</p>
-<p class="quick-thesis">ソートを壊しました。テストは<em>全部緑</em>のままでした。</p></div>
-<div class="slide"><span class="slide-no">01</span><h3>テストは、選んだ入力しか見ていません</h3>
-<p class="slide-lead">壊し方は「7個目から先は並べない」。テストの例は、どれも5個以下の長さでした。</p>
-<p class="slide-big">緑は「その入力では動いた」だけ</p></div>
-<div class="slide"><span class="slide-no">02</span><h3>形式検証は、全部の入力について機械に確かめさせます</h3>
-<p class="slide-lead">選んだ例ではなく、すべての入力について数学で確かめます。守るべき約束を実装と別に書いたものが「仕様」です。</p>
-<div class="vs">
-<div>
-<h4>テスト</h4>
-<ul>
-<li>人が思いついた入力を試す</li>
-<li>例に入っていないバグは素通り</li>
-</ul>
-</div>
-<div>
-<h4>形式検証</h4>
-<ul>
-<li>前提を満たすすべての入力について言う</li>
-<li>証明が正しいかは機械が検査する</li>
-</ul>
-</div>
-</div></div>
-<div class="slide"><span class="slide-no">03</span><h3>やることは「仕様・実装・証明」の3段です</h3>
-<p class="slide-lead">ソートで通します。人が書くのは①と②、③の検査は機械です。</p>
-<div class="flow3">
-<div><small>①仕様</small><b>結果が満たすこと</b><p>「小さい順」かつ「入力の並べ替え」。実装より先に書く。</p></div>
-<div><small>②実装</small><b>ふつうの Rust</b><p>挿入ソート。翻訳ツールが証明できる形に写す。</p></div>
-<div><small>③証明</small><b>機械が検査</b><p>「どの入力でも止まり、異常終了せず、仕様を満たす」を Lean が確かめる。</p></div>
-</div></div>
-<div class="slide"><span class="slide-no">04</span><h3>テストが見逃した壊し方を、証明は止めました</h3>
-<p class="slide-lead">実装をわざと壊して、テストと証明のどちらが気づくかを数えました。</p>
-<div class="stats">
-<div class="stat"><span class="n">8通り</span><span class="l">ソートを壊した数。冒頭の「7個目から先」など2つはテスト（例6つ）を素通りし、証明が止めた</span></div>
-<div class="stat"><span class="n">3 / 4</span><span class="l">他人の todo を守る確認を外した4通りのうち、テストを素通りした数。4つとも証明が止めた</span></div>
-</div></div>
-<div class="slide"><span class="slide-no">05</span><h3>ただし、証明は「仕様に書いたこと」しか守りません</h3>
-<p class="slide-lead">仕様が「小さい順に並んでいる」だけなら、何を入れても [0, 0, 0] を返す実装が証明を通ります。だから仕様は小さい例で先に試します。</p>
-<p class="slide-big">形式検証は、契約書どおりかを全ページ調べる監査。書き忘れた項目は対象外です</p></div>
-<div class="slide"><span class="slide-no">06</span><h3>見つかった穴は、証明していない層にありました</h3>
-<p class="slide-lead">todo の証明が通ったあと、別の目で探すと本物の穴が見つかりました。証明した中核には0件です。</p>
-<div class="stats">
-<div class="stat"><span class="n">5件</span><span class="l">すべて保存・コマンドの層か、証明の前提を誰が満たすかの所にありました（題名の改行で保存ファイルが壊れ、消した todo が復活する、など）</span></div>
-</div></div>
-<div class="slide"><span class="slide-no">07</span><h3>実務では、小さな核に絞って入れます</h3>
-<p class="slide-lead">todo の中核 約120行に、仕様と証明は約700行。壊れると事故になる所から始めます。</p>
-<ul>
-<li>小さな核（認可・お金）の判断だけを切り出す</li>
-<li>入れるなら設計の段階で。テストが緑の同期アプリでも、操作が消える不具合が3つ出た（<a href="#app-d">付録D</a>）</li>
-<li>全部緑でも、わざと壊して見逃しを数える</li>
-</ul></div>
-<div class="slide"><span class="slide-no">08</span><h3>証明は AI が書けても、仕様を読むのは人です</h3>
-<p class="slide-lead">本書の証明はほとんど AI が書きました。それでも前提の外と、証明していない層（保存・画面・本人確認）は守られません。仕様が意図どおりかを人が読むことが、仕事として残ります。</p>
-<p class="slide-big">テストは選んだ入力だけ。証明は全部の入力。ただし<em>仕様に書いたことだけ</em>。</p>
-<p>通して読むなら<a href="#ch-0">第0章</a>から。todo の証明は<a href="#ch-1">第1章</a>、認可は<a href="#ch-2">第2章</a>、実務の所感は<a href="#ch-3">第3章</a>、TypeScript など Rust 以外の入口は<a href="#app-d">付録D</a>・<a href="#app-f">付録F</a>です。</p></div>
-</div>
-<nav class="pager"><a class="prev" href="#home"><small>← 表紙</small>章の一覧</a><a class="next" href="#ch-0"><small>本編へ →</small>第0章 はじめに</a></nav>
-</section>
 <section class="chapter" id="ch-0"><div class="chapter-bar"><a href="#home">← 表紙</a><span class="meter"><i style="width:10%"></i></span><span>1 / 4</span><a class="code-link" href="https://github.com/muraikenta/formal-todo/tree/main/sort-aeneas">コードを見る ↗</a></div>
 <h2>第0章 はじめに：形式検証ってなに？</h2>
 <p class="lead">形式検証が「何をしてくれて、何をしてくれないか」を、ソートの関数でつかみます。</p>
@@ -2462,7 +2355,7 @@ module inputs {
   }
   function show(forced) {
     var h = typeof forced === 'string' ? forced : decodeURIComponent((location.hash || '').slice(1));
-    var m = h.match(/^(ch-\d+|app-[a-z]|quick)/);
+    var m = h.match(/^(ch-\d+|app-[a-z])/);
     var cur = m && document.getElementById(m[1]) ? m[1] : null;
     home.hidden = !!cur;
     chapters.forEach(function (c) { c.hidden = c.id !== cur; });
