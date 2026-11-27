@@ -26,6 +26,7 @@
   --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html { scroll-behavior: smooth; scroll-padding-top: 16px; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 body {
@@ -199,7 +200,21 @@ pre.mm svg { max-width: 100%; height: auto; }
 .vs > div:last-child { background: var(--accent-soft); border-color: transparent; }
 .vs h4 { margin: 0 0 6px; font-size: 15px; }
 .vs ul { margin: 0; padding-left: 1.2em; font-size: 14px; }
-.toc nav > ol > li[data-ch="quick"] > a .no { color: var(--accent); }
+/* 表紙の「5分で読む」：スライドを縦に並べる */
+.quick-home { margin: 40px 0 8px; display: grid; gap: 16px; }
+.slide { position: relative; background: var(--sheet); border: 1px solid var(--rule); border-radius: 16px; padding: clamp(22px, 4vw, 40px); min-width: 0; }
+.slide-title { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.slide-title h2 { font-family: var(--font-display); font-weight: 900; font-size: clamp(24px, 3.4vw, 34px); line-height: 1.4; margin: 0 0 10px; color: var(--paper); }
+.slide-title .slide-kicker { color: #a9c9bd; font-size: 15px; margin: 0 0 6px; }
+.slide-title .quick-thesis { color: var(--paper); margin: 12px 0 0; }
+.slide-title .quick-thesis em { color: #7fd8b6; }
+.slide .slide-no { position: absolute; top: 18px; right: 22px; font-family: var(--font-mono); font-size: 12px; color: var(--ink-soft); letter-spacing: .08em; }
+.slide h3 { font-family: var(--font-display); font-weight: 900; font-size: clamp(21px, 2.8vw, 28px); line-height: 1.45; margin: 0 0 12px; padding-right: 2.5em; text-wrap: balance; }
+.slide .slide-lead { font-size: 17px; line-height: 1.85; margin: 0 0 12px; color: var(--ink); }
+.slide .slide-big { font-family: var(--font-display); font-weight: 900; font-size: clamp(20px, 2.6vw, 26px); line-height: 1.5; color: var(--accent); margin: 8px 0 4px; text-wrap: balance; }
+.slide ul { margin: 6px 0 4px; padding-left: 1.3em; font-size: 16px; line-height: 1.8; }
+.slide p:last-child, .slide ul:last-child { margin-bottom: 0; }
+.slide .flow3, .slide .stats, .slide .vs { margin: 14px 0 4px; }
 footer.colophon { color: var(--ink-soft); font-size: 12.5px; padding-top: 32px; max-width: 46em; }
 </style>
 
@@ -218,6 +233,7 @@ footer.colophon { color: var(--ink-soft); font-size: 12.5px; padding-top: 32px; 
       <h1>形式検証入門ブック</h1>
       <p>本編では、Rust で書いた todo アプリが仕様どおりに動くことを、Lean で証明します。ソートの小さな例から始めて、todo の操作、そして「他人の todo には触れない」という認可まで、1章ずつ手を動かします。付録では、同じ todo を Quint・h5i・Nyxis・TLA+ で検証した結果を紹介します。</p>
       <p class="cover-links"><a class="gh" href="https://github.com/muraikenta/formal-todo">GitHub でコードを見る ↗</a><span>MIT License</span></p>
+    {{QUICK}}
       <h2 class="cards-title">章の一覧</h2>
       <ol class="cards">{{CARDS}}</ol>
     </header>
@@ -287,13 +303,13 @@ footer.colophon { color: var(--ink-soft); font-size: 12.5px; padding-top: 32px; 
   }
   function show(forced) {
     var h = typeof forced === 'string' ? forced : decodeURIComponent((location.hash || '').slice(1));
-    var m = h.match(/^(ch-\d+|app-[a-z]|quick)/);
+    var m = h.match(/^(ch-\d+|app-[a-z])/);
     var cur = m && document.getElementById(m[1]) ? m[1] : null;
     home.hidden = !!cur;
     chapters.forEach(function (c) { c.hidden = c.id !== cur; });
     items.forEach(function (li) { li.classList.toggle('active', li.dataset.ch === (cur || 'home')); });
     if (!mq.matches) d.open = false;
-    var target = cur && h !== cur ? document.getElementById(h) : null;
+    var target = h && h !== cur && h !== 'home' ? document.getElementById(h) : null;
     renderDiagrams(cur ? document.getElementById(cur) : null);
     if (target) target.scrollIntoView(); else window.scrollTo(0, 0);
     var t = cur ? document.querySelector('#' + cur + ' h2') : null;

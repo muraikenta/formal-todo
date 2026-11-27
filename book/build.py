@@ -17,6 +17,20 @@ MERMAID_INIT = ('%%{init: {"theme": "base", "themeVariables": {'
                 '"signalTextColor": "#16201d", "labelBoxBkgColor": "#e3f1ec", "labelTextColor": "#16201d", '
                 '"fontFamily": "Noto Sans JP, sans-serif"}}}%%\n')
 
+def build_quick():
+    """5分で読むページを、表紙の中に置くスライド列（h3 ごとに1枚）に組み立てる。章の並びには入れない。"""
+    p = ROOT / "chapters" / "quick.html"
+    if not p.exists():
+        return ""
+    src = p.read_text(encoding="utf-8").strip()
+    inner = re.sub(r'^<section[^>]*>', "", src).rsplit("</section>", 1)[0]
+    head, sep, rest = inner.partition("<h3")
+    slides = ["<h3" + x for x in rest.split("<h3") if x.strip()] if sep else []
+    out = [f'<div class="slide slide-title">{head.strip()}</div>']
+    for i, body in enumerate(slides, 1):
+        out.append(f'<div class="slide"><span class="slide-no">{i:02d}</span>{body.strip()}</div>')
+    return '<section class="quick-home" id="quick">\n' + "\n".join(out) + "\n</section>"
+
 def link_caption(m):
     text = m.group(1)
     path = text.split("（")[0].strip()
@@ -30,8 +44,7 @@ def link_caption(m):
         path = "nyxis-todo/" + path
     return f'<figcaption><a href="{REPO}/blob/main/{path}">{text}</a></figcaption>'
 
-chapters = ([p for p in [ROOT / "chapters" / "quick.html"] if p.exists()]
-            + sorted((ROOT / "chapters").glob("ch-*.html"), key=lambda p: int(p.stem.split("-")[1]))
+chapters = (sorted((ROOT / "chapters").glob("ch-*.html"), key=lambda p: int(p.stem.split("-")[1]))
             + sorted((ROOT / "chapters").glob("app-*.html")))
 tpl = (ROOT / "template.html").read_text(encoding="utf-8")
 
@@ -111,6 +124,7 @@ body = re.sub(r"<table", '<div class="table-wrap"><table', body).replace("</tabl
 toc.insert(0, '<li data-ch="home"><a href="#home"><span class="no">◇</span><span>表紙・章の一覧</span></a></li>')
 res = (tpl.replace("{{TOC}}", "<ol>" + "".join(toc) + "</ol>")
           .replace("{{CARDS}}", "".join(cards))
+          .replace("{{QUICK}}", build_quick())
           .replace("{{CHAPTERS}}", body))
 (ROOT / "book.html").write_text(res, encoding="utf-8")
 print(f"book.html: {len(chapters)} 章, {len(res):,} bytes")
