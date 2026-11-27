@@ -2,7 +2,7 @@
 
 Rust で書いた todo アプリを Lean で証明した記録と、同じ todo をほかの形式検証の道具（Quint・h5i・Nyxis・TLA+）で検証した記録です。初心者向けの解説 book と、そのコードの元になったアプリが入っています。
 
-- 解説 book: [book/book.html](book/book.html)（ブラウザで開くと章ごとに読めます）
+- 解説 book「形式検証入門ブック」: [book/book.html](book/book.html)（ブラウザで開くと章ごとに読めます）
 - 調べた時期: 2026 年 11 月。道具の版は各フォルダの README と `lean-toolchain` にあります
 
 ## book の章とフォルダ

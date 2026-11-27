@@ -1,4 +1,4 @@
-<title>形式検証 todo 入門</title>
+<title>形式検証入門ブック</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -193,7 +193,7 @@ footer.colophon { color: var(--ink-soft); font-size: 12.5px; padding-top: 32px; 
 
 <div class="book">
   <aside class="toc" aria-label="目次">
-    <p class="brand">形式検証 <span>todo</span> 入門</p>
+    <p class="brand">形式検証入門<span>ブック</span></p>
     <p class="sub">Rust と Lean で学ぶ、仕様・実装・証明</p>
     <details id="toc-details">
       <summary>目次</summary>
@@ -203,7 +203,7 @@ footer.colophon { color: var(--ink-soft); font-size: 12.5px; padding-top: 32px; 
   <main>
     <header class="cover" id="home-view">
       <p class="eyebrow">A step-by-step book · 初心者向け</p>
-      <h1>todo アプリで学ぶ<br>形式検証のはじめかた</h1>
+      <h1>形式検証入門ブック</h1>
       <p>本編では、Rust で書いた todo アプリが仕様どおりに動くことを、Lean で証明します。ソートの小さな例から始めて、todo の操作、そして「他人の todo には触れない」という認可まで、1章ずつ手を動かします。付録では、同じ todo を Quint・h5i・Nyxis・TLA+ で検証した結果を紹介します。</p>
       <p class="cover-links"><a class="gh" href="https://github.com/muraikenta/formal-todo">GitHub でコードを見る ↗</a><span>MIT License</span></p>
       <figure class="map" aria-label="この本で使う道具の地図">
@@ -2375,7 +2375,7 @@ theorem later (n : Nat) : 2 * (List.range n).sum + n = n * n := by
     var target = cur && h !== cur ? document.getElementById(h) : null;
     if (target) target.scrollIntoView(); else window.scrollTo(0, 0);
     var t = cur ? document.querySelector('#' + cur + ' h2') : null;
-    document.title = (t ? t.textContent + ' | ' : '') + '形式検証 todo 入門';
+    document.title = (t ? t.textContent + ' | ' : '') + '形式検証入門ブック';
   }
   window.addEventListener('hashchange', show);
   show();
