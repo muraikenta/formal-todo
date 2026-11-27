@@ -29,7 +29,9 @@ def build_quick():
     out = [f'<div class="slide slide-title">{head.strip()}</div>']
     for i, body in enumerate(slides, 1):
         out.append(f'<div class="slide"><span class="slide-no">{i:02d}</span>{body.strip()}</div>')
-    return '<section class="quick-home" id="quick">\n' + "\n".join(out) + "\n</section>"
+    bar = '<div class="chapter-bar"><a href="#home">← 表紙</a><span class="meter"><i style="width:100%"></i></span><span>5分で読む</span></div>'
+    nav = '<nav class="pager"><a class="prev" href="#home"><small>← 表紙</small>章の一覧</a><a class="next" href="#ch-0"><small>本編へ →</small>第0章 はじめに</a></nav>'
+    return '<section class="chapter quick-page" id="quick">' + bar + '\n<div class="quick-home">\n' + "\n".join(out) + "\n</div>\n" + nav + "\n</section>"
 
 def link_caption(m):
     text = m.group(1)
@@ -124,7 +126,7 @@ body = re.sub(r"<table", '<div class="table-wrap"><table', body).replace("</tabl
 toc.insert(0, '<li data-ch="home"><a href="#home"><span class="no">◇</span><span>表紙・章の一覧</span></a></li>')
 res = (tpl.replace("{{TOC}}", "<ol>" + "".join(toc) + "</ol>")
           .replace("{{CARDS}}", "".join(cards))
-          .replace("{{QUICK}}", build_quick())
-          .replace("{{CHAPTERS}}", body))
+          .replace("{{QUICK}}", "")
+          .replace("{{CHAPTERS}}", build_quick() + "\n" + body))
 (ROOT / "book.html").write_text(res, encoding="utf-8")
 print(f"book.html: {len(chapters)} 章, {len(res):,} bytes")

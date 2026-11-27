@@ -215,6 +215,16 @@ pre.mm svg { max-width: 100%; height: auto; }
 .slide ul { margin: 6px 0 4px; padding-left: 1.3em; font-size: 16px; line-height: 1.8; }
 .slide p:last-child, .slide ul:last-child { margin-bottom: 0; }
 .slide .flow3, .slide .stats, .slide .vs { margin: 14px 0 4px; }
+.quick-banner { display: grid; gap: 4px; margin: 32px 0 0; padding: 20px 24px; border-radius: 14px; background: var(--ink); color: var(--paper); text-decoration: none; }
+.quick-banner:hover { background: var(--accent); }
+.quick-banner .qb-k { font-size: 12px; letter-spacing: .12em; color: #a9c9bd; font-family: var(--font-mono); }
+.quick-banner .qb-t { font-family: var(--font-display); font-weight: 900; font-size: clamp(19px, 2.4vw, 23px); color: var(--paper); }
+.quick-banner .qb-d { font-size: 14px; color: #d5e3de; }
+.toc-quick { margin: -10px 0 16px; font-size: 13px; }
+.toc-quick a { display: inline-block; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--accent); color: var(--accent); text-decoration: none; font-weight: 700; }
+.toc-quick a:hover { background: var(--accent-soft); }
+.quick-page { max-width: 52em; }
+.quick-page .quick-home { margin-top: 8px; }
 footer.colophon { color: var(--ink-soft); font-size: 12.5px; padding-top: 32px; max-width: 46em; }
 </style>
 
@@ -222,6 +232,7 @@ footer.colophon { color: var(--ink-soft); font-size: 12.5px; padding-top: 32px; 
   <aside class="toc" aria-label="目次">
     <p class="brand">形式検証入門<span>ブック</span></p>
     <p class="sub">Rust と Lean で学ぶ、仕様・実装・証明</p>
+    <p class="toc-quick"><a href="#quick">⏱ 5分で読む</a></p>
     <details id="toc-details">
       <summary>目次</summary>
       <nav>{{TOC}}</nav>
@@ -233,7 +244,7 @@ footer.colophon { color: var(--ink-soft); font-size: 12.5px; padding-top: 32px; 
       <h1>形式検証入門ブック</h1>
       <p>本編では、Rust で書いた todo アプリが仕様どおりに動くことを、Lean で証明します。ソートの小さな例から始めて、todo の操作、そして「他人の todo には触れない」という認可まで、1章ずつ手を動かします。付録では、同じ todo を Quint・h5i・Nyxis・TLA+ で検証した結果を紹介します。</p>
       <p class="cover-links"><a class="gh" href="https://github.com/muraikenta/formal-todo">GitHub でコードを見る ↗</a><span>MIT License</span></p>
-    {{QUICK}}
+      <a class="quick-banner" href="#quick"><span class="qb-k">時間がない人へ</span><span class="qb-t">5分で読む 形式検証入門ブック</span><span class="qb-d">本の要点をスライド9枚のストーリーで →</span></a>
       <h2 class="cards-title">章の一覧</h2>
       <ol class="cards">{{CARDS}}</ol>
     </header>
@@ -303,7 +314,7 @@ footer.colophon { color: var(--ink-soft); font-size: 12.5px; padding-top: 32px; 
   }
   function show(forced) {
     var h = typeof forced === 'string' ? forced : decodeURIComponent((location.hash || '').slice(1));
-    var m = h.match(/^(ch-\d+|app-[a-z])/);
+    var m = h.match(/^(ch-\d+|app-[a-z]|quick)/);
     var cur = m && document.getElementById(m[1]) ? m[1] : null;
     home.hidden = !!cur;
     chapters.forEach(function (c) { c.hidden = c.id !== cur; });
