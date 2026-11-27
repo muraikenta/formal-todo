@@ -1,0 +1,152 @@
+<section class="chapter" id="app-d">
+<h2>付録D Lean は Rust と相性がよく、JavaScript とは相性が悪い</h2>
+<p class="lead">本編では todo の中核を Rust で書き、Lean に翻訳して証明しました。同じ todo でも、JavaScript／TypeScript 版（付録A・C）では証明をせず、MBT（モデルに基づくテスト。仕様から作った操作の列を実装に流して突き合わせる）とモデル検査にしました。この付録では、その分け方の理由を説明します。</p>
+
+<div class="goals">
+<h3>この付録のゴール</h3>
+<ul>
+<li>Rust の所有権と借用があると、書き換えを「新しい値を返す」関数に直せる理由を説明できる</li>
+<li>翻訳の限界と、翻訳で信頼している部分を言える</li>
+<li>JavaScript のコードを証明しにくい理由を、具体的なコードで説明できる</li>
+<li>証明する核を Rust に切り出し、外側は JS/TS のままにする分け方を説明できる</li>
+</ul>
+</div>
+
+<h3>Lean の関数は書き換えをしない</h3>
+<p>Lean の関数は<dfn>純粋な関数</dfn>です。同じ引数なら同じ値を返し、引数を書き換えません。証明はこの性質に頼っています。「<code>t</code> に足したあとの <code>t</code>」を、普通の式として扱えるからです。</p>
+<p>一方、実際のプログラムは値を書き換えます。証明するには、書き換えを「新しい値を返す」に置き換える必要があります。置き換えてよいのは、<b>書き換えられる値を、ほかの誰も見ていない</b>ときだけです。誰かが同じ値を見ていると、その人から見た値も一緒に変わるので、「新しい値を返す」では表せません。同じ値を2つの名前から見ている状態を<dfn>別名</dfn>（エイリアス）と呼びます。</p>
+
+<h3>Rust は別名を型で禁じている</h3>
+<p>Rust の <code>&amp;mut</code>（書き換えてよい借用）は、借りている間ほかの誰も同じ値を見られません。コンパイラがこれを検査します。だから <a href="https://github.com/AeneasVerif/aeneas">Aeneas</a> は、<code>&amp;mut Todos</code> を受け取る関数を「<code>Todos</code> を受け取り、新しい <code>Todos</code> を返す」関数に直せます。メモリやアドレスを Lean で扱う必要がありません。Aeneas の論文 <a href="https://arxiv.org/abs/2206.07185">Aeneas: Rust Verification by Functional Translation</a>（ICFP 2022）は、この考え方を「借用の規則に頼って、メモリの推論を要らなくする」と述べています。</p>
+<p>本編の <code>add</code> を並べます。上が手で書いた Rust、下が Charon（Rust のコンパイラから中間表現を取り出す道具）→ Aeneas が自動で作った Lean です。</p>
+<figure class="code"><figcaption>todo-aeneas/kernel/src/lib.rs</figcaption><pre><code class="lang-rust">pub fn add(t: &amp;mut Todos, user: u32, title: String) -&gt; Option&lt;u32&gt; {
+    if t.next_id == u32::MAX {
+        return None;
+    }
+    let id = t.next_id;
+    t.items.push(Todo { id, owner: user, title, done: false });
+    // 上の if で最大値を除いたので、ここで u32 はあふれない
+    t.next_id = id + 1;
+    Some(id)
+}</code></pre></figure>
+<figure class="code"><figcaption>todo-aeneas/lean/TodoKernel.lean</figcaption><pre><code class="lang-lean">def add
+  (t : Todos) (user : Std.U32) (title : String) :
+  Result ((Option Std.U32) × Todos)
+  := do
+  if t.next_id = core.num.U32.MAX
+  then ok (none, t)
+  else
+    let v ←
+      alloc.vec.Vec.push t.items
+        ({ id := t.next_id, owner := user, title, done := false } : Todo)
+    let i ← t.next_id + 1#u32
+    ok (some t.next_id, { items := v, next_id := i })</code></pre></figure>
+<p>違いは3つです。</p>
+<ul>
+<li>引数の <code>&amp;mut Todos</code> が、ただの <code>Todos</code> になった</li>
+<li>戻り値が「元の戻り値 × 新しい <code>Todos</code>」の組になった。書き換えた結果は、戻り値として外に出る</li>
+<li>全体が <code>Result</code> に包まれた。<code>id + 1</code> のあふれや添字の範囲外は、panic ではなく失敗の値になる</li>
+</ul>
+<p><code>toggle</code> の「<code>t.items[i].done</code> を書き換える」も同じ形になります。<code>index_mut</code> が、借りた要素と一緒に「書き換えた要素を元の列に戻す関数」（<code>index_mut_back</code>）を返します。論文では、この戻す関数を <dfn>backward function</dfn> と呼んでいます。</p>
+<figure class="code"><figcaption>todo-aeneas/lean/TodoKernel.lean</figcaption><pre><code class="lang-lean">      let (t2, index_mut_back) ←
+        alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice Todo) v
+          i1
+      let v1 := index_mut_back { t2 with done := (¬ t1.done) }
+      ok (true, { items := v1, next_id := i })</code></pre></figure>
+<p>第0章のソートも同じです。<code>&amp;mut [u32]</code> をその場で並べ替える関数は、「新しい Slice を返す」関数として表されました。</p>
+
+<h3>翻訳の限界と、信頼している部分</h3>
+<p>Rust なら何でも翻訳できるわけではありません。この book で踏んだものと、Aeneas の README にある制約です。</p>
+<ul>
+<li><b>中身を知らない標準ライブラリ</b>：Aeneas が Lean でモデルを手書きした関数だけ、動きが分かります。<code>std::mem::take</code> はモデルが無く axiom になったので、<code>std::mem::replace(&amp;mut v, Vec::new())</code> に書き換えました（第1章）。</li>
+<li><b>ループの書き方</b>：<a href="https://github.com/AeneasVerif/aeneas">README</a> によると、入れ子のループの中の <code>return</code> と、外側のループへの <code>break</code>／<code>continue</code> はまだ扱えません。本編の中核は <code>while</code> と <code>for</code> を素直に書いています。</li>
+<li><b>unsafe と並行処理</b>：README では未対応です。論文も、内部可変性（<code>RefCell</code> など）と unsafe を使わない Rust を対象にしています。</li>
+</ul>
+<p>翻訳できたあとも、証明の外に残る部分があります。ソートの README では次を「証明していない層」として挙げました。todo も同じです。</p>
+<ul>
+<li>Charon が読む rustc と、実際にビルドする rustc。その先の LLVM のコード生成</li>
+<li>Charon／Aeneas の翻訳器そのもの</li>
+<li>Aeneas が手書きした標準ライブラリのモデル（ソートでは <code>swap</code> と添字、todo では <code>Vec</code> の <code>push</code> など）</li>
+<li>Lean のカーネル</li>
+</ul>
+<aside class="note"><b>ポイント</b>「Rust と相性がよい」は「Rust なら全部証明できる」ではありません。別名の無い、safe な、小さい関数なら、手で Lean に書き直さずに済む、という意味です。</aside>
+
+<h3>JavaScript はどこが難しいか</h3>
+<p>JavaScript には、Rust の借用検査に当たる仕組みがありません。証明しにくい理由を並べます。</p>
+<table>
+<thead><tr><th>性質</th><th>証明で困ること</th></tr></thead>
+<tbody>
+<tr><td>オブジェクトの共有と書き換え</td><td>どの変数も同じオブジェクトを指せる。<code>a.done = true</code> で、別の名前から見た値も変わる。「新しい値を返す」に直すには、誰が何を指しているかを全部追う必要がある</td></tr>
+<tr><td>動的な型</td><td>引数に何が来るかは実行するまで分からない。TypeScript の型は実行時には消え、<code>as</code> で外せる</td></tr>
+<tr><td>暗黙の型変換</td><td><code>==</code> や <code>+</code> が、値の種類によって違う規則で動く</td></tr>
+<tr><td>例外</td><td>どの呼び出しも投げうる。投げたかどうかが型に出ない</td></tr>
+<tr><td>非同期とイベントループ</td><td><code>await</code> のたびに、ほかの処理が割り込める。結果は実行順で変わる</td></tr>
+<tr><td>外界の API</td><td><code>localStorage</code>・<code>fetch</code>・タイマー・DOM。どれも Lean の外にあり、動きを誰かがモデルにする必要がある</td></tr>
+</tbody>
+</table>
+<p>この book で調べた範囲では、Aeneas のように JavaScript のコードをそのまま Lean に翻訳して証明する、実用段階の道具は見つけられませんでした。</p>
+
+<h3>だから付録A は MBT、付録C はモデル検査にした</h3>
+<p>付録A の <code>reduce</code> は、書き換えをせず新しい状態を返すように、わざと純粋に書きました。スプレッド構文（<code>...</code>）でコピーを作り、元の <code>state</code> には触りません。</p>
+<figure class="code"><figcaption>quint-todo/app/todo-core.mjs</figcaption><pre><code class="lang-js">export function reduce(state, action) {
+  // 操作の種類ごとに次の状態を返す（元の state は書き換えない）
+  switch (action.type) {
+    // …
+    case "toggle":
+      return {
+        ...state,
+        todos: state.todos.map((t) =&gt; (t.id === action.id ? { ...t, done: !t.done } : t)),
+      };
+    case "remove":
+      return { ...state, todos: state.todos.filter((t) =&gt; t.id !== action.id) };
+    // …
+  }
+}</code></pre></figure>
+<p>純粋なので、仕様から作った操作の列を流し、1歩ごとに Quint の状態と比べられます。ただし「純粋に書いた」ことは、人がそう書いただけです。Rust のようにコンパイラが保証してはいません。だから証明ではなく、実行列を流して突き合わせる MBT にしました。</p>
+<p>付録C の <code>sync.ts</code> も中身は純粋な関数です。難しいのはそれを呼ぶ外側で、<code>localStorage</code>・<code>fetch</code>・<code>setTimeout</code> が絡みます。</p>
+<figure class="code"><figcaption>todo/src/app.ts</figcaption><pre><code class="lang-js">function setState(next: ClientState): void {
+  state = next;
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(state));
+  } catch {
+    // storage full or blocked: keep running in memory
+  }
+  render();
+}
+// …
+function schedulePush(delay: number): void {
+  if (pushTimer) clearTimeout(pushTimer);
+  pushTimer = setTimeout(push, delay);
+}</code></pre></figure>
+<p>付録C で見つけた不具合は、どれも「送信・失敗・遅れた応答・別のタブの操作がどの順に起きるか」で起きました。これはコードの1行ずつではなく、タイミングの組み合わせの問題です。そこでコードを翻訳するのをやめ、2つのタブとサーバの動きを手で TLA+ にモデル化しました。手で書いたモデルとコードがずれる危険は残ります。</p>
+
+<h3>ほかの道具</h3>
+<ul>
+<li><b>Rust 側</b>：<a href="https://github.com/verus-lang/verus">Verus</a>（Rust のソースに事前・事後条件を書き SMT で検査）、<a href="https://github.com/model-checking/kani">Kani</a>（テストのように書いたハーネスを有界に全部調べる）、<a href="https://hax.cryspen.com">hax</a>（Rust を F*・Rocq や、Aeneas 経由で Lean などに翻訳）があります。</li>
+<li><b>JavaScript を「書く」のではなく「出す」道</b>：<a href="https://github.com/dafny-lang/dafny">Dafny</a> は、証明したコードを C#・Go・Python・Java・JavaScript に変換できます。JS のコードを証明するのではなく、証明した言語から JS を生成する道です。</li>
+<li><b>言語を揃えない道</b>：認可ポリシーの言語 Cedar は、<a href="https://github.com/cedar-policy/cedar-spec">Lean で書いたモデルと証明</a>を持ち、本番の Rust 実装とは乱択の差分テストで突き合わせています。仕様は Lean、実装は別の言語、という付録A と同じ形です。</li>
+</ul>
+
+<h3>実務での分け方</h3>
+<pre class="mermaid">flowchart LR
+  UI["外側（画面・HTTP・DB）: JS/TS のまま、テストで確かめる"] --&gt; Core["核（権限・お金・状態遷移）: Rust の純粋な小さい関数"]
+  Core --&gt; Proof["Aeneas で Lean に翻訳し、仕様どおりと証明"]</pre>
+<ul>
+<li>証明したいのは、壊れると困る小さい核です。権限の判定、金額の計算、状態の変え方などです。</li>
+<li>核は Rust で、<code>&amp;mut</code> か値を受け取って値を返す関数にします。I/O・時刻・乱数は引数で渡し、中では触りません。</li>
+<li>外側の HTTP・DB・画面は JS/TS のままでかまいません。核を呼ぶ方法（WebAssembly、別プロセスの API など）は別に選びます。呼び出し部分は証明の外なので、テストで確かめます。</li>
+<li>核を Rust にできない場合は、付録A のように仕様と実装を突き合わせる方法があります。</li>
+</ul>
+<aside class="warn"><b>落とし穴</b>核を切り出しても、外側が核を正しく呼んでいるかは証明されません。第2章の認可でいえば、「操作したのは誰か」を外側が正しく渡すことは、証明の前提です。</aside>
+
+<div class="recap">
+<h3>まとめ</h3>
+<ul>
+<li>Lean の証明は、書き換えの無い純粋な関数を前提にしている</li>
+<li>Rust は別名を型で禁じるので、Aeneas は <code>&amp;mut</code> を「新しい値を返す」に自動で直せる</li>
+<li>翻訳には限界（モデルの無い標準ライブラリ、ループの書き方、unsafe）があり、翻訳器と rustc は信頼している</li>
+<li>JavaScript は共有と書き換え・動的な型・非同期・外界の API が多く、コードをそのまま証明しにくい。だから付録A は MBT、付録C は手で書いたモデルの検査にした</li>
+<li>実務では、証明する核を Rust の小さい純粋な関数に切り出し、外側は JS/TS のままにする分け方がとれる</li>
+</ul>
+</div>
+</section>

@@ -1,21 +1,28 @@
 #!/usr/bin/env python3
-"""chapters/ch-*.html を template.html に流し込み、book.html を作る。目次は各章の h2 / h3 から作る。"""
+"""chapters/ch-*.html（本編）と app-*.html（付録）を template.html に流し込み、book.html を作る。目次は各章の h2 / h3 から作る。"""
 import html
 import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 REPO = "https://github.com/muraikenta/formal-todo"
-CODE = {"ch-0": "sort-aeneas", "ch-1": "quint-todo", "ch-2": "todo-aeneas", "ch-3": "h5i-todo", "ch-4": "todo/verification"}
+CODE = {"ch-0": "sort-aeneas", "ch-1": "todo-aeneas", "ch-2": "todo-aeneas", "app-a": "quint-todo", "app-b": "h5i-todo", "app-c": "todo/verification", "app-e": "nyxis-todo"}
 
 def link_caption(m):
     text = m.group(1)
     path = text.split("（")[0].strip()
+    if path == "例":
+        return f"<figcaption>{text}</figcaption>"
+    if "Nyxis 本体" in text:
+        return f'<figcaption><a href="https://github.com/NyxFoundation/nyxis/blob/df5c9ac/{path}">{text}</a></figcaption>'
+    if path.startswith("lean-pq/"):
+        return f'<figcaption><a href="https://github.com/typednotes/lean-pq">{text}</a></figcaption>'
     if path.startswith(("backend/", "frontend/")):
         path = "nyxis-todo/" + path
     return f'<figcaption><a href="{REPO}/blob/main/{path}">{text}</a></figcaption>'
 
-chapters = sorted((ROOT / "chapters").glob("ch-*.html"), key=lambda p: int(p.stem.split("-")[1]))
+chapters = (sorted((ROOT / "chapters").glob("ch-*.html"), key=lambda p: int(p.stem.split("-")[1]))
+            + sorted((ROOT / "chapters").glob("app-*.html")))
 tpl = (ROOT / "template.html").read_text(encoding="utf-8")
 
 def strip_tags(s):
@@ -24,13 +31,18 @@ def strip_tags(s):
 toc, path, bodies, cards = [], [], [], []
 for i, p in enumerate(chapters):
     src = p.read_text(encoding="utf-8").strip()
-    m = re.search(r'<section class="chapter" id="(ch-\d+)"', src)
+    m = re.search(r'<section class="chapter" id="((?:ch|app)-[\w]+)"', src)
     assert m, f"{p.name}: section.chapter が無い"
     cid = m.group(1)
     h2 = strip_tags(re.search(r"<h2[^>]*>(.*?)</h2>", src, re.S).group(1))
     no, _, name = h2.partition(" ")
-    if not no.startswith("第"):
-        no, name = "", h2
+    appendix = cid.startswith("app-")
+    if appendix and no.startswith("付録"):
+        num = no.replace("付録", "")
+    elif no.startswith("第"):
+        num = re.sub(r"[^0-9]", "", no) or str(i)
+    else:
+        no, name, num = "", h2, str(i)
     # h3 に id を振る（goals / recap の中の h3 は目次に出さない）
     subs = []
     def add_id(mm, counter=[0]):
@@ -40,20 +52,20 @@ for i, p in enumerate(chapters):
         counter[0] += 1
         hid = f"{cid}-s{counter[0]}"
         t = strip_tags(text)
-        if t not in ("この章のゴール", "まとめ"):
+        if t not in ("この章のゴール", "この付録のゴール", "まとめ"):
             subs.append((hid, t))
         return f'<h3{attrs} id="{hid}">{text}</h3>'
     src = re.sub(r"<h3([^>]*)>(.*?)</h3>", add_id, src, flags=re.S)
     src = re.sub(r"<figcaption>([^<]*)</figcaption>", link_caption, src)
     bodies.append((cid, src))
     sub_html = "".join(f'<li><a href="#{h}">{html.escape(t)}</a></li>' for h, t in subs)
-    num = re.sub(r"[^0-9]", "", no) or str(i)
+    if appendix and not any("toc-group" in x for x in toc):
+        toc.append('<li class="toc-group">付録</li>')
+        cards.append('<li class="cards-group">付録（ほかの道具）</li>')
     toc.append(f'<li data-ch="{cid}"><a href="#{cid}"><span class="no">{num}</span><span>{html.escape(name)}</span></a>'
                + (f"<ol>{sub_html}</ol>" if sub_html else "") + "</li>")
     lead = re.search(r'<p class="lead">(.*?)</p>', src, re.S)
-    cards.append(f'<li><a href="#{cid}"><span class="no">CHAPTER {num}</span><span class="t">{html.escape(name)}</span><span class="d">{html.escape(strip_tags(lead.group(1))) if lead else ""}</span></a></li>')
-    short = ["はじめに", "Quint", "Lean と Rust", "認可", "TLA+ で同期", "まとめ"]
-    path.append(f'<a href="#{cid}">{num}. {short[i] if i < len(short) else html.escape(name)}</a>')
+    cards.append(f'<li><a href="#{cid}"><span class="no">{"APPENDIX" if appendix else "CHAPTER"} {num}</span><span class="t">{html.escape(name)}</span><span class="d">{html.escape(strip_tags(lead.group(1))) if lead else ""}</span></a></li>')
 
 ids = [c for c, _ in bodies]
 out_chapters = []
@@ -69,8 +81,10 @@ for i, (cid, src) in enumerate(bodies):
         nav += f'<a class="next" href="#{ids[i+1]}"><small>次の章 →</small>{html.escape(title_of(i+1))}</a>'
     nav += "</nav>"
     pct = round((i + 1) / len(ids) * 100)
-    bar = f'<div class="chapter-bar"><a href="#home">← 表紙</a><span class="meter"><i style="width:{pct}%"></i></span><span>{i+1} / {len(ids)}</span>' + (f'<a class="code-link" href="{REPO}/tree/main/{CODE[cid]}">コードを見る ↗</a>' if cid in CODE else "") + '</div>'
-    src = re.sub(r'(<section class="chapter" id="ch-\d+"[^>]*>)', lambda mm: mm.group(1) + bar, src, count=1)
+    n_main = sum(1 for x in ids if x.startswith("ch-"))
+    pos = ("付録 " + cid[-1].upper()) if cid.startswith("app-") else f"{i + 1} / {n_main}"
+    bar = f'<div class="chapter-bar"><a href="#home">← 表紙</a><span class="meter"><i style="width:{pct}%"></i></span><span>{pos}</span>' + (f'<a class="code-link" href="{REPO}/tree/main/{CODE[cid]}">コードを見る ↗</a>' if cid in CODE else "") + '</div>'
+    src = re.sub(r'(<section class="chapter" id="(?:ch|app)-\w+"[^>]*>)', lambda mm: mm.group(1) + bar, src, count=1)
     src = re.sub(r"</section>\s*$", nav + "\n</section>", src)
     out_chapters.append(src)
 

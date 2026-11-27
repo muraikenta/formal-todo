@@ -1,20 +1,26 @@
 # formal-todo
 
-同じ「todo アプリ」を、4 種類の形式検証の道具で検証した記録です。初心者向けの解説 book と、そのコードの元になったアプリが入っています。
+Rust で書いた todo アプリを Lean で証明した記録と、同じ todo をほかの形式検証の道具（Quint・h5i・Nyxis・TLA+）で検証した記録です。初心者向けの解説 book と、そのコードの元になったアプリが入っています。
 
 - 解説 book: [book/book.html](book/book.html)（ブラウザで開くと章ごとに読めます）
 - 調べた時期: 2026 年 11 月。道具の版は各フォルダの README と `lean-toolchain` にあります
 
 ## book の章とフォルダ
 
+本編は Rust と Lean（Aeneas）だけで読めます。ほかの道具は付録にまとめました。
+
 | 章 | 内容 | フォルダ |
 |---|---|---|
-| 0 | はじめに（仕様・実装・証明、テストとの違い。例はソート） | [sort-aeneas](sort-aeneas/README.md) |
-| 1 | Quint で todo の仕様を書き、全部の状態を調べる（TLC・変異テスト・MBT） | [quint-todo](quint-todo/README.md) |
-| 2 | Lean と Rust で「実装が仕様どおり」を証明する（Aeneas） | [todo-aeneas](todo-aeneas/README.md) |
-| 3 | 認可を証明する（他人の todo には触れない） | [todo-aeneas](todo-aeneas/README.md) ・ [h5i-todo](h5i-todo/README.md) ・ [nyxis-todo](nyxis-todo/README.md) |
-| 4 | TLA+ で同期を検査する（複数タブで操作が消える 3 つの不具合） | [todo](todo/README.md) ・ [todo/verification](todo/verification/README.md) |
-| 5 | まとめ（道具の選び方・共通の教訓・用語集） | — |
+| 第0章 | はじめに（仕様・実装・証明、テストとの違い。例はソート） | [sort-aeneas](sort-aeneas/README.md) |
+| 第1章 | Lean と Rust で todo が仕様どおりと証明する（Aeneas） | [todo-aeneas](todo-aeneas/README.md) |
+| 第2章 | 認可を証明する（他人の todo には触れない） | [todo-aeneas](todo-aeneas/README.md) |
+| 第3章 | まとめ | — |
+| 付録A | Quint で仕様を全部の状態について調べる（TLC・変異テスト・MBT） | [quint-todo](quint-todo/README.md) |
+| 付録B | h5i と Nyxis：web アプリの枠組みごと認可を証明する | [h5i-todo](h5i-todo/README.md) ・ [nyxis-todo](nyxis-todo/README.md) |
+| 付録C | TLA+ と TLC で同期を検査する（複数タブで操作が消える 3 つの不具合） | [todo](todo/README.md) ・ [todo/verification](todo/verification/README.md) |
+| 付録D | Lean と Rust は相性がよく、JavaScript とは相性が悪い | [todo-aeneas](todo-aeneas/README.md) ・ [quint-todo](quint-todo/README.md) ・ [todo](todo/README.md) |
+| 付録E | Lean で Web サーバーも作れる（Nyxis の仕組み） | [nyxis-todo](nyxis-todo/README.md) |
+| 付録F | Lean の基本文法 | — |
 
 ## その他のフォルダ
 

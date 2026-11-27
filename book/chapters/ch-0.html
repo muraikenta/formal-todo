@@ -7,7 +7,7 @@
 <ul>
 <li>「テストは選んだ入力だけ、形式検証は全部（ただし仕様に書いたことだけ）」を説明できる</li>
 <li>仕様・実装・証明を、それぞれ誰が書き、どう信じるかが分かる</li>
-<li>この book の4つの todo と、各道具の「保証すること・しないこと」を見渡せる</li>
+<li>この book の構成（本編は Rust と Lean、付録でほかの道具）と、本編の各章が「保証すること・しないこと」を見渡せる</li>
 </ul>
 </div>
 
@@ -37,7 +37,7 @@ flowchart LR
 <p>人が読むのは仕様と定理の主張（何を前提に何を言うか）です。手順は機械に任せます。</p>
 
 <h3>ソートで3段を体験する</h3>
-<p>第2章の流れを、ソートで眺めます。道具は <dfn>Lean</dfn>（証明を書いて機械に検査させる言語）です。ソートを選んだのは、仕様と実装がまったく違う形になるからです。</p>
+<p>第1章の流れを、ソートで眺めます。道具は <dfn>Lean</dfn>（証明を書いて機械に検査させる言語）です。ソートを選んだのは、仕様と実装がまったく違う形になるからです。</p>
 
 <ol class="steps">
 <li>
@@ -49,7 +49,7 @@ def Sorted (l : List Nat) : Prop := l.Pairwise (· ≤ ·)  -- (· ≤ ·) は�
 /-- `output` は `input` をソートしたものである。 -/
 def IsSortOf (input output : List Nat) : Prop :=
   Sorted output ∧ output.Perm input  -- 並んでいる、かつ入力の並べ替え</code></pre></figure>
-<p><code>Sorted</code> は「小さい順に並んでいる」、<code>Perm</code> は「入力の並べ替えである（要素を足しても消してもいない）」です。<code>∧</code> は「かつ」。挿入ソートでもマージソートでも、正しいソートならこの2つを満たします。</p>
+<p><code>Sorted</code> は「小さい順に並んでいる」、<code>Perm</code> は「入力の並べ替えである（要素を足しても消してもいない）」です。<code>∧</code> は「かつ」。挿入ソートでもマージソートでも、正しいソートならこの2つを満たします。Lean の書き方は付録F にまとめました。</p>
 </li>
 
 <li>
@@ -88,7 +88,7 @@ pub fn insertion_sort(v: &amp;mut [u32]) {
 
 <li>
 <h4>「実装は仕様を満たす」を証明する</h4>
-<p>Rust は Aeneas（第2章）が Lean の関数に自動で翻訳します。その翻訳結果が仕様を満たすことを定理に書きます。</p>
+<p>Rust は Aeneas（第1章）が Lean の関数に自動で翻訳します。その翻訳結果が仕様を満たすことを定理に書きます。</p>
 <figure class="code"><figcaption>sort-aeneas/lean/Proofs.lean</figcaption><pre><code class="lang-lean">theorem insertion_sort_correct (v : Slice U32) :  -- どんな入力 v でも
     insertion_sort v ⦃ v' =&gt; Spec.IsSortOf (nat v) (nat v') ⦄ := by  -- 止まって v' を返し、v' は v をソートしたもの
   -- …（証明の手順。Lean が検査する）</code></pre></figure>
@@ -113,53 +113,52 @@ pub fn insertion_sort(v: &amp;mut [u32]) {
 
 <aside class="warn"><b>落とし穴</b>証明が止まっても、バグがあるとは限りません。「等しいときも入れ替える」（<code>&gt;</code> を <code>&gt;=</code> に）は正しいソートのままですが、最初の証明は止まりました。証明が元の書き方に寄りすぎていたためで、証明を直すと通りました。</aside>
 
-<aside class="try"><b>やってみよう</b>Lean と、ビルド済みの Aeneas の Lean ライブラリがあれば、証明が通るかを確かめられます。先に <code>sort-aeneas/lean/lakefile.toml</code> の <code>path</code> を、自分の Aeneas の <code>backends/lean</code> の場所に書き換えてください（筆者の環境の相対パスのままです）。エラーも <code>sorry</code>（証明の省略）も出なければ成功です。
+<aside class="try"><b>やってみよう</b>Lean と、ビルド済みの Aeneas の Lean ライブラリがあれば、<code>lake build</code>（Lean のビルド）で証明が通るかを確かめられます。先に <code>sort-aeneas/lean/lakefile.toml</code> の <code>path</code> を、自分の Aeneas の <code>backends/lean</code> の場所に書き換えてください（筆者の環境の相対パスのままです）。エラーも <code>sorry</code>（証明の省略）も出なければ成功です。
 <pre><code class="lang-bash">cd sort-aeneas/lean
 lake build</code></pre>
-初回は Mathlib（数学の定理集）の準備込みで、筆者の環境では3分ほどかかりました。翻訳の道具（Charon と Aeneas）は第2章で説明します。</aside>
+初回は Mathlib（数学の定理集）の準備込みで、筆者の環境では3分ほどかかりました。翻訳の道具（Charon と Aeneas）は第1章で説明します。</aside>
 
 <h3>仕様に書いていないことは守られない</h3>
 <p>手順2の <code>[0, 0, 0]</code> がその例です。ソートでは、2つの性質で答えがただ1つに決まることまで証明して（<code>sortOf_unique</code>）、書き忘れの穴をふさいであります。</p>
 <p>一方、todo には「コマンド名は done なのに、中身は完了と未完了の切り替え」という作りがありました。仕様どおりなので、定理は何も言いません。形式検証は契約書どおりかを全ページ調べる監査で、書き忘れた項目は対象外です。</p>
 
-<h3>この book で作る4つの todo</h3>
-<p>4種類の道具は、「全部」の範囲と守るものが違います。</p>
+<h3>この book の構成</h3>
+<p>本編は Rust と Lean（Aeneas）だけで読み切れます。付録では、ほかの道具で別の「全部」を調べます。</p>
 
 <table>
 <thead>
-<tr><th>章</th><th>todo と道具</th><th>保証すること</th><th>保証しないこと</th></tr>
+<tr><th>章</th><th>内容と道具</th><th>保証すること</th><th>保証しないこと</th></tr>
 </thead>
 <tbody>
 <tr>
 <td>第1章</td>
-<td>Quint で書いた仕様＋JavaScript のアプリ</td>
-<td>id 0〜3 の範囲で、たどり着ける 225,531 通りの<dfn>状態</dfn>（ある時点のデータ全体）をすべて調べ、仕様の決まりが破れないこと。仕様から作った操作の列 200本 × 30歩 ＝ 6,000 歩で、アプリが仕様どおり動くこと</td>
-<td>調べた範囲の外。実行列に出てこない動き。画面の層（クリックや日本語入力の変換確定など）</td>
-</tr>
-<tr>
-<td>第2章</td>
-<td>Rust の中核＋Lean の証明（Aeneas）</td>
+<td>todo の中核を Rust で書き、Lean で証明（Aeneas）</td>
 <td>追加・切り替え・削除・未完了の件数の4操作が、前提（id が重複しない等）を満たすすべての状態で仕様どおりであること</td>
 <td>画面と保存。仕様に書いていないこと。翻訳ツールと Lean そのものは信頼している</td>
 </tr>
 <tr>
-<td>第3章</td>
-<td>認可つき todo（Aeneas の認可版・h5i・Nyxis）</td>
-<td>他人の todo は変わらない・見えない・触れないこと（h5i は 108 定理）。Nyxis は「ハンドラはポリシー（権限の決まり）の範囲を超えない」こと</td>
-<td>ログインした人が本人か。JSON・HTTP・SQL への変換など証明していない層。ポリシーそのものが意図どおりか</td>
+<td>第2章</td>
+<td>同じ todo に認可を足して証明（Aeneas）</td>
+<td>他人の todo は変わらない・見えない・触れないこと</td>
+<td>ログインした人が本人か。証明していない層（画面・通信・保存）</td>
 </tr>
 <tr>
-<td>第4章</td>
-<td>複数タブで同期する todo（TLA+）</td>
-<td>タブ2枚・todo 1〜2件などの範囲で、送信・失敗・リロードが「どの順に起きても」4つの性質が守られること（破れる順番があれば手順を示す）</td>
-<td>範囲の外。モデルとコードのずれ（コードを変えたらモデルも直す）</td>
+<td>第3章</td>
+<td>まとめ</td>
+<td colspan="2">本編で分かったことと、見逃しを数える方法</td>
 </tr>
+<tr>
+<td>付録A〜C</td>
+<td>ほかの道具：Quint（付録A）、h5i と Nyxis（付録B）、TLA+ と TLC（付録C）</td>
+<td colspan="2">各付録で説明</td>
+</tr>
+<tr><td>付録D</td><td>なぜ Rust か（JavaScript ではなく）</td><td colspan="2">読み物</td></tr>
+<tr><td>付録E</td><td>Lean で Web サーバーを動かす（Nyxis の仕組み）</td><td colspan="2">証明と信頼の境目</td></tr>
+<tr><td>付録F</td><td>Lean の基本文法の早見</td><td colspan="2">本編のコードを読む助け</td></tr>
 </tbody>
 </table>
 
-<p>第4章では、テスト18件が緑だった todo から、操作が黙って消える不具合を3つ見つけます。第5章では道具の選び方と、見逃しを数える方法をまとめます。</p>
-
-<aside class="note"><b>ポイント</b>第1章から順に読んでください。Quint はすぐ<dfn>反例</dfn>（決まりが破れる具体的な手順）が出るので、入口に向いています。</aside>
+<aside class="note"><b>ポイント</b>本編（第1〜3章）を順に読んでください。付録は本編を読んだあと、気になるものだけで構いません。</aside>
 
 <aside class="warn"><b>落とし穴</b>検査が全部緑でも、正しさの証明にはなりません。筆者の最初の版は、仕様を壊しても緑のままでした。各章で「わざと壊して、検査が止まるか」を確かめます。</aside>
 
@@ -169,7 +168,7 @@ lake build</code></pre>
 <li>テストは選んだ入力だけ、形式検証は全部の入力を確かめる。ただし仕様に書いたことだけ</li>
 <li>仕様は人が先に書いて小さい例で確かめ、証明は機械が検査する</li>
 <li>定理には前提がある。前提の外と、証明していない層（画面・保存・本人確認など）は守られない</li>
-<li>Quint → Lean と Rust → 認可 → TLA+ の順に、4つの todo で道具を使い分ける</li>
+<li>本編は Rust と Lean で todo の4操作と認可を証明する。Quint・h5i・Nyxis・TLA+ は付録で紹介する</li>
 </ul>
 </div>
 </section>

@@ -1,300 +1,286 @@
 <section class="chapter" id="ch-1">
-<h2>第1章 Quint で todo の仕様を書いて、全部の状態を調べる</h2>
+<h2>第1章 Lean と Rust で todo が仕様どおりと証明する</h2>
 
-<p class="lead">todo アプリの決まりを Quint で仕様に書き、起こりうる状態を機械に全部調べさせます。最後に、仕様から作った操作の列を JavaScript アプリに流して突き合わせます。</p>
+<p class="lead">第0章のソートと同じ「仕様 → 実装 → 証明」の3段を、今度は状態を持つ todo で通します。</p>
 
 <div class="goals">
 <h3>この章のゴール</h3>
 <ul>
-<li>todo アプリを「状態」と「操作」で書ける</li>
-<li>不変条件を書き、<code>quint test</code> / <code>quint run</code> / TLC で調べられる</li>
-<li>わざと壊した仕様で、検査の強さを測れる（変異テスト）</li>
-<li>仕様から作った操作の列でアプリをテストする（MBT）流れが分かる</li>
-<li>検査が緑でも残る見逃しを4つ言える</li>
+<li><code>sorry</code> が残っていると「証明できた」と言えない理由が分かる</li>
+<li>仕様を実装より先に書く理由が分かる</li>
+<li>Rust が Charon と Aeneas で Lean に翻訳される流れが分かる</li>
+<li>「実装＝仕様」の定理の主張を読める</li>
+<li>証明が見つけるバグと、見逃すバグを知る</li>
 </ul>
 </div>
 
-<h3>題材と道具</h3>
-<p>題材は todo アプリで、操作は追加・完了の切り替え・削除・題名の編集・全部切り替え・完了済みを消すの6つです。</p>
-<p>道具は <dfn>Quint</dfn>（クイント）です。システムの決まりを書く言語で、見た目は TypeScript に似ており、書いた仕様を実行も全状態の検査もできます。版は 0.34.0 です。</p>
-<p>Quint で書くのは<strong>アプリではなく、アプリの決まり</strong>です。アプリは JavaScript で書き、後半の MBT でつなぎます。</p>
+<p>ソートは入力を受けて結果を返すだけでしたが、todo は操作のたびにデータが変わります。操作は4つです。</p>
+<ul>
+<li>足す（<code>add</code>）: 未完了の todo を末尾に足し、id を振る</li>
+<li>切り替える（<code>toggle</code>）: 完了と未完了を反転する</li>
+<li>消す（<code>remove</code>）: 指定した id の todo を除く</li>
+<li>未完了の件数（<code>openCount</code>）</li>
+</ul>
+
+<aside class="note"><b>ポイント</b>コードにある <code>user</code>（操作した人）と <code>owner</code>（持ち主）は第2章「認可」で使います。この章では読み飛ばしてかまいません。</aside>
 
 <pre class="mermaid">
 flowchart LR
-  S["仕様 todo.qnt"] --&gt; T["quint test（具体例）"]
-  S --&gt; R["quint run（ランダム）"]
-  S --&gt; V["TLC（全状態）"]
-  S --&gt; G["トレース200本"]
-  G --&gt; M["mbt.mjs"]
-  A["アプリ todo-core.mjs"] --&gt; M
+  S["仕様 Spec.lean（人が書く）"]
+  R["Rust の中核 kernel/src/lib.rs"]
+  C["Charon（Rust を読み取る）"]
+  A["Aeneas（Lean に翻訳）"]
+  K["翻訳結果 TodoKernel.lean"]
+  P["証明 Proofs.lean"]
+  R --> C --> A --> K
+  S --> P
+  K --> P
 </pre>
 
 <ol class="steps">
 
 <li>
-<h4>ステップ1: 状態を書く</h4>
-<p>アプリが覚えていることを <dfn>状態</dfn> と呼びます。todo の一覧と、次に振る id の2つです。Quint では <code>var</code> で宣言します。</p>
-<figure class="code"><figcaption>quint-todo/todo.qnt</figcaption><pre><code class="lang-quint">  // 1件の todo: 番号・題名・完了したか
-  type Todo = { id: int, title: str, done: bool }
-
-  var todos: List[Todo]    // 画面に並ぶ順
-  var nextId: int          // 次に振る id
-  // 以下は「前後の性質」を書くための記録（アプリには無い）
-  var lastAction: str      // 直前の操作の名前（"add" など）
-  var lastId: int          // 直前の操作の対象 id
-  var lastTitle: str       // 直前の操作の題名（空白を取った後）
-  var prevTodos: List[Todo]  // 直前の操作をする前の todos
-  var prevNextId: int        // 直前の操作をする前の nextId</code></pre></figure>
-<p><code>last…</code> と <code>prev…</code> は検査用の記録で、ステップ7で使います。アプリの状態は todos と nextId だけです。</p>
+<h4>証明の仮置き sorry</h4>
+<p>第0章のとおり、Lean では<b>定理</b>（例:「2回切り替えると元に戻る」）を書き、その<b>証明</b>を機械が検査します。証明が足りないとビルドが通りません。</p>
+<p><dfn>sorry</dfn> は「証明はあとで書く」という仮置きです。Lean は警告だけ出して定理を正しいと扱うので、完成前に 0 件を確かめます。</p>
+<aside class="try"><b>やってみよう</b>何も出なければ 0 件です。
+<pre><code class="lang-bash">cd todo-aeneas
+grep -n sorry lean/*.lean</code></pre></aside>
 </li>
 
 <li>
-<h4>ステップ2: 操作を書く</h4>
-<p>状態を変える操作を <dfn>action</dfn>（アクション）と呼びます。<code>todos'</code> のように <code>'</code>（プライム）を付けた名前が操作後の値です。</p>
-<figure class="code"><figcaption>quint-todo/todo.qnt</figcaption><pre><code class="lang-quint">  // 追加: 空白を取って空になるものは弾く（何も変わらない）
-  action add(raw: str): bool = {
-    // 生の入力を、空白を取った題名に変える（表で引く）
-    val title = INPUTS.get(raw)
-    all {
-      // 試す範囲の上限: nextId が MAX_ID 未満の間だけ追加できる
-      nextId &lt; MAX_ID,
-      // 検査用に「直前は add、題名は title」と記録する
-      record("add", -1, title),
-      // 空欄なら todos も nextId もそのまま
-      if (title == "")
-        all { todos' = todos, nextId' = nextId }
-      else {
-        // 普段は nextId を振る（BUG 版だけ「いまの件数」を振る）
-        val newId = if (BUG == "idFromLength") todos.length() else nextId
-        // 末尾に未完了で1件足し、nextId を1進める
-        all {
-          todos' = todos.append({ id: newId, title: title, done: false }),
-          nextId' = nextId + 1,
-        }
-      },
+<h4>仕様 Spec.lean を先に書く（実装を見ない）</h4>
+<p>最初に書くのは仕様です。実装を見てから書くと、実装のバグまで仕様に写してしまいます。</p>
+<p>todo 1件は id・持ち主・題名・完了の4つ。<dfn>状態</dfn>（ある時点のデータ全体）は todo のリストと「次に振る id」です。</p>
+<figure class="code"><figcaption>todo-aeneas/lean/Spec.lean</figcaption><pre><code class="lang-lean">structure Todo where
+  id : Nat
+  owner : Nat
+  title : String
+  done : Bool
+deriving DecidableEq, Repr
+
+structure State where
+  items : List Todo
+  nextId : Nat
+deriving DecidableEq, Repr</code></pre></figure>
+<p><code>Nat</code> は上限の無い自然数です。仕様は数学の数で書きます。</p>
+<p>操作は「状態を受け取り、新しい状態を返す関数」です。<code>MaxId</code> は id の上限（2<sup>32</sup>−1）、<code>empty</code> は空の状態、<code>Option Nat</code> は「数がある（<code>some</code>）か無い（<code>none</code>）か」です。</p>
+<figure class="code"><figcaption>todo-aeneas/lean/Spec.lean</figcaption><pre><code class="lang-lean">/-- t は「u が持ち主の、id 番の todo」か。切り替え・削除が効く相手。 -/
+def mine (u id : Nat) (t : Todo) : Bool := t.id == id &amp;&amp; t.owner == u
+
+/-- 足す: u が持ち主の未完了の todo を末尾に足し、振った id を返す。id を使い切っていたら何も変えずに none。 -/
+def add (s : State) (u : Nat) (title : String) : Option Nat × State :=
+  if s.nextId = MaxId then (none, s)
+  -- 新しい todo は ⟨id, 持ち主, 題名, 完了⟩ の順。そのあと nextId を1進める
+  else (some s.nextId, ⟨s.items ++ [⟨s.nextId, u, title, false⟩], s.nextId + 1⟩)
+
+/-- 完了の切り替え: u が持ち主の id 番の todo の done を反転する。効いたか（そういう todo があったか）を返す。 -/
+def toggle (s : State) (u id : Nat) : Bool × State :=
+  -- 1つ目: 当てはまる todo が1件でもあるか（効いたか）
+  (s.items.any (mine u id),
+   -- 2つ目: 当てはまる todo だけ done を反転し、ほかはそのままの状態
+   { s with items := s.items.map fun t =&gt; if mine u id t then { t with done := !t.done } else t })
+
+/-- 消す: u が持ち主の id 番の todo を除く。効いたかを返す。 -/
+def remove (s : State) (u id : Nat) : Bool × State :=
+  -- 1つ目: 効いたか、2つ目: 当てはまる todo を除いた状態
+  (s.items.any (mine u id), { s with items := s.items.filter (fun t =&gt; !mine u id t) })
+
+/-- u の未完了の件数。 -/
+def openCount (s : State) (u : Nat) : Nat := (s.items.filter (fun t =&gt; !t.done &amp;&amp; t.owner == u)).length</code></pre></figure>
+<p><code>toggle</code> は「当てはまる todo を<b>全部</b>反転する」と読みます。ループを書かず、<code>map</code>（全部を変換）と <code>filter</code>（条件で残す）で結果だけを言います。</p>
+<p>次に<dfn>不変条件</dfn>（どの操作のあとも状態が満たすべき約束）を書きます。</p>
+<figure class="code"><figcaption>todo-aeneas/lean/Spec.lean</figcaption><pre><code class="lang-lean">/-- 状態がいつも満たすべきこと（不変条件）:
+  ① id が重複しない ② どの id も nextId より小さい ③ nextId は上限を超えない -/
+def Inv (s : State) : Prop :=
+  (s.items.map (·.id)).Nodup ∧ (∀ t ∈ s.items, t.id &lt; s.nextId) ∧ s.nextId ≤ MaxId</code></pre></figure>
+<p><code>∧</code> は「かつ」、<code>∀ t ∈ s.items</code> は「どの todo t についても」、<code>Nodup</code> は「重複が無い」です。</p>
+<p>仕様の誤りは小さい例で確かめます。<code>example</code> は名前の無い定理、<code>by decide</code> は「計算して確かめて」です。</p>
+<figure class="code"><figcaption>todo-aeneas/lean/Spec.lean</figcaption><pre><code class="lang-lean">-- s1: アリスが「牛乳」を足した状態。s2: さらに「卵」。s3: ボブが「ボブの用事」
+-- （add の結果の .1 は返り値、.2 は新しい状態）
+private def s1 := (add empty 1 "牛乳").2
+private def s2 := (add s1 1 "卵").2
+private def s3 := (add s2 2 "ボブの用事").2
+-- 空の状態にアリスが足すと、最初に振られる id は 0
+example : (add empty 1 "牛乳").1 = some 0 := by decide
+-- …
+-- s3 でアリスが id 0 を切り替えると、アリスの未完了は1件になる
+example : openCount (toggle s3 1 0).2 1 = 1 := by decide</code></pre></figure>
+<p>使う人から見た性質も定理にします。</p>
+<figure class="code"><figcaption>todo-aeneas/lean/Spec.lean</figcaption><pre><code class="lang-lean">/-- 足すと、自分の未完了が1件増える。 -/
+theorem add_openCount (s : State) (u : Nat) (title : String) (h : s.nextId ≠ MaxId) :
+    openCount (add s u title).2 u = openCount s u + 1 := by
+  simp [add, h, openCount, List.filter_append]
+
+/-- 2回切り替えると元に戻る。 -/
+theorem toggle_toggle (s : State) (u id : Nat) : (toggle (toggle s u id).2 u id).2 = s := by
+  -- …</code></pre></figure>
+<p>読み方は「<code>theorem 名前 (前提…) : 主張 := by 証明</code>」です。<code>(h : s.nextId ≠ MaxId)</code> は「id を使い切っていないなら」という前提です。記号やタクティク（<code>simp</code> など）は付録F で引けます。</p>
+<aside class="note"><b>ポイント</b>人が丁寧にレビューするのは Spec.lean だけです。仕様が間違っていれば、証明も間違ったことを保証します。</aside>
+</li>
+
+<li>
+<h4>Rust で中核を書く</h4>
+<p>証明するのは状態を変える中核（kernel）だけで、画面と保存（CLI）は別のクレートに分けました。なぜ Rust か（JavaScript ではなく）は付録D で説明します。</p>
+<figure class="code"><figcaption>todo-aeneas/kernel/src/lib.rs</figcaption><pre><code class="lang-rust">/// user が持ち主の未完了の todo を末尾に足し、振った id を返す。id を使い切ったら何もせず None。
+pub fn add(t: &amp;mut Todos, user: u32, title: String) -&gt; Option&lt;u32&gt; {
+    if t.next_id == u32::MAX {
+        return None;
     }
-  }</code></pre></figure>
-<p><code>all { … }</code> は「中の条件が全部成り立つ」です。</p>
-<p>空白を <code>INPUTS</code> の表で取るのは、Quint に <code>trim</code> が無いからです。</p>
-<p>最後に、1歩ごとに6つのどれかが起きると書きます。</p>
-<figure class="code"><figcaption>quint-todo/todo.qnt</figcaption><pre><code class="lang-quint">  // id は「いまある id」だけでなく範囲全体から選ぶ（無い id への操作が無害かも確かめる）
-  action step = {
-    nondet raw = INPUTS.keys().oneOf()      // 入力欄の文字列を候補から1つ選ぶ
-    nondet id = 0.to(MAX_ID - 1).oneOf()    // 対象の id を 0〜MAX_ID-1 から1つ選ぶ
-    // 次の6つのどれか1つが起きる
-    any {
-      add(raw),
-      toggle(id),
-      remove(id),
-      edit(id, raw),
-      toggleAll,
-      clearCompleted,
-    }
-  }</code></pre></figure>
-<p><dfn>nondet</dfn> は「この中のどれでもよい」、<code>any { … }</code> は「どれか1つが起きる」です。</p>
-<aside class="note"><b>ポイント</b>仕様は「この順に呼ぶ」手続きではなく、「どの状態からでも6つのどれかが起こりうる」という可能性の全体です。</aside>
-</li>
-
-<li>
-<h4>ステップ3: 不変条件を書く</h4>
-<p><dfn>不変条件</dfn>は、どの操作の後でも成り立ってほしい性質です。</p>
-<figure class="code"><figcaption>quint-todo/todo.qnt</figcaption><pre><code class="lang-quint">  // ---- 形の性質（1つの状態で言えること） ----
-  // id がかぶらない（id の種類の数 ＝ 件数）
-  val idsUnique = idsOf(todos).size() == todos.length()
-  // id は並び順に増えていく（追加は末尾・他の操作は順番を変えない）
-  val idsAscending = todos.indices().forall(i =&gt; i == 0 or todos[i - 1].id &lt; todos[i].id)
-  // 振った id は nextId 未満（次に振る id がすでに使われていない）
-  val idsFresh = todos.indices().forall(i =&gt; todos[i].id &lt; nextId)
-  // 題名が空の todo は無い
-  val noEmptyTitles = todos.indices().forall(i =&gt; todos[i].title != "")
-  // 保存される題名は必ず「空白を取った後」の形（生の入力のまま入っていない）
-  val titlesNormalized = todos.indices().forall(i =&gt; INPUTS.keys().map(k =&gt; INPUTS.get(k)).contains(todos[i].title))
-  // 形の性質を全部まとめたもの
-  val shapeOk = idsUnique and idsAscending and idsFresh and noEmptyTitles and titlesNormalized</code></pre></figure>
-<p>1つの状態を見れば言えるので、<dfn>形の性質</dfn>と呼びます。</p>
-</li>
-
-<li>
-<h4>ステップ4: 具体例で動かす（quint test）</h4>
-<p>まず具体的な操作の列で動きを確かめます。単体テストと同じ感覚です。</p>
-<figure class="code"><figcaption>quint-todo/todo.qnt</figcaption><pre><code class="lang-quint">  // "milk" と " milk " を足して全部切り替え → 2件とも完了、2件目の題名も "milk"
-  run addTwoThenToggleAllTest =
-    initState.then(add("milk")).then(add(" milk ")).then(toggleAll)
-      .expect(todos.length() == 2 and allDone(todos) and todos[1].title == "milk")
-  // 空欄・半角空白・全角空白は弾かれ、件数も nextId も 0 のまま
-  run emptyTitleRejectedTest =
-    initState.then(add("")).then(add(" ")).then(add("　")).expect(todos.length() == 0 and nextId == 0)</code></pre></figure>
-<p><code>.then(…)</code> は「続けてこの操作」、<code>.expect(…)</code> は「最後にこれが成り立つ」です。具体例は4本です。</p>
-<p>動かすときは、上限などの定数を埋めた版を選びます。</p>
-<figure class="code"><figcaption>quint-todo/todo.qnt</figcaption><pre><code class="lang-quint">// TLC で全網羅する版: id は 0〜3 まで（4件まで追加できる）
-module todo4 {
-  import inputs.*
-  // 定数を埋めて todo を取り込む（上限 4・標準の入力・バグなし）
-  import todo(MAX_ID = 4, INPUTS = INPUTS_STD, BUG = "none").*
+    let id = t.next_id;
+    t.items.push(Todo { id, owner: user, title, done: false });
+    // 上の if で最大値を除いたので、ここで u32 はあふれない
+    t.next_id = id + 1;
+    Some(id)
 }
 
-// MBT のトレースを作る版: 範囲を広げる（4 で区切ると「5件目で壊れる」実装を見逃した）
-module todo7 {
-  import inputs.*
-  // 上限だけ 7 にした同じ仕様
-  import todo(MAX_ID = 7, INPUTS = INPUTS_STD, BUG = "none").*
-}</code></pre></figure>
-<aside class="try"><b>やってみよう</b>具体例4本を流します。
-<pre><code class="lang-bash">cd quint-todo
-quint test todo.qnt --main=todo4</code></pre>
-</aside>
-</li>
-
-<li>
-<h4>ステップ5: ランダムに歩かせる（quint run）と、全部見る（TLC）</h4>
-<p><code>quint run</code> は最大30歩の列をランダムに1万本試し、不変条件が破れたらそこまでの列（<dfn>反例</dfn>）を見せます。</p>
-<p>ランダムでは通らない道が残るので、到達できる状態を1つ残らず調べる <dfn>TLC</dfn> も使います（この手法を<dfn>モデル検査</dfn>と呼びます）。</p>
-<aside class="try"><b>やってみよう</b>
-<code>safety</code> は <code>shapeOk</code> にステップ7の性質を足した不変条件です。
-<pre><code class="lang-bash">cd quint-todo
-quint run todo.qnt --main=todo7 --invariant=safety --max-steps=30 --max-samples=10000
-quint verify todo.qnt --main=todo4 --backend=tlc --invariant=safety</code></pre>
-</aside>
-<p>TLC は id 0〜3 で <strong>225,531 状態</strong>を調べ、違反なしでした。id を件数で振る間違いを入れた <code>todo4_idFromLength</code> では違反が出ます。</p>
-<aside class="note"><b>ポイント</b>全部調べられるのは範囲を小さく区切ったからです。「id 0〜3 で違反なし」は「何件でも大丈夫」ではありません。</aside>
-</li>
-
-<li>
-<h4>ステップ6: わざと壊した仕様で検査を試す（変異テスト）</h4>
-<p>緑でも、検査が甘いだけかもしれません。わざと書き間違えた仕様を検査が見つけるかを数えるのが <dfn>変異テスト</dfn> です。</p>
-<figure class="code"><figcaption>quint-todo/mutate-spec.mjs</figcaption><pre><code class="lang-js">// 各行: [名前, 置き換え元（todo.qnt に1か所だけある文字列）, 置き換え後]
-// 文字列中の \n は改行（複数行にまたがる箇所を置き換える）
-const M = [
-  ["toggle が何もしない", "todos' = mapTodos(todos, t =&gt; if (t.id == id) { ...t, done: not(t.done) } else t),", "todos' = todos,"],
-  ["toggle が2件変える", "if (t.id == id) { ...t, done: not(t.done) }", "if (t.id == id or t.id == id + 1) { ...t, done: not(t.done) }"],
-  // …
-  ["remove が全件消す", "todos' = todos.select(t =&gt; t.id != id),\n    nextId' = nextId,\n    record(\"remove\"", "todos' = List(),\n    nextId' = nextId,\n    record(\"remove\""],
-  // …
-];</code></pre></figure>
-<p>いまの仕様は <strong>20本中20本</strong>を検出します。</p>
-<aside class="try"><b>やってみよう</b>
-<pre><code class="lang-bash">cd quint-todo
-node mutate-spec.mjs</code></pre>
-</aside>
-</li>
-
-<li>
-<h4>ステップ7: 前後の性質を足す</h4>
-<p>形の性質だけの最初の版は、<strong>17本中16本を見逃しました</strong>。「全部消す」「何もしない」も形は保つからです。</p>
-<p>そこで操作の前後を比べる <dfn>前後の性質</dfn>を足しました。</p>
-<figure class="code"><figcaption>quint-todo/todo.qnt</figcaption><pre><code class="lang-quint">  // 直前の操作が toggle なら、次の3つが全部成り立つ
-  val toggleOk = lastAction == "toggle" implies all {
-    sameIds(todos, prevTodos),                                          // id の並びは前と同じ（増えも減りもしない）
-    todos.indices().forall(i =&gt; todos[i].title == prevTodos[i].title),  // 題名はどれも変わらない
-    // 対象 id の1件だけ done が反転し、他の done は前のまま
-    todos.indices().forall(i =&gt;
-      todos[i].done == (if (prevTodos[i].id == lastId) not(prevTodos[i].done) else prevTodos[i].done)),
-  }
-  // …（addOk, removeOk, editOk, toggleAllOk, clearOk も同じ形）
-  // 操作ごとの前後の性質をまとめたもの
-  val stepOk = nextIdOk and addOk and toggleOk and removeOk and editOk and toggleAllOk and clearOk
-
-  // 検査に渡す不変条件: 形の性質 ＋ 前後の性質
-  val safety = shapeOk and stepOk</code></pre></figure>
-<p>これで 20/20 になりました。</p>
-<aside class="note"><b>ポイント</b>操作ごとに「決まったところだけ変え、他には触らない」まで書いて、初めて操作の意味を書いたことになります。</aside>
-</li>
-
-<li>
-<h4>ステップ8: 仕様から作った列をアプリに流す（MBT）</h4>
-<p>アプリの中身は画面から切り離した状態遷移の関数で、action 1つが <code>case</code> 1つに対応します。</p>
-<figure class="code"><figcaption>quint-todo/app/todo-core.mjs</figcaption><pre><code class="lang-js">export function reduce(state, action) {
-  // 操作の種類ごとに次の状態を返す（元の state は書き換えない）
-  switch (action.type) {
-    case "add": {
-      const title = (action.title ?? "").trim();
-      if (title === "") return state; // 空欄は弾く
-      // 末尾に未完了で1件足し、次に振る id を1進める
-      return {
-        todos: [...state.todos, { id: state.nextId, title, done: false }],
-        nextId: state.nextId + 1,
-      };
+/// id の todo の完了／未完了を切り替える。user が持ち主のときだけ効き、効いたら true。
+pub fn toggle(t: &amp;mut Todos, user: u32, id: u32) -&gt; bool {
+    // 先頭から順に見て、id が一致する最初の位置 i で止まる（無ければ i は末尾）
+    let mut i = 0;
+    while i &lt; t.items.len() &amp;&amp; t.items[i].id != id {
+        i += 1;
     }
-    // …</code></pre></figure>
-<p><dfn>MBT</dfn>（モデルベーステスト）は、仕様が出した操作の列をアプリに1歩ずつ流し、毎歩状態を比べるテストです。列は <dfn>ITF トレース</dfn>という JSON に書き出します。</p>
-<figure class="code"><figcaption>quint-todo/mbt.mjs</figcaption><pre><code class="lang-js">  for (let i = 1; i &lt; states.length; i++) {
-    const s = states[i];
-    const type = s["mbt::actionTaken"];             // この歩で仕様が選んだ操作の名前（"add" など）
-    const picks = fromItf(s["mbt::nondetPicks"]);   // nondet で選んだ値（raw・id）
-    // 選ばれた引数はその値、この操作で使わなかった引数は undefined
-    const arg = (n) =&gt; (picks[n]?.tag === "Some" ? picks[n].value : undefined);
-    // Quint の action の引数と同じものを渡す（使わない引数はアプリ側が無視する）
-    const action = { type, id: arg("id"), title: arg("raw") };
-    // …
-    impl = reduce(impl, action); // アプリに同じ操作を1歩させる
-    // …
-    const model = { todos: pick(s, "todos"), nextId: pick(s, "nextId") }; // 同じ歩の仕様側の状態
-    // …
-    // アプリと仕様で todos・nextId・残り件数のどれかが違えば食い違い
-    if (implView(impl) !== modelView(model)) {</code></pre></figure>
-<p>比べるのは todos・nextId と「残り N 件」です。トレースは seed を固定して200本作るので、毎回同じ列になります。</p>
-<pre class="mermaid">
-sequenceDiagram
-  participant Q as "Quint（todo7）"
-  participant F as "ITF トレース"
-  participant B as "mbt.mjs"
-  participant A as "todo-core.mjs"
-  Q-&gt;&gt;F: "200本×30歩を書き出す"
-  B-&gt;&gt;F: "1歩読む（操作と引数）"
-  B-&gt;&gt;A: "reduce(state, action)"
-  A--&gt;&gt;B: "アプリの次の状態"
-  B-&gt;&gt;B: "仕様の状態と比べる"
-</pre>
-<p>6,000歩が全歩一致し、壊したアプリ（<code>mutate.mjs</code>）は <strong>19本中19本</strong>を検出しました。</p>
-<aside class="try"><b>やってみよう</b>
-<pre><code class="lang-bash">cd quint-todo
-./gen-traces.sh
-node mbt.mjs
-node mutate.mjs</code></pre>
-全部まとめて流すなら <code>./check.sh</code> です（約2分）。</aside>
-<aside class="warn"><b>落とし穴</b>MBT は「アプリが仕様どおりか」しか見ないので、仕様とアプリが同じ間違いをしていれば全部緑です。</aside>
+    // 見つかり、かつ持ち主が user のときだけ反転する
+    if i &lt; t.items.len() &amp;&amp; t.items[i].owner == user {
+        t.items[i].done = !t.items[i].done;
+        true
+    } else {
+        false
+    }
+}</code></pre></figure>
+<p>仕様は<b>全部</b>、Rust は<b>最初の1件</b>だけ反転します。一致するのは id が重複しないとき、つまり <code>Inv</code> の①が要ります。</p>
 </li>
 
 <li>
-<h4>ステップ9: 独立レビューで見つかった穴を塞ぐ</h4>
-<p>全部緑だった最初の版にも、別の目のレビューで穴が9件見つかりました。主な型は4つです。</p>
+<h4>Aeneas で Rust を Lean に翻訳する（Charon → Aeneas）</h4>
+<p>Lean は Rust を直接読めないので、2つの道具で翻訳します。</p>
 <ul>
-<li><b>形だけの不変条件</b>: 壊した仕様17本中16本を通した（ステップ7）。</li>
-<li><b>前後の性質の不足</b>: 「他には触らない」を操作ごとに書いて塞いだ。</li>
-<li><b>範囲</b>: MBT も id 0〜3 だったため、「5件目以降を弾く」アプリを見逃した。いまは MBT を7件まで広げた。</li>
-<li><b>入力</b>: 題名の候補が "milk" "eggs" "" だけで、「trim を外す」「小文字にする」がすり抜けた。いまは次の表を使う。</li>
+<li><dfn>Charon</dfn>: Rust のコンパイラの途中結果を読み、中間形式（<code>.llbc</code>）に書き出す</li>
+<li><dfn>Aeneas</dfn>: 中間形式を、意味を保って Lean の関数に翻訳する（翻訳の正しさは信頼する前提）</li>
 </ul>
-<figure class="code"><figcaption>quint-todo/todo.qnt</figcaption><pre><code class="lang-quint">// 入力の候補: 空欄・空白だけ・全角空白だけ・前後に空白・大文字・日本語（全角空白で囲む）・長い題名
-module inputs {
-  // 左が入力欄に打たれる文字列、右が空白を取った後の題名
-  pure val INPUTS_STD = Map(
-    "" -&gt; "",
-    " " -&gt; "",     // 半角空白だけ → 空
-    "　" -&gt; "",    // 全角空白だけ → 空
-    "milk" -&gt; "milk",
-    " milk " -&gt; "milk",
-    "Milk" -&gt; "Milk",   // 大文字は変えない
-    "　牛乳を買う　" -&gt; "牛乳を買う",
-    "a very long title that keeps going and going" -&gt; "a very long title that keeps going and going",
-  )
+<p><code>build.sh</code> が <code>cargo test</code> → <code>charon</code> → <code>aeneas</code> → <code>lake build</code> を順に流します。翻訳された <code>add</code> は次のとおりです。</p>
+<figure class="code"><figcaption>todo-aeneas/lean/TodoKernel.lean</figcaption><pre><code class="lang-lean">def add
+  (t : Todos) (user : Std.U32) (title : String) :
+  Result ((Option Std.U32) × Todos)
+  := do
+  if t.next_id = core.num.U32.MAX
+  then ok (none, t)
+  else
+    let v ←
+      alloc.vec.Vec.push t.items
+        ({ id := t.next_id, owner := user, title, done := false } : Todo)
+    let i ← t.next_id + 1#u32
+    ok (some t.next_id, { items := v, next_id := i })</code></pre></figure>
+<p>このファイルは自動生成なのでコメントは足していません。上から「id を使い切っていたら何も変えずに返す」「末尾に足す」「next_id を1進める」で、Rust の <code>add</code> と1行ずつ対応します。<code>&amp;mut Todos</code> は「新しい <code>Todos</code> を返す」に変わり、戻り値は <code>Result</code>（<code>ok</code> か <dfn>panic</dfn>＝実行時エラーか）で包まれます。<code>1#u32</code> の前の <code>←</code> は「<code>u32</code> の上限（約43億）を超えたら（<dfn>あふれ</dfn>たら）ここで失敗」で、panic が見える形になります。</p>
+<aside class="warn"><b>落とし穴</b>Aeneas が中身を知っている標準ライブラリの関数は、Lean で動きを手書きしたモデルがあるものだけです。<code>std::mem::take</code> にはモデルがまだ無く、中身の無い宣言（<dfn>axiom</dfn>。定義なしに「ある」とみなす宣言）になって、何も証明できませんでした。<code>std::mem::replace(&amp;mut v, Vec::new())</code> に替え、翻訳後は <code>grep axiom lean/TodoKernel.lean</code> で 0 件を確かめます。</aside>
+</li>
+
+<li>
+<h4>「実装＝仕様」を証明する（読み方を覚える）</h4>
+<p>Rust の <code>Todos</code> を仕様の状態に<b>読み替える</b>関数 <code>abs</code> を決めます。</p>
+<figure class="code"><figcaption>todo-aeneas/lean/Proofs.lean</figcaption><pre><code class="lang-lean">/-- Rust の todo 1件を仕様の todo に読み替える（u32 の id・持ち主は自然数に）。 -/
+def absTodo (t : Todo) : Spec.Todo := ⟨t.id.val, t.owner.val, t.title, t.done⟩
+
+/-- Rust の状態を仕様の状態に読み替える。 -/
+def abs (t : Todos) : Spec.State := ⟨t.items.val.map absTodo, t.next_id.val⟩</code></pre></figure>
+<p>示したいのは「どちら回りでも同じ」です。</p>
+<pre class="mermaid">
+flowchart LR
+  T["Rust の状態 t"] -- "Rust の add" --> T2["Rust の状態 t'"]
+  T -- "abs で読み替え" --> S["仕様の状態"]
+  T2 -- "abs で読み替え" --> X["同じになるはず"]
+  S -- "Spec.add" --> X
+</pre>
+<p>Lean で書くと <code>add_correct</code> です。</p>
+<figure class="code"><figcaption>todo-aeneas/lean/Proofs.lean</figcaption><pre><code class="lang-lean">記法: `f x ⦃ y =&gt; P y ⦄` は「f x は失敗（panic）せずに値 y を返し、y は P を満たす」。
+-- …
+-- 前提 hinv: 今の状態を読み替えたものが不変条件 Inv を満たすなら
+theorem add_correct (t : Todos) (user : U32) (title : String) (hinv : Spec.Inv (abs t)) :
+    -- Rust の add は panic せず、返り値 r も新しい状態 t' も仕様の add と同じ
+    add t user title ⦃ r t' =&gt; r.map (·.val) = (Spec.add (abs t) user.val title).1 ∧
+                         abs t' = (Spec.add (abs t) user.val title).2 ⦄ := by
+  unfold add
+  split
+  -- …</code></pre></figure>
+<p>「panic しない」は、<code>Inv</code> から「件数は next_id 以下」（<code>length_le_nextId</code>）を導いて示しました。</p>
+<p>同じ形の定理を4操作に作りました（<code>add_correct</code>・<code>toggle_correct</code>・<code>remove_correct</code>・<code>open_count_correct</code>）。<code>Inv</code> を前提に取るのは、panic しないことを言う <code>add</code> と、id の重複が無いことが要る <code>toggle</code> です。</p>
+<figure class="code"><figcaption>todo-aeneas/lean/Proofs.lean</figcaption><pre><code class="lang-lean">-- 前提 hinv: id が重複しないこと（これで仕様の全部反転と Rust の最初の1件が一致する）
+theorem toggle_correct (t : Todos) (user id : U32) (hinv : Spec.Inv (abs t)) :
+    -- 効いたか b も新しい状態 t' も仕様の toggle と同じ
+    toggle t user id ⦃ b t' =&gt; b = (Spec.toggle (abs t) user.val id.val).1 ∧
+                         abs t' = (Spec.toggle (abs t) user.val id.val).2 ⦄ := by
+  -- …</code></pre></figure>
+<p>証明本体は <code>unfold</code>・<code>split</code>・<code>step</code>・<code>simp</code> の組み合わせです。いまは<b>主張（<code>:</code> と <code>:= by</code> の間）だけ読めれば十分</b>です。</p>
+<p><code>while</code> のある関数では、<dfn>ループ不変条件</dfn>（1周ごとに保たれる約束。例:「i より前に探している id は無い」）を人が書きます。証明の手間の多くはここです。</p>
+<aside class="note"><b>ポイント</b>仕様の上で証明した性質（2回切り替えると元に戻る、など）は、「実装＝仕様」を通してそのまま Rust の性質になります。</aside>
+<aside class="try"><b>やってみよう</b>最後の <code>lake build</code>（Lean のビルド）がエラー無しで終われば、4操作の「実装＝仕様」が確かめられています。
+<pre><code class="lang-bash">cd todo-aeneas
+./build.sh</code></pre></aside>
+</li>
+
+<li>
+<h4>わざと壊すと、証明が止まる</h4>
+<p>証明がバグを捕まえるかは、Rust をわざと壊して確かめます。4通り試しました（認可を足す前の版）。</p>
+<table>
+<thead><tr><th>壊し方（Rust）</th><th>単体テスト</th><th>証明</th></tr></thead>
+<tbody>
+<tr><td>toggle が反転でなく常に「完了」にする</td><td>通る</td><td>止まる（toggle_correct）</td></tr>
+<tr><td>remove が id = 40億 のときだけ消さない</td><td>通る</td><td>止まる（remove_correct）</td></tr>
+<tr><td>add が次の id を進めない</td><td>落ちる</td><td>止まる（add_correct）</td></tr>
+<tr><td>件数が完了済みも数える</td><td>落ちる</td><td>止まる（open_count_correct）</td></tr>
+</tbody>
+</table>
+<p>上の2つは単体テストを素通りしました。テストは思いついた場面しか見ませんが、証明は全状態・全 id について言います。</p>
+<aside class="try"><b>やってみよう</b><code>kernel/src/lib.rs</code> の <code>toggle</code> にある <code>t.items[i].done = !t.items[i].done;</code> の右辺を <code>true</code> に変えて流します。<code>cargo test</code> は通り、<code>toggle_correct</code> で止まるはずです。確かめたら元に戻します。
+<pre><code class="lang-bash">cd todo-aeneas
+./build.sh</code></pre></aside>
+</li>
+
+<li>
+<h4>証明していない層（保存・CLI）に穴があった</h4>
+<p>証明が通ったあと、別の目で穴を探させると本物の穴が5件見つかりました。<b>すべて「証明していない層」と「前提の出どころ」にあり、中核には無し</b>でした。</p>
+<table>
+<thead><tr><th>見つかった穴</th><th>直し方</th></tr></thead>
+<tbody>
+<tr><td>題名に改行・タブを入れると保存ファイルが壊れ、消した todo が復活する</td><td>題名の改行・タブを拒否。保存する前に「読み戻すと同じ状態になるか」を確かめる</td></tr>
+<tr><td>読めないファイルを空とみなし、<code>list</code> を1回打つだけで全件が消える</td><td>ファイルが無いときだけ空から始め、それ以外は止める</td></tr>
+<tr><td>完了の列が 0/1 以外でも黙って未完了と読む</td><td>0/1 以外は止める</td></tr>
+<tr><td>コマンド名が <code>done</code> なのに中身は切り替えで、2回打つと未完了に戻る</td><td>コマンド名を <code>toggle</code> に</td></tr>
+<tr><td><code>add_correct</code> の前提（Vec の長さが上限未満）を誰が満たすのか示していない</td><td>前提を <code>Inv</code> に替え、そこから導いた</td></tr>
+</tbody>
+</table>
+<p>4つ目のように、名前と中身のずれは仕様に無いので定理は何も言いません。</p>
+<p><code>toggle_correct</code> の<b>前提</b> <code>Inv</code> は、ファイルから読んだ状態では保証されないので、CLI が読むたびに検査します。</p>
+<figure class="code"><figcaption>todo-aeneas/cli/src/main.rs</figcaption><pre><code class="lang-rust">/// 証明の前提（Spec.Inv）: id が重複しない・どの id も next_id より小さい。
+/// toggle の証明はこれを仮定しているので、外から来た状態は必ずここを通す。
+/// （③ next_id ≤ u32 の最大値 は型で成り立つ）
+fn check_inv(t: &amp;Todos) -&gt; Result&lt;(), String&gt; {
+    let mut seen = HashSet::new();
+    for x in &amp;t.items {
+        // ① insert は初めての id なら true を返す。false なら重複
+        if !seen.insert(x.id) { return Err(format!("id {} が重複している", x.id)) }
+        // ② どの id も next_id より小さい
+        if x.id &gt;= t.next_id { return Err(format!("id {} が next_id 以上", x.id)) }
+    }
+    Ok(())
 }</code></pre></figure>
-<p>MBT が「残り N 件」を比べていなかった穴も塞ぎました。</p>
-<p>1 から n までの和で上限判定の <code>&gt; MAX</code> を <code>&gt;= MAX</code> に間違えても、上限 255 では<strong>見逃します</strong>。和がちょうど 255 になる n が無いからで、253（＝1+…+22）なら反例が出ます。</p>
-<p>検査は網で、網の目（範囲と入力）を決めるのは人です。</p>
-<aside class="warn"><b>落とし穴</b>TLC が保証するのは「書いた性質が、選んだ範囲と入力の中で成り立つ」ことだけです。画面の操作やタブ間の同期は対象外で、「IME 確定の Enter で編集まで確定する」「2タブで互いの追加を消す」などは MBT の外で見つかりました（同期は第4章）。</aside>
+<aside class="warn"><b>落とし穴</b>「Aeneas の Vec のモデルが本物と同じ」（メモリ不足は扱わない）も残る前提です。<code>lake build</code> は Rust との対応を見ないので、Rust を直したら <code>build.sh</code> を流し直します。</aside>
 </li>
 
 </ol>
 
+<p>手間の目安（認可を足したあと）は、中核 約120行・仕様 約250行・証明 約450行です。だから証明は小さな中核に絞ります。</p>
+
 <div class="recap">
 <h3>まとめ</h3>
 <ul>
-<li>Quint では、アプリを「状態（var）」と「操作（action）」で書き、nondet で「どれでも起こりうる」を表す</li>
-<li><code>quint test</code> は具体例、<code>quint run</code> はランダム、TLC は小さな範囲の全状態（225,531 状態）を調べる</li>
-<li>「形の性質」だけでは弱い。「前後の性質」を足すと、壊した仕様 20/20 を検出できた</li>
-<li>MBT で 6,000 歩をアプリに流して全歩一致。壊したアプリ 19/19 を検出</li>
-<li>通ったことより、何を見逃すかを数えるほうが大事。範囲・入力・比べる対象の選び方で見逃しが生まれる</li>
-<li>Quint の結論は「選んだ範囲の中」の話。すべての件数で言うには、次の章の証明が要る</li>
+<li>Lean は証明を機械が確かめる道具。<code>sorry</code> 0 件でビルドが通って初めて「証明できた」</li>
+<li>仕様は実装を見ずに先に書き、小さい例と性質の証明で確かめる</li>
+<li>Rust は Charon → Aeneas で Lean に翻訳され、panic の可能性は <code>Result</code> で見える</li>
+<li>「Rust で操作して読み替え ＝ 読み替えて仕様で操作」を4操作で証明。<code>add</code> と <code>toggle</code> は <code>Inv</code> が前提</li>
+<li>わざと壊した4通りはすべて証明が止まり、うち2つは単体テストを素通りした</li>
+<li>本物の穴5件は、すべて証明していない層と前提の出どころにあった</li>
 </ul>
 </div>
 </section>

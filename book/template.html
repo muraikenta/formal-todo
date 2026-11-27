@@ -166,6 +166,8 @@ dl.glossary dd { margin: 0; color: var(--ink-soft); }
 .cards-title { font-family: var(--font-display); font-size: 14px; letter-spacing: .08em; color: var(--accent); margin: 40px 0 12px; }
 .cards { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 12px; }
 .cards li { min-width: 0; }
+.cards li.cards-group { grid-column: 1 / -1; font-family: var(--font-display); font-size: 14px; letter-spacing: .08em; color: var(--accent); margin-top: 16px; }
+.toc li.toc-group { margin: 14px 0 4px; padding-left: 8px; font-size: 11.5px; letter-spacing: .12em; color: var(--ink-soft); font-weight: 700; }
 .cards a { display: grid; grid-template-rows: auto auto 1fr; gap: 6px; height: 100%; padding: 16px 18px; border: 1px solid var(--rule); border-radius: 12px; background: var(--sheet); color: var(--ink); text-decoration: none; transition: border-color .15s, transform .15s; }
 .cards a:hover { border-color: var(--accent); transform: translateY(-1px); }
 @media (prefers-reduced-motion: reduce) { .cards a { transition: none; } .cards a:hover { transform: none; } }
@@ -192,7 +194,7 @@ footer.colophon { color: var(--ink-soft); font-size: 12.5px; padding-top: 32px; 
 <div class="book">
   <aside class="toc" aria-label="目次">
     <p class="brand">形式検証 <span>todo</span> 入門</p>
-    <p class="sub">4 つの todo アプリで学ぶ、仕様・検査・証明</p>
+    <p class="sub">Rust と Lean で学ぶ、仕様・実装・証明</p>
     <details id="toc-details">
       <summary>目次</summary>
       <nav>{{TOC}}</nav>
@@ -202,7 +204,7 @@ footer.colophon { color: var(--ink-soft); font-size: 12.5px; padding-top: 32px; 
     <header class="cover" id="home-view">
       <p class="eyebrow">A step-by-step book · 初心者向け</p>
       <h1>todo アプリで学ぶ<br>形式検証のはじめかた</h1>
-      <p>同じ「todo アプリ」を、Quint・Lean（Aeneas）・h5i と Nyxis・TLA+ の4通りで検証しました。テストが全部通っていたアプリから、検査でどんな不具合が見つかったのか。どの道具が何を保証して、何を保証しないのか。1章ずつ手を動かしながら追っていきます。</p>
+      <p>本編では、Rust で書いた todo アプリが仕様どおりに動くことを、Lean で証明します。ソートの小さな例から始めて、todo の操作、そして「他人の todo には触れない」という認可まで、1章ずつ手を動かします。付録では、同じ todo を Quint・h5i・Nyxis・TLA+ で検証した結果を紹介します。</p>
       <p class="cover-links"><a class="gh" href="https://github.com/muraikenta/formal-todo">GitHub でコードを見る ↗</a><span>MIT License</span></p>
       <figure class="map" aria-label="この本で使う道具の地図">
         <svg viewBox="0 0 720 230" role="img">
@@ -214,10 +216,10 @@ footer.colophon { color: var(--ink-soft); font-size: 12.5px; padding-top: 32px; 
           <text class="ax-sub" x="40" y="170">書いて数秒で反例が出る・範囲の外は言えない</text>
           <text class="ax" x="680" y="150" text-anchor="end">すべての入力で証明する</text>
           <text class="ax-sub" x="680" y="170" text-anchor="end">見逃しが無い・書くのに手間がかかる</text>
-          <g class="dot" transform="translate(130,120)"><circle r="9"/><text y="-22" text-anchor="middle">Quint</text><text class="ch" y="-42" text-anchor="middle">1章</text></g>
-          <g class="dot" transform="translate(250,120)"><circle r="9"/><text y="-22" text-anchor="middle">TLA+</text><text class="ch" y="-42" text-anchor="middle">4章</text></g>
-          <g class="dot solid" transform="translate(470,120)"><circle r="9"/><text y="-22" text-anchor="middle">Lean + Aeneas</text><text class="ch" y="-42" text-anchor="middle">2章</text></g>
-          <g class="dot solid" transform="translate(600,120)"><circle r="9"/><text y="-22" text-anchor="middle">h5i / Nyxis</text><text class="ch" y="-42" text-anchor="middle">3章</text></g>
+          <g class="dot" transform="translate(130,120)"><circle r="9"/><text y="-22" text-anchor="middle">Quint</text><text class="ch" y="-42" text-anchor="middle">付録A</text></g>
+          <g class="dot" transform="translate(250,120)"><circle r="9"/><text y="-22" text-anchor="middle">TLA+</text><text class="ch" y="-42" text-anchor="middle">付録C</text></g>
+          <g class="dot solid" transform="translate(470,120)"><circle r="9"/><text y="-22" text-anchor="middle">Lean + Aeneas</text><text class="ch" y="-42" text-anchor="middle">本編 0〜3章</text></g>
+          <g class="dot solid" transform="translate(600,120)"><circle r="9"/><text y="-22" text-anchor="middle">h5i / Nyxis</text><text class="ch" y="-42" text-anchor="middle">付録B</text></g>
           <text class="qed" x="360" y="215" text-anchor="middle">どちらも「仕様に書いたこと」しか守らない ∎</text>
         </svg>
       </figure>
@@ -277,7 +279,7 @@ footer.colophon { color: var(--ink-soft); font-size: 12.5px; padding-top: 32px; 
   });
   function show(forced) {
     var h = typeof forced === 'string' ? forced : decodeURIComponent((location.hash || '').slice(1));
-    var m = h.match(/^(ch-\d+)/);
+    var m = h.match(/^(ch-\d+|app-[a-z])/);
     var cur = m && document.getElementById(m[1]) ? m[1] : null;
     home.hidden = !!cur;
     chapters.forEach(function (c) { c.hidden = c.id !== cur; });

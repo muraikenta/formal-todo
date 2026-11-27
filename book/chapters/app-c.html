@@ -1,9 +1,9 @@
-<section class="chapter" id="ch-4">
-<h2>第4章 TLA+ で同期を検査する：複数タブで操作が消える</h2>
+<section class="chapter" id="app-c">
+<h2>付録C TLA+ と TLC で同期を検査する</h2>
 <p class="lead">オフラインでも動く todo アプリを2つのタブとサーバのモデルにして、送信・失敗・遅れた応答がどの順に起きても約束が守られるかを全部調べます。テストが全部緑のアプリから、操作が黙って消える不具合を3つ見つけます。</p>
 
 <div class="goals">
-<h3>この章のゴール</h3>
+<h3>この付録のゴール</h3>
 <ul>
 <li>楽観的更新・送信待ち・再送・opId・version・seq の役割を説明できる</li>
 <li>同期の不具合がテストで見つかりにくい理由を「タイミングの組み合わせ」で説明できる</li>
@@ -20,7 +20,7 @@
 <ol class="steps">
 
 <li>
-<h4>ステップ1：同期の仕組みを部品に分ける</h4>
+<h4>同期の仕組みを部品に分ける</h4>
 <p>README の「同期の設計」にある部品は次の6つです。</p>
 <ul>
 <li><dfn>楽観的更新</dfn>：サーバの返事を待たずに画面を変えること。画面には、サーバから最後に聞いた行（<code>confirmed</code>）に未確認の操作を当て直したものを出します。</li>
@@ -80,7 +80,7 @@ sequenceDiagram
 </li>
 
 <li>
-<h4>ステップ2：なぜテストでは見つかりにくいのか</h4>
+<h4>なぜテストでは見つかりにくいのか</h4>
 <p>このアプリのテスト 18 件は全部緑です。再送、2台の同時編集、削除と編集の競合、オフラインからの復帰まで試しています。</p>
 <p>それでも、テストは書いた順番しか試しません。同期では次の出来事がどの順にも起きます。</p>
 <ul>
@@ -93,8 +93,8 @@ sequenceDiagram
 </li>
 
 <li>
-<h4>ステップ3：TLA+ で「状態」を書く</h4>
-<p><dfn>TLA+</dfn> は、システムを「状態」と「遷移」で書く仕様の言語です。第1章の Quint は、TLA+ の考え方を読みやすい文法にしたものです。第1章で使った <dfn>TLC</dfn> は TLA+ のモデル検査器で、遷移を全部の順番でたどります。</p>
+<h4>TLA+ で「状態」を書く</h4>
+<p><dfn>TLA+</dfn> は、システムを「状態」と「遷移」で書く仕様の言語です。付録Aの Quint は、TLA+ の考え方を読みやすい文法にしたものです。付録Aで使った <dfn>TLC</dfn> は TLA+ のモデル検査器で、遷移を全部の順番でたどります。</p>
 <p>モデル <code>todo/verification/SyncTodo.tla</code> では、まず状態を変数で書きます。タブごとの値は「タブ → 値」の対応で持ちます。</p>
 <figure class="code"><figcaption>todo/verification/SyncTodo.tla</figcaption><pre><code class="lang-tla">  \* ---- クライアント: src/sync.ts の ClientState と src/app.ts のフラグ ----
   open,        \* タブが開いているか
@@ -119,7 +119,7 @@ sequenceDiagram
 </li>
 
 <li>
-<h4>ステップ4：TLA+ で「遷移」を書く</h4>
+<h4>TLA+ で「遷移」を書く</h4>
 <p>遷移1つを<dfn>アクション</dfn>と呼びます。<code>x'</code> は次の状態での x、<code>/\</code> は「かつ」、<code>UNCHANGED</code> は変わらない変数です。<code>[pushing EXCEPT ![t] = n]</code> は「タブ <code>t</code> の値だけを <code>n</code> に替えたもの」です。</p>
 <p>区切り方は「<code>await</code> を挟まない1区間を1アクションにする」です。JavaScript は1スレッドなので、その区間には何も割り込みません。<code>await</code> の前後は分け、間に何が起きてもよいようにします。</p>
 <p>送信の始まりでは、送信中でなく送信待ちが空でなければ、先頭から最大 50 件を送ります。</p>
@@ -159,7 +159,7 @@ DuplicateTab ==
   /\ lastSeq' = [lastSeq EXCEPT ![2] = store[cid[1]].lastSeq]
   /\ UNCHANGED &lt;&lt;rows, srvSeq, applied, closed, pushing, pushN, pullSt,
                  store, reqs, resps, usedIds, made, acked, lastExec, orderOk&gt;&gt;</code></pre></figure>
-<p>最後に、ありうる遷移を「または（<code>\/</code>）」でつなぎます。<code>\E t \in Tabs : …</code> は「どれかのタブ t で」（第1章の <code>nondet</code> にあたる）です。<code>Spec</code> の行は決まり文句です。</p>
+<p>最後に、ありうる遷移を「または（<code>\/</code>）」でつなぎます。<code>\E t \in Tabs : …</code> は「どれかのタブ t で」（付録Aの <code>nondet</code> にあたる）です。<code>Spec</code> の行は決まり文句です。</p>
 <figure class="code"><figcaption>todo/verification/SyncTodo.tla</figcaption><pre><code class="lang-tla">Next ==
   \* どれかのタブでユーザーが追加・名前変更・完了切替・削除する
   \/ \E t \in Tabs : YouCreate(t) \/ YouRename(t) \/ YouToggle(t) \/ YouDelete(t)
@@ -175,8 +175,8 @@ Spec == Init /\ [][Next]_vars</code></pre></figure>
 </li>
 
 <li>
-<h4>ステップ5：守ってほしい4つの性質を書く</h4>
-<p>性質は<dfn>不変条件</dfn>（どの状態でも成り立ってほしい条件）で書き、TLC がたどった全状態で確かめます。</p>
+<h4>守ってほしい4つの性質を書く</h4>
+<p>性質は不変条件で書き、TLC がたどった全状態で確かめます。</p>
 <ul>
 <li><code>AckedMeansApplied</code>：送信待ちから外した操作は、その操作としてサーバに反映されている。破れると、変更が黙って消えたまま「同期済み」と出ます。</li>
 <li><code>ClientOrderKept</code>：同じクライアント ID の操作は、サーバで連番の順に1回ずつ処理される。破れると、遅れた古い再送が新しい値を巻き戻します。</li>
@@ -211,7 +211,7 @@ NoOpLost ==
 </li>
 
 <li>
-<h4>ステップ6：範囲を決めて TLC で全部たどる</h4>
+<h4>範囲を決めて TLC で全部たどる</h4>
 <p>全部たどるには世界を有限にします。設定ファイル（<code>.cfg</code>）で、todo の数や操作の回数に上限を付けます。2枚目のタブを「同じ URL を別タブで開く」か「複製する」かもここで選びます。</p>
 <figure class="code"><figcaption>todo/verification/SyncTodo.cfg</figcaption><pre><code class="lang-tla">\* 別のタブで同じ URL を開く場合（クライアント ID がタブごとに違う）・リロードあり。4 つの性質がすべて成り立つはず。todo 1 件
 CONSTANTS
@@ -254,8 +254,8 @@ done</code></pre>
 </li>
 
 <li>
-<h4>ステップ7：反例を手順として読む（発見1 タブの複製）</h4>
-<p>性質が破れると、TLC はそこに至る最短の手順、つまり<dfn>反例</dfn>を出します。反例はそのまま再現手順です。</p>
+<h4>反例を手順として読む（発見1 タブの複製）</h4>
+<p>性質が破れると、TLC はそこに至る最短の手順（反例）を出します。反例はそのまま再現手順です。</p>
 <p><code>SyncTodoDuplicateTab.cfg</code> では <code>AckedMeansApplied</code> が 9 ステップで破れます。画面の言葉にすると次のとおりです。</p>
 <ol>
 <li>タブ1で todo「A」を追加する（op <code>c1:1</code>）</li>
@@ -276,7 +276,7 @@ flowchart LR
 </li>
 
 <li>
-<h4>ステップ8：反例を読む（発見2 保存の上書き・発見3 タブを閉じる）</h4>
+<h4>反例を読む（発見2 保存の上書き・発見3 タブを閉じる）</h4>
 <p><b>発見2：複製したタブ同士が保存を上書きし合う。</b>2つのタブは同じキー <code>todo-state:c1</code> に保存するので、リロードすると最後に保存した<em>もう一方のタブ</em>の状態を読みます。<code>SyncTodoDuplicateReload.cfg</code> で <code>NoOpLost</code> が 5 ステップで破れます。</p>
 <ol>
 <li>タブ1で追加する</li>
@@ -296,7 +296,7 @@ flowchart LR
 </li>
 
 <li>
-<h4>ステップ9：見逃しの形を知る</h4>
+<h4>見逃しの形を知る</h4>
 <p>最初の検証では <code>SyncTodo.cfg</code> が全部緑でも、不具合は残っていました。理由は2つです。</p>
 <p><b>1つ目：範囲が小さすぎると出ない不具合がある。</b>todo 1件では push の応答の行がいつも最新版なので、「push の応答で lastSeq を進める」誤りは原理的に出ません。わざと入れて試すと、todo 1件では素通りし、<code>SyncTodoTwoTodos.cfg</code> で 11 ステップの反例が出ました。2件の設定はこのために足したものです。</p>
 <p><b>2つ目：モデルに無い操作は調べようがない。</b>最初のモデルにはリロードとタブを閉じる操作が無く、監査で指摘されて足したら発見2と3が出ました。TLC は書かなかった遷移を一度もたどりません。</p>

@@ -1,0 +1,223 @@
+<section class="chapter" id="app-f">
+<h2>付録F Lean の基本文法</h2>
+
+<p class="lead">本編のコード抜粋を読むときに引く早見です。網羅はせず、本書に出てくるものだけを TypeScript と並べて載せます。例はすべて Lean 4.36 で検査を通しています。</p>
+
+<div class="goals">
+<h3>この付録のゴール</h3>
+<ul>
+<li>本編の <code>def</code>・<code>structure</code>・<code>theorem</code> を、TypeScript に置き換えて読める</li>
+<li>主張の記号（<code>∧</code>・<code>∀</code>・<code>∈</code> など）を声に出して読める</li>
+<li>証明の中の <code>decide</code>・<code>simp</code>・<code>rw</code> などが「何をしてくれるか」が分かる</li>
+</ul>
+</div>
+
+<h3>値と関数</h3>
+<table>
+<thead><tr><th>Lean</th><th>TypeScript で書くと</th><th>メモ</th></tr></thead>
+<tbody>
+<tr><td><code>def double (x : Nat) : Nat := x * 2</code></td><td><code>const double = (x: number): number =&gt; x * 2</code></td><td>型は <code>名前 : 型</code> の順</td></tr>
+<tr><td><code>area 3 4</code></td><td><code>area(3, 4)</code></td><td>関数の適用は空白で区切る。括弧はまとまりを作るだけ。引数を一部だけ渡すと残りを受け取る関数になる（<code>mine u id</code>）</td></tr>
+<tr><td><code>xs.map f</code></td><td><code>xs.map(f)</code></td><td><code>List.map f xs</code> の略。<code>output.Perm input</code> も <code>List.Perm output input</code></td></tr>
+<tr><td><code>fun x =&gt; x % 2 == 0</code></td><td><code>x =&gt; x % 2 === 0</code></td><td>無名関数。最後の引数なら <code>xs.map fun t =&gt; …</code> と括弧を省ける</td></tr>
+<tr><td><code>(· * 10)</code>・<code>(· ≤ ·)</code>・<code>(·.id)</code></td><td><code>x =&gt; x * 10</code>・<code>(a, b) =&gt; a &lt;= b</code>・<code>t =&gt; t.id</code></td><td><code>·</code> が引数の置き場所。<code>·</code> 1つごとに引数が1つ</td></tr>
+<tr><td><code>if c then a else b</code></td><td><code>c ? a : b</code></td><td>式なので値を返し、<code>else</code> は省けない（<code>do</code> の中を除く）</td></tr>
+<tr><td><code>match n with | 0 =&gt; … | _ =&gt; …</code></td><td><code>switch</code></td><td>場合分け。<code>_</code> は「それ以外」</td></tr>
+<tr><td><code>let s := xs.sum</code></td><td><code>const s = …</code></td><td>再代入はできない</td></tr>
+<tr><td><code>a == b</code>・<code>&amp;&amp;</code>・<code>!b</code></td><td><code>a === b</code>・<code>&amp;&amp;</code>・<code>!b</code></td><td>どれも <code>Bool</code> を返す計算。<code>=</code> とは別（下の Prop）</td></tr>
+</tbody>
+</table>
+<figure class="code"><figcaption>例</figcaption><pre><code class="lang-lean">def double (x : Nat) : Nat := x * 2
+
+def area (w h : Nat) : Nat := w * h   -- 同じ型の引数はまとめて書ける
+
+#eval area 3 4          -- 12
+#eval double (area 3 4) -- 24（括弧が無いと double に area 自体を渡すことになり、型が合わない）
+
+#eval [1, 2, 3, 4].filter (fun x =&gt; x % 2 == 0)  -- [2, 4]
+#eval [3, 1, 2].map (· * 10)                      -- [30, 10, 20]
+#eval List.map (· * 10) [3, 1, 2]                 -- 同じ。xs.map f は List.map f xs の略
+
+def isMultOf (k n : Nat) : Bool := n % k == 0
+#eval [1, 2, 3, 4].filter (isMultOf 2)  -- [2, 4]。isMultOf 2 は「n を受け取る関数」
+
+def describe (n : Nat) : String :=
+  match n with
+  | 0 =&gt; "ゼロ"
+  | 1 =&gt; "いち"
+  | _ =&gt; "たくさん"
+
+def total (xs : List Nat) : Nat :=
+  let s := xs.sum
+  if s &gt; 100 then 100 else s</code></pre></figure>
+
+<h3>型</h3>
+<table>
+<thead><tr><th>Lean</th><th>TypeScript で近いもの</th><th>メモ</th></tr></thead>
+<tbody>
+<tr><td><code>Nat</code></td><td><code>number</code>（0 以上の整数だけ）</td><td><dfn>自然数</dfn>。上限もあふれも無い。<code>0 - 1</code> は <code>0</code></td></tr>
+<tr><td><code>Bool</code>・<code>String</code></td><td><code>boolean</code>・<code>string</code></td><td></td></tr>
+<tr><td><code>List Nat</code></td><td><code>number[]</code></td><td>型の引数も空白で渡す。<code>[1, 2]</code>・<code>xs ++ ys</code>（連結）</td></tr>
+<tr><td><code>Option Nat</code>（<code>some 5</code>／<code>none</code>）</td><td><code>number | undefined</code></td><td>値が無いことを型で表す。<code>o.map f</code> は中身があれば <code>f</code> を当てる</td></tr>
+<tr><td><code>Nat × String</code>・<code>p.1</code>・<code>p.2</code></td><td><code>[number, string]</code>・<code>p[0]</code>・<code>p[1]</code></td><td><dfn>組</dfn>。本書では「返り値と新しい状態」を返すのに使う</td></tr>
+<tr><td><code>structure</code></td><td><code>type Point = { x: number; y: number }</code></td><td><code>{ p with y := 5 }</code> は <code>{ ...p, y: 5 }</code>。<code>⟨1, 2⟩</code> は欄の順に並べて作る書き方。<code>{ title, done := false }</code> の <code>title</code> は <code>title := title</code> の略</td></tr>
+<tr><td><code>(e : T)</code></td><td><code>e as T</code></td><td>式に型を書き添える。TypeScript と違い、合わなければエラーになる</td></tr>
+<tr><td><code>deriving DecidableEq, Repr</code></td><td>なし</td><td>「等しいかを計算で判定できる」「<code>#eval</code> で表示できる」を自動で付ける</td></tr>
+<tr><td><code>Prop</code></td><td>なし</td><td>真偽値ではなく<dfn>主張</dfn>。証明するもの。真偽を計算で決める手順がある主張だけは <code>decide</code> で確かめられる</td></tr>
+</tbody>
+</table>
+<figure class="code"><figcaption>例</figcaption><pre><code class="lang-lean">#eval [5, 6].head?               -- some 5
+#eval ([] : List Nat).head?      -- none（(e : 型) は型を書き添える書き方）
+#eval (some 3).map (· * 10)      -- some 30。none なら none のまま
+
+def pair : Nat × String := (1, "牛乳")
+#eval pair.2  -- "牛乳"
+
+structure Point where
+  x : Nat
+  y : Nat
+deriving DecidableEq, Repr
+
+def p : Point := { x := 1, y := 2 }
+#eval { p with y := 5 }          -- { x := 1, y := 5 }
+#eval [p, ⟨3, 4⟩].map (·.x)      -- [1, 3]
+
+def IsEven (n : Nat) : Prop := n % 2 = 0   -- = で書く主張
+#check IsEven 4       -- IsEven 4 : Prop
+#check 4 % 2 == 0     -- 4 % 2 == 0 : Bool（== は計算）
+
+-- 名前を付けた Prop は、このままでは decide が中身を見ない。判定の仕方を1行で教える
+instance (n : Nat) : Decidable (IsEven n) := by unfold IsEven; infer_instance
+example : IsEven 4 := by decide</code></pre></figure>
+<p><code>Sorted</code>・<code>IsSortOf</code>・<code>Inv</code>（第0章・第1章）は <code>Prop</code> を返す関数です。「この形の主張」を名前で呼べるようにしています。第0章の <code>Sorted</code>・<code>IsSortOf</code> に <code>by decide</code> が効くのも、<code>Spec.lean</code> に上と同じ <code>instance</code> の行があるからです。</p>
+<aside class="warn"><b>落とし穴</b><code>def</code> で名前を付けた <code>Prop</code> に <code>by decide</code> を使うと、<code>instance</code> の行が無ければ <code>failed to synthesize Decidable …</code> で止まります。主張が間違っているのではなく、計算の仕方が分からないというエラーです。</aside>
+
+<h3>主張の記号</h3>
+<table>
+<thead><tr><th>記号</th><th>読み方</th><th>本書での例</th></tr></thead>
+<tbody>
+<tr><td><code>a = b</code>・<code>a ≠ b</code></td><td>a と b は等しい／等しくない</td><td><code>u ≠ v</code></td></tr>
+<tr><td><code>a ≤ b</code>・<code>a &lt; b</code></td><td>以下／より小さい</td><td><code>s.nextId ≤ MaxId</code></td></tr>
+<tr><td><code>P ∧ Q</code></td><td>P かつ Q</td><td><code>Sorted output ∧ output.Perm input</code></td></tr>
+<tr><td><code>P ∨ Q</code></td><td>P または Q</td><td></td></tr>
+<tr><td><code>¬ P</code></td><td>P ではない</td><td><code>¬ IsSortOf [3, 1, 2] [1, 2]</code></td></tr>
+<tr><td><code>P → Q</code></td><td>P ならば Q</td><td>定理の前提（下）も同じ意味</td></tr>
+<tr><td><code>P ↔ Q</code>・<code>h.mp</code>・<code>h.mpr</code></td><td>P と Q は同値（過不足なし）。<code>h : P ↔ Q</code> の <code>.mp</code> は P→Q、<code>.mpr</code> は Q→P</td><td><code>x ∈ visible s u ↔ …</code>・<code>(u32_ne_iff _ _).mp hne</code></td></tr>
+<tr><td><code>∀ x, P x</code></td><td>どの x でも P x。<code>∀ t ∈ xs, P t</code> は <code>∀ t, t ∈ xs → P t</code> の略</td><td><code>∀ t ∈ s.items, t.id &lt; s.nextId</code></td></tr>
+<tr><td><code>∃ x, P x</code></td><td>P x となる x がある。<code>∃ t ∈ xs, P t</code> は <code>∃ t, t ∈ xs ∧ P t</code> の略</td><td><code>∃ t ∈ s.items, t.id = x ∧ t.owner = u</code></td></tr>
+<tr><td><code>x ∈ xs</code></td><td>x は xs に入っている</td><td><code>t ∈ s.items</code></td></tr>
+</tbody>
+</table>
+<figure class="code"><figcaption>例</figcaption><pre><code class="lang-lean">example : ∃ n : Nat, n &gt; 3 := ⟨4, by decide⟩   -- 4 がその x
+example : 2 ∈ [1, 2, 3] := by decide
+example : ∀ x ∈ [1, 2, 3], x &lt; 5 := by decide  -- 調べる範囲がリストの中だけなので計算できる
+example : 1 ≠ 2 ∧ ¬ (3 &lt; 1) := by decide
+example : ∀ n : Nat, n + 0 = n := by simp       -- n は無限にあるので decide は使えない
+example (a b : Nat) (h : a ≤ b) : ¬ b &lt; a := Nat.not_lt.mpr h  -- Nat.not_lt : ¬ a &lt; b ↔ b ≤ a を右から左に使う</code></pre></figure>
+
+<h3>定理と証明</h3>
+<p>形は <code>theorem 名前 (前提 : 主張) : 示したい主張 := by 手順</code> です。前提は関数の引数と同じ書き方で、「この前提が手に入ったら」と読みます。名前の要らない定理は <code>example</code> で書きます。<code>by</code> の後に並ぶ1つ1つの命令を<dfn>タクティク</dfn>と呼びます。</p>
+<table>
+<thead><tr><th>書き方</th><th>何をしてくれるか</th></tr></thead>
+<tbody>
+<tr><td><code>by decide</code></td><td>具体的な値の主張を、計算して確かめる（テストに近い）。変数を含む主張や、無限にある値についての <code>∀</code> には使えない</td></tr>
+<tr><td><code>simp [f, h, 定理]</code></td><td>標準の書き換え規則に、渡した定義・前提・定理を足して目標を簡単にする。閉じきれなければ残った形が次の目標になる</td></tr>
+<tr><td><code>unfold f</code></td><td>関数 <code>f</code> を定義の中身に展開する</td></tr>
+<tr><td><code>rw [h]</code></td><td>等式 <code>h : a = b</code> で、目標の <code>a</code> を <code>b</code> に書き換える</td></tr>
+<tr><td><code>exact e</code></td><td>「これがそのまま証明です」と <code>e</code> を渡す</td></tr>
+<tr><td><code>apply f</code></td><td>「f を使えば示せる」とし、f の前提で足りない分を次の目標にする</td></tr>
+<tr><td><code>rintro ⟨a, b⟩</code></td><td><code>∀</code> や <code>→</code> の前提を受け取り、組や <code>∧</code> を分解して名前を付ける。<code>-</code> は使わない側を捨てる</td></tr>
+<tr><td><code>split</code></td><td>目標の中の <code>if</code> や <code>match</code> を、枝ごとの目標に分ける</td></tr>
+<tr><td><code>show P</code></td><td>今の目標をこの形で見る、と書いて読みやすくする</td></tr>
+<tr><td><code>_</code></td><td>引数や式の一部を Lean に推論して埋めてもらう</td></tr>
+<tr><td><code>手順1; 手順2</code></td><td>手順を1行に並べる（改行と同じ）</td></tr>
+<tr><td><code>sorry</code></td><td>証明を後回しにする。検査は警告を出し、証明済みとは扱わない</td></tr>
+<tr><td><code>#eval e</code>・<code>#check e</code></td><td>式を計算して表示する／式の型を表示する（この付録の例で使う）</td></tr>
+</tbody>
+</table>
+<figure class="code"><figcaption>例（double は「値と関数」の例のもの）</figcaption><pre><code class="lang-lean">theorem double_eq (x : Nat) : double x = x + x := by
+  unfold double         -- 目標が x * 2 = x + x になる
+  exact Nat.mul_two x   -- 標準ライブラリの定理 Nat.mul_two : n * 2 = n + n をそのまま渡す
+
+example : double 3 = 6 := by decide
+
+-- 前提 h が if の条件を片付ける（第1章の add_openCount と同じ形）
+def next (n limit : Nat) : Option Nat := if n = limit then none else some (n + 1)
+example (n limit : Nat) (h : n ≠ limit) : next n limit = some (n + 1) := by
+  simp [next, h]
+
+-- 前提 h1・h2 から a = c
+example (a b c : Nat) (h1 : a = b) (h2 : b = c) : a = c := by
+  rw [h1]          -- 目標が b = c になる
+  show b = _       -- 今の目標を書いて確かめる。_ は Lean が埋める
+  exact h2
+
+-- 「a ≤ b を示すには ¬ b &lt; a を示せばよい」（Nat.le_of_not_lt : ¬ b &lt; a → a ≤ b）
+example (a b : Nat) (h : ¬ b &lt; a) : a ≤ b := by
+  apply Nat.le_of_not_lt; exact h
+
+example (p q : Prop) : p ∧ q → q := by
+  rintro ⟨-, hq⟩   -- p ∧ q を受け取って前半と後半に分け、前半は捨てる
+  exact hq
+
+theorem later (n : Nat) : 2 * (List.range n).sum + n = n * n := by
+  sorry   -- 警告: declaration uses `sorry`</code></pre></figure>
+<aside class="warn"><b>落とし穴</b><code>sorry</code> が1つでも残ると、その定理は証明されていません。本書の検査で「sorry なし」と数えているのはこのためです。</aside>
+
+<h3>本書特有の書き方</h3>
+<table>
+<thead><tr><th>書き方</th><th>意味</th></tr></thead>
+<tbody>
+<tr><td><code>/-- … -/</code>・<code>-- …</code></td><td>直後の定義の説明（ドキュメントコメント）／行末までのコメント</td></tr>
+<tr><td><code>Spec.add</code></td><td>名前空間 <code>Spec</code> の <code>add</code>。仕様の関数と、Rust から翻訳した同名の関数を分ける</td></tr>
+<tr><td><code>private def</code></td><td>そのファイルの中だけで使う定義（第1章の例の状態 <code>s1</code>〜<code>s3</code>）</td></tr>
+<tr><td><code>U32</code>・<code>x.val</code>・<code>1#u32</code></td><td>Rust の <code>u32</code>。<code>.val</code> で <code>Nat</code> として取り出す。<code>1#u32</code> は u32 の 1。<code>core.num.U32.MAX</code> のような長い名前は Rust の <code>u32::MAX</code> の道筋をそのまま写したもの</td></tr>
+<tr><td><code>Result α</code>・<code>ok v</code></td><td>Aeneas の翻訳結果の型。成功なら <code>ok v</code>、panic（あふれ・範囲外）なら失敗</td></tr>
+<tr><td><code>do</code>・<code>let v ← e</code></td><td>失敗しうる計算 <code>e</code> を実行し、成功したら値を <code>v</code> に入れて続ける。失敗したらそこで止まり、全体が失敗になる。TypeScript の <code>const v = await e</code> に近い</td></tr>
+<tr><td><code>f x ⦃ y =&gt; P y ⦄</code></td><td><code>f x</code> は panic も無限ループもせずに <code>ok y</code> を返し、<code>y</code> は <code>P</code> を満たす。<code>⦃ r t' =&gt; … ⦄</code> は組の返り値を2つの名前で受け、使わない側は <code>_</code> にする</td></tr>
+</tbody>
+</table>
+<p>第1章の翻訳結果では、<code>Result</code>・<code>ok</code>・<code>←</code>・<code>1#u32</code> がまとめて出てきます。</p>
+<figure class="code"><figcaption>todo-aeneas/lean/TodoKernel.lean</figcaption><pre><code class="lang-lean">def add
+  (t : Todos) (user : Std.U32) (title : String) :
+  Result ((Option Std.U32) × Todos)
+  := do
+  if t.next_id = core.num.U32.MAX
+  then ok (none, t)
+  else
+    let v ←
+      alloc.vec.Vec.push t.items
+        ({ id := t.next_id, owner := user, title, done := false } : Todo)
+    let i ← t.next_id + 1#u32
+    ok (some t.next_id, { items := v, next_id := i })</code></pre></figure>
+<p><code>t.next_id + 1#u32</code> もあふれうる計算なので <code>←</code> で受けます。<code>⦃ ⦄</code> は、この関数の結果について主張するときに使います。</p>
+<figure class="code"><figcaption>todo-aeneas/lean/Proofs.lean</figcaption><pre><code class="lang-lean">theorem add_correct (t : Todos) (user : U32) (title : String) (hinv : Spec.Inv (abs t)) :
+    -- Rust の add は panic せず、返り値 r も新しい状態 t' も仕様の add と同じ
+    add t user title ⦃ r t' =&gt; r.map (·.val) = (Spec.add (abs t) user.val title).1 ∧
+                         abs t' = (Spec.add (abs t) user.val title).2 ⦄ := by</code></pre></figure>
+<p><code>r t'</code> は返り値の組 <code>(返り値, 新しい状態)</code> を2つの名前で受けています。<code>r.map (·.val)</code> は <code>Option U32</code> の中身を <code>Nat</code> に直してから仕様と比べています。</p>
+<p>第2章の <code>toggle_others_rust</code> も、上の表のタクティクで読めます。</p>
+<figure class="code"><figcaption>todo-aeneas/lean/Proofs.lean</figcaption><pre><code class="lang-lean">theorem toggle_others_rust (t : Todos) (user other id : U32) (hne : user ≠ other)
+    (hinv : Spec.Inv (abs t)) :
+    toggle t user id ⦃ _ t' =&gt; Spec.ownedBy (abs t') other.val = Spec.ownedBy (abs t) other.val ⦄ := by
+  apply WP.spec_mono (toggle_correct t user id hinv)
+  rintro ⟨b, t'⟩ ⟨-, h⟩
+  show Spec.ownedBy (abs t') other.val = _
+  -- 仕様で証明済みの Spec.toggle_others をそのまま使う
+  rw [h]; exact Spec.toggle_others _ _ _ _ ((u32_ne_iff _ _).mp hne)</code></pre></figure>
+<ul>
+<li><code>apply WP.spec_mono (…)</code>: 証明済みの <code>toggle_correct</code> の結論から、今の結論が出ることを示せばよい、とする</li>
+<li><code>rintro ⟨b, t'⟩ ⟨-, h⟩</code>: 返り値の組を <code>b</code>・<code>t'</code> に分け、<code>toggle_correct</code> の結論（<code>∧</code>）の前半を捨て、後半 <code>abs t' = …</code> を <code>h</code> と呼ぶ</li>
+<li><code>rw [h]; exact …</code>: <code>abs t'</code> を仕様の <code>toggle</code> の結果に書き換え、仕様の定理 <code>Spec.toggle_others</code> で閉じる。<code>_ _ _ _</code> の引数は Lean が埋め、<code>.mp</code> で <code>user ≠ other</code> を <code>user.val ≠ other.val</code> に直して渡す</li>
+</ul>
+
+<div class="recap">
+<h3>まとめ</h3>
+<ul>
+<li>関数の適用は空白、型は <code>名前 : 型</code>。<code>·</code> は短い無名関数、<code>xs.map f</code> は <code>List.map f xs</code></li>
+<li><code>==</code>・<code>&amp;&amp;</code> は <code>Bool</code> の計算、<code>=</code>・<code>∧</code>・<code>∀</code> は <code>Prop</code> の主張。<code>decide</code> が効くのは計算で決められる主張だけ</li>
+<li>定理は「前提を引数に取り、主張を型に書き、<code>by</code> の後に手順を書く」。<code>sorry</code> が残れば未証明</li>
+<li>Aeneas の翻訳結果は <code>Result</code> を返し、<code>⦃ ⦄</code> で「panic も無限ループもせず、結果がこれを満たす」と書く</li>
+</ul>
+</div>
+</section>
